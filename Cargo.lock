@@ -469,6 +469,7 @@ checksum = "07e2192780e9f8e282049ff9bffcaa28171e1cb0844f49ed5374e518ae6024ec"
 [[package]]
 name = "printpdf"
 version = "0.3.2"
+source = "git+ssh://git@github.com/escola-ch/printpdf-fork.git#46fed90a2ffb62a9e6f9eb49ada46f6ecf9579f5"
 dependencies = [
  "image",
  "js-sys",

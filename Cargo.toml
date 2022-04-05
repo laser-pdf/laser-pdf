@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-printpdf = { path = "../printpdf", version = "0.3.2" }
+# printpdf = { path = "../printpdf", version = "0.3.2" }
+printpdf = { git = "ssh://git@github.com/escola-ch/printpdf-fork.git" }
 stb_truetype = "0.3.1"
 lopdf = "0.26"
 serde = { version = "1.0", features = ["derive"] }
