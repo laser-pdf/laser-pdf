@@ -15,6 +15,7 @@ pub struct DrawPos {
     pub layer: PdfLayerReference,
     pub pos: [f64; 2],
     pub height_available: f64,
+    pub preferred_height: f64,
 }
 
 /// The position is in millimeters and in the pdf coordinate system (meaning the origin is on the
