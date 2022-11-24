@@ -66,7 +66,7 @@ pub struct DrawContext<'a, 'b> {
 }
 
 impl Pdf {
-    pub fn next_layer(&mut self, draw_pos: DrawPos) -> PdfLayerReference {
+    pub fn next_layer(&mut self, draw_pos: &DrawPos) -> PdfLayerReference {
         let layer = draw_pos.layer.layer;
 
         let page = self.document.get_page(draw_pos.layer.page);
