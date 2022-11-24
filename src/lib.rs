@@ -1,4 +1,6 @@
-use printpdf::{PdfDocumentReference, PdfLayerReference};
+use std::borrow::BorrowMut;
+
+use printpdf::{PdfDocumentReference, PdfLayerReference, indices::PdfLayerIndex};
 
 pub struct Pdf {
     pub document: PdfDocumentReference,
@@ -17,6 +19,12 @@ pub struct DrawPos {
     pub height_available: f64,
     pub preferred_height: Option<f64>,
 }
+
+// impl DrawPos {
+//     pub fn next_layer(&self) -> PdfLayerReference {
+//         self.layer.page
+//     }
+// }
 
 /// The position is in millimeters and in the pdf coordinate system (meaning the origin is on the
 /// bottom left corner).
@@ -37,7 +45,6 @@ pub struct DrawContext<'a, 'b> {
     // /// column height. Meaning a call to `next_draw_pos` will need to be able to change this or
     // /// return a new one.
     // pub next_draw_pos_height: f64,
-
     /// This returns a new [DrawPos] because some collection elements need to keep multiple
     /// [DrawPos]s at once (e.g. for page breaking inside of a horizontal list)
     ///
@@ -56,6 +63,20 @@ pub struct DrawContext<'a, 'b> {
     /// Or maybe we can say that if width is also zero then there's nothing, but I'm also not sure
     /// that's correct. We could also just say that zero height must mean there's nothing.
     pub next_draw_pos: Option<&'b mut dyn FnMut(&mut Pdf, u32, [f64; 2]) -> DrawPos>,
+}
+
+impl Pdf {
+    pub fn next_layer(&mut self, draw_pos: DrawPos) -> PdfLayerReference {
+        let layer = draw_pos.layer.layer;
+
+        let page = self.document.get_page(draw_pos.layer.page);
+
+        if page.layers_len() > layer.0 + 1 {
+            page.get_layer(PdfLayerIndex(layer.0 + 1))
+        } else {
+            page.add_layer(format!("Layer {}", layer.0 + 1))
+        }
+    }
 }
 
 pub trait Element {
