@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 # printpdf = { path = "../printpdf", version = "0.3.2" }
-printpdf = { git = "ssh://git@github.com/escola-ch/printpdf-fork.git" }
+printpdf = { git = "https://github.com/escola-ch/printpdf-fork.git" }
 stb_truetype = "0.3.1"
 lopdf = "0.26"
 serde = { version = "1.0", features = ["derive"] }
