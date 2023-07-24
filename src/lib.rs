@@ -1,6 +1,146 @@
-use std::borrow::BorrowMut;
+pub mod break_text_into_lines;
+pub mod image;
+pub mod markup;
+pub mod shapes;
+pub mod text;
+pub mod utils;
+pub mod widget;
+pub mod widgets;
 
-use printpdf::{PdfDocumentReference, PdfLayerReference, indices::PdfLayerIndex};
+use image::Image;
+use printpdf::indices::PdfLayerIndex;
+use printpdf::*;
+use serde::{Deserialize, Serialize};
+use stb_truetype as tt;
+
+use std::ops::Deref;
+
+pub const EMPTY_FIELD: &str = "—";
+
+pub fn make_font<D: AsRef<[u8]> + Deref<Target = [u8]>>(
+    doc: &PdfDocumentReference,
+    bytes: D,
+) -> widget::Font<D> {
+    let font_reader = std::io::Cursor::new(&bytes);
+    let pdf_font = doc.add_external_font(font_reader).unwrap();
+    let font_info = tt::FontInfo::new(bytes, 0).unwrap();
+
+    widget::Font {
+        font_ref: pdf_font,
+        font: font_info,
+    }
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub enum VAlign {
+    Top,
+    Center,
+    Bottom,
+}
+
+pub type Color = u32;
+
+/// ISO 32000-1:2008 8.4.3.3
+///
+/// The line cap style shall specify the shape that shall be used at the ends of
+/// open subpaths (and dashes, if any) when they are stroked.
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub enum LineCapStyle {
+    /// 0: Butt cap. The stroke shall be squared off at the endpoint of the
+    /// path. There shall be no projection beyond the end of the path.
+    Butt,
+
+    /// 1: Round cap. A semicircular arc with a diameter equal to the line width
+    /// shall be drawn around the endpoint and shall be filled in.
+    Round,
+
+    /// 2: Projecting square cap. The stroke shall continue beyond the endpoint
+    /// of the path for a distance equal to half the line width and shall be
+    /// squared off.
+    ProjectingSquare,
+}
+
+impl Into<printpdf::LineCapStyle> for LineCapStyle {
+    fn into(self) -> printpdf::LineCapStyle {
+        match self {
+            LineCapStyle::Butt => printpdf::LineCapStyle::Butt,
+            LineCapStyle::Round => printpdf::LineCapStyle::Round,
+            LineCapStyle::ProjectingSquare => printpdf::LineCapStyle::ProjectingSquare,
+        }
+    }
+}
+
+/// ISO 32000-1:2008 8.4.3.6
+///
+/// The line dash pattern shall control the pattern of dashes and gaps used to
+/// stroke paths.
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub struct LineDashPattern {
+    /// The dash phase shall specify the distance into the dash pattern at which
+    /// to start the dash.
+    pub offset: u16,
+
+    /// The dash array’s elements shall be numbers that specify the lengths of
+    /// alternating dashes and gaps; the numbers shall be nonnegative and not
+    /// all zero.
+    pub dashes: [u16; 2],
+}
+
+impl Into<printpdf::LineDashPattern> for LineDashPattern {
+    fn into(self) -> printpdf::LineDashPattern {
+        printpdf::LineDashPattern {
+            offset: self.offset as i64,
+            dash_1: Some(self.dashes[0] as i64),
+            gap_1: Some(self.dashes[1] as i64),
+            dash_2: None,
+            gap_2: None,
+            dash_3: None,
+            gap_3: None,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub struct LineStyle {
+    pub thickness: f64,
+    pub color: Color,
+    pub dash_pattern: Option<LineDashPattern>,
+    pub cap_style: LineCapStyle,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct SerdeImage {
+    pub path: String,
+    pub image: Image,
+}
+
+impl Into<String> for SerdeImage {
+    fn into(self) -> String {
+        self.path
+    }
+}
+
+impl TryFrom<String> for SerdeImage {
+    type Error = std::io::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let path: &std::path::Path = value.as_ref();
+        let image = if path.extension().map_or(false, |e| e == "svg") {
+            Image::Svg(
+                usvg::Tree::from_file(path, &Default::default())
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
+            )
+        } else {
+            Image::Pixel(
+                printpdf::image::open(path)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
+            )
+        };
+
+        Ok(SerdeImage { path: value, image })
+    }
+}
 
 pub struct Pdf {
     pub document: PdfDocumentReference,
