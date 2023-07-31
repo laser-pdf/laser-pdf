@@ -457,14 +457,13 @@ pub fn title<T: Element, C: Element>(title: T, content: C, gap: f64) -> impl Ele
 }
 
 pub fn break_whole<W: Element>(widget: W) -> impl Element {
-    move |width: Option<f64>, draw: Option<DrawContext>| {
-        if let Some(DrawContext {
+    move |width: Option<f64>, draw: Option<DrawContext>| match draw {
+        Some(DrawContext {
             pdf,
             mut draw_pos,
             full_height,
             next_draw_pos: Some(next_draw_pos),
-        }) = draw
-        {
+        }) => {
             let widget_size = widget.element(width, None);
             let draw_rect_offset;
 
@@ -489,9 +488,29 @@ pub fn break_whole<W: Element>(widget: W) -> impl Element {
                     }),
                 }),
             )
-        } else {
-            widget.element(width, draw)
         }
+        Some(DrawContext {
+            pdf,
+            draw_pos,
+            full_height,
+            next_draw_pos: None,
+        }) => {
+            let widget_size = widget.element(width, None);
+
+            widget.element(
+                width,
+                Some(DrawContext {
+                    pdf,
+                    draw_pos: DrawPos {
+                        preferred_height: Some(widget_size[1]),
+                        ..draw_pos
+                    },
+                    full_height,
+                    next_draw_pos: None,
+                }),
+            )
+        }
+        None => widget.element(width, draw),
     }
 }
 
@@ -662,7 +681,7 @@ impl<W: Element> Element for StyledBox<W> {
                         draw_pos: DrawPos {
                             layer,
                             pos: [draw_pos.pos[0] + left, draw_pos.pos[1] - top],
-                            preferred_height: None,
+                            preferred_height: draw_pos.preferred_height.map(|x| x - top - bottom),
                             height_available: draw_pos.height_available - top - bottom,
                             // clear: true,
                         },
@@ -687,6 +706,8 @@ impl<W: Element> Element for StyledBox<W> {
                             new_draw_pos.pos[0] += left;
                             new_draw_pos.pos[1] -= top;
                             new_draw_pos.height_available -= top + bottom;
+                            new_draw_pos.preferred_height =
+                                new_draw_pos.preferred_height.map(|x| x - top - bottom);
                             new_draw_pos
                         }),
                     }),
@@ -710,7 +731,7 @@ impl<W: Element> Element for StyledBox<W> {
                         draw_pos: DrawPos {
                             layer,
                             pos: [draw_pos.pos[0] + left, draw_pos.pos[1] - top],
-                            preferred_height: None,
+                            preferred_height: draw_pos.preferred_height.map(|x| x - top - bottom),
                             height_available: draw_pos.height_available - top - bottom,
                             // clear: true,
                         },

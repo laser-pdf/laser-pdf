@@ -8,6 +8,7 @@ pub mod repeat_bottom;
 pub mod stack;
 pub mod table_row;
 pub mod titled;
+pub mod v_expand;
 pub mod v_list;
 pub mod widget_or_break;
 
