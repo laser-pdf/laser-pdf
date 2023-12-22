@@ -1,39 +1,43 @@
 use crate::*;
 
-pub fn align_bottom<W: Element>(element: W) -> impl Element {
-    move |width: Option<f64>, draw: Option<DrawContext>| {
-        if let Some(ctx) = draw {
-            let widget_size = element.element(width, None);
+pub struct AlignBottom<W: Element> {
+    element: W,
+}
 
-            let mut draw_pos = ctx.draw_pos;
+impl<W: Element> Element for AlignBottom<W> {
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+        self.element.measure(ctx)
+    }
 
-            if let Some(next_draw_pos) = ctx.next_draw_pos {
-                if widget_size[1] > draw_pos.height_available {
-                    draw_pos = next_draw_pos(ctx.pdf, 0, [widget_size[0], 0.]);
-                }
+    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+        let widget_size = self.element.measure(width, None);
+
+        let mut location = ctx.location;
+
+        if let Some(next_location) = ctx.next_location {
+            if widget_size[1] > location.height_available {
+                location = next_location(ctx.pdf, 0, [widget_size[0], 0.]);
             }
-
-            [
-                element.element(
-                    width,
-                    Some(DrawContext {
-                        pdf: ctx.pdf,
-                        draw_pos: DrawPos {
-                            pos: [
-                                draw_pos.pos[0],
-                                draw_pos.pos[1] - draw_pos.height_available + widget_size[1],
-                            ],
-                            preferred_height: Some(widget_size[1]),
-                            ..draw_pos
-                        },
-                        full_height: ctx.full_height,
-                        next_draw_pos: None,
-                    }),
-                )[0],
-                draw_pos.height_available,
-            ]
-        } else {
-            element.element(width, draw)
         }
+
+        Some(ElementSize {
+            width: self.element.draw(
+                width,
+                Some(DrawCtx {
+                    pdf: ctx.pdf,
+                    location: Location {
+                        pos: [
+                            location.pos[0],
+                            location.pos[1] - location.height_available + widget_size[1],
+                        ],
+                        preferred_height: Some(widget_size[1]),
+                        ..location
+                    },
+                    full_height: ctx.full_height,
+                    next_location: None,
+                }),
+            )[0],
+            height: Some(location.height_available),
+        })
     }
 }

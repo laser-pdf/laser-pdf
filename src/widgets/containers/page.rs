@@ -11,18 +11,18 @@ pub struct RepeatingContentHandler<'a> {
 
 impl<'a> RepeatingContentHandler<'a> {
     pub fn el<W: Element>(&mut self, widget: W, pos: [f64; 2], width: Option<f64>, height: f64) {
-        widget.element(
+        widget.draw(
             width,
-            Some(DrawContext {
+            Some(DrawCtx {
                 pdf: self.pdf,
-                draw_pos: DrawPos {
+                location: Location {
                     layer: self.layer.clone(),
                     pos,
                     preferred_height: None,
                     height_available: height,
                 },
                 full_height: 0.0,
-                next_draw_pos: None,
+                next_location: None,
             }),
         );
     }
@@ -39,46 +39,49 @@ pub struct Page<W: Element, F: Fn(&mut RepeatingContentHandler, usize, usize)> {
 }
 
 impl<W: Element, F: Fn(&mut RepeatingContentHandler, usize, usize)> Element for Page<W, F> {
-    fn element(&self, _width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    fn draw(&self, _width: Option<f64>, draw: Option<DrawCtx>) -> [f64; 2] {
         if let Some(context) = draw {
             let pdf = context.pdf;
 
-            let content_layer = pdf.next_layer(&context.draw_pos);
+            let content_layer = pdf.next_layer(&context.location);
 
-            // let draw_pos = &mut context.draw_pos;
+            // let location = &mut context.location;
 
-            if let Some(next_draw_pos) = context.next_draw_pos {
-                let first_page: usize = context.draw_pos.layer.page.0;
+            if let Some(next_location) = context.next_location {
+                let first_page: usize = context.location.layer.page.0;
                 let mut last_page: u32 = first_page as u32;
 
-                self.primary.element(
+                self.primary.draw(
                     Some(self.primary_width),
-                    Some(DrawContext {
+                    Some(DrawCtx {
                         pdf,
-                        draw_pos: DrawPos {
+                        location: Location {
                             layer: content_layer,
                             pos: self.primary_pos,
                             preferred_height: None,
                             height_available: self.primary_height,
                         },
                         full_height: self.primary_height,
-                        next_draw_pos: Some(&mut |pdf, draw_rect_id, _| {
-                            let mut new_draw_pos = next_draw_pos(pdf, draw_rect_id, self.size);
-                            // *draw_pos = new_draw_pos.clone();
+                        breakable: Some(BreakableDraw {
+                            get_location: &mut |pdf, draw_rect_id, _| {
+                                let mut new_location = next_location(pdf, draw_rect_id, self.size);
+                                // *location = new_location.clone();
 
-                            // (self.repeating_content)(&mut RepeatingContentHandler {
-                            //     pdf,
-                            //     layer: &new_draw_pos.layer
-                            // }, 0, 1);
+                                // (self.repeating_content)(&mut RepeatingContentHandler {
+                                //     pdf,
+                                //     layer: &new_location.layer
+                                // }, 0, 1);
 
-                            // last_page += 1;
-                            last_page = last_page.max(first_page as u32 + draw_rect_id + 1);
+                                // last_page += 1;
+                                last_page = last_page.max(first_page as u32 + draw_rect_id + 1);
 
-                            new_draw_pos.pos = self.primary_pos;
-                            new_draw_pos.height_available = self.primary_height;
-                            new_draw_pos.layer = pdf.next_layer(&new_draw_pos);
+                                new_location.pos = self.primary_pos;
+                                new_location.height_available = self.primary_height;
+                                new_location.layer = pdf.next_layer(&new_location);
 
-                            new_draw_pos
+                                new_location
+                            },
+                            ..break_ctx
                         }),
                     }),
                 );
@@ -102,25 +105,25 @@ impl<W: Element, F: Fn(&mut RepeatingContentHandler, usize, usize)> Element for 
                     );
                 }
             } else {
-                self.primary.element(
+                self.primary.draw(
                     Some(self.primary_width),
-                    Some(DrawContext {
+                    Some(DrawCtx {
                         pdf,
-                        draw_pos: DrawPos {
+                        location: Location {
                             layer: content_layer,
                             pos: self.primary_pos,
                             preferred_height: None,
                             height_available: self.primary_height,
                         },
                         full_height: self.primary_height,
-                        next_draw_pos: None,
+                        next_location: None,
                     }),
                 );
 
                 (self.repeating_content)(
                     &mut RepeatingContentHandler {
                         pdf,
-                        layer: &context.draw_pos.layer,
+                        layer: &context.location.layer,
                     },
                     0,
                     1,

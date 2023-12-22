@@ -11,7 +11,7 @@ pub struct Rectangle {
 }
 
 impl Element for Rectangle {
-    fn element(&self, _width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    fn draw(&self, _width: Option<f64>, draw: Option<DrawCtx>) -> [f64; 2] {
         let outline_thickness = self.outline.map(|o| o.0).unwrap_or(0.0);
 
         if let Some(context) = draw {
@@ -20,29 +20,29 @@ impl Element for Rectangle {
             let points = calculate_points_for_rect(
                 Mm(self.size[0]),
                 Mm(self.size[1]),
-                Mm(context.draw_pos.pos[0] + self.size[0] / 2.0 + extra_outline_offset),
-                Mm(context.draw_pos.pos[1] - self.size[1] / 2.0 - extra_outline_offset),
+                Mm(context.location.pos[0] + self.size[0] / 2.0 + extra_outline_offset),
+                Mm(context.location.pos[1] - self.size[1] / 2.0 - extra_outline_offset),
             );
 
-            context.draw_pos.layer.save_graphics_state();
+            context.location.layer.save_graphics_state();
 
             if let Some(color) = self.fill {
                 let (color, alpha) = u32_to_color_and_alpha(color);
-                context.draw_pos.layer.set_fill_color(color);
-                context.draw_pos.layer.set_fill_alpha(alpha);
+                context.location.layer.set_fill_color(color);
+                context.location.layer.set_fill_alpha(alpha);
             }
 
             if let Some((thickness, color)) = self.outline {
                 // No outline alpha?
                 let (color, _alpha) = u32_to_color_and_alpha(color);
-                context.draw_pos.layer.set_outline_color(color);
+                context.location.layer.set_outline_color(color);
                 context
-                    .draw_pos
+                    .location
                     .layer
                     .set_outline_thickness(mm_to_pt(thickness));
             }
 
-            context.draw_pos.layer.add_shape(Line {
+            context.location.layer.add_shape(Line {
                 points,
                 is_closed: true,
                 has_fill: self.fill.is_some(),
@@ -50,13 +50,13 @@ impl Element for Rectangle {
                 is_clipping_path: false,
             });
 
-            context.draw_pos.layer.restore_graphics_state();
+            context.location.layer.restore_graphics_state();
         }
 
-        [
-            self.size[0] + outline_thickness,
-            self.size[1] + outline_thickness,
-        ]
+        Some(ElementSize {
+            width: self.size[0] + outline_thickness,
+            height: Some(self.size[1] + outline_thickness),
+        })
     }
 }
 
@@ -67,7 +67,7 @@ pub struct Circle {
 }
 
 impl Element for Circle {
-    fn element(&self, _width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    fn draw(&self, _width: Option<f64>, draw: Option<DrawCtx>) -> [f64; 2] {
         let outline_thickness = self.outline.map(|o| o.0).unwrap_or(0.0);
 
         if let Some(context) = draw {
@@ -75,29 +75,29 @@ impl Element for Circle {
 
             let points = calculate_points_for_circle(
                 Mm(self.radius),
-                Mm(context.draw_pos.pos[0] + self.radius + extra_outline_offset),
-                Mm(context.draw_pos.pos[1] - self.radius - extra_outline_offset),
+                Mm(context.location.pos[0] + self.radius + extra_outline_offset),
+                Mm(context.location.pos[1] - self.radius - extra_outline_offset),
             );
 
-            context.draw_pos.layer.save_graphics_state();
+            context.location.layer.save_graphics_state();
 
             if let Some(color) = self.fill {
                 let (color, alpha) = u32_to_color_and_alpha(color);
-                context.draw_pos.layer.set_fill_color(color);
-                context.draw_pos.layer.set_fill_alpha(alpha);
+                context.location.layer.set_fill_color(color);
+                context.location.layer.set_fill_alpha(alpha);
             }
 
             if let Some((thickness, color)) = self.outline {
                 // No outline alpha?
                 let (color, _alpha) = u32_to_color_and_alpha(color);
-                context.draw_pos.layer.set_outline_color(color);
+                context.location.layer.set_outline_color(color);
                 context
-                    .draw_pos
+                    .location
                     .layer
                     .set_outline_thickness(mm_to_pt(thickness));
             }
 
-            context.draw_pos.layer.add_shape(Line {
+            context.location.layer.add_shape(Line {
                 points,
                 is_closed: true,
                 has_fill: self.fill.is_some(),
@@ -105,7 +105,7 @@ impl Element for Circle {
                 is_clipping_path: false,
             });
 
-            context.draw_pos.layer.restore_graphics_state();
+            context.location.layer.restore_graphics_state();
         }
 
         [self.radius * 2.0 + outline_thickness; 2]

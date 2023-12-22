@@ -22,7 +22,7 @@ enum Pass<'a, 'b, 'c> {
         layout: DrawLayout,
         // size: &'a mut [f64; 2],
         height: f64,
-        draw: DrawContext<'b, 'c>,
+        draw: DrawCtx<'b, 'c>,
     },
 
     /// Currently this could be done in the draw pos, but when we introduce page breaking it'll need
@@ -30,8 +30,8 @@ enum Pass<'a, 'b, 'c> {
     DrawContainer {
         layout: DrawLayout,
         height: f64,
-        draw_pos: DrawPos,
-        // draw: DrawContext<'b, 'c>,
+        location: Location,
+        // draw: DrawCtx<'b, 'c>,
     },
 }
 
@@ -64,7 +64,7 @@ impl<'a, 'b, 'c> TableRowHandler<'a, 'b, 'c> {
                     size[0] += line_style.thickness;
                 }
 
-                let widget_size = widget.element(Some(width), None);
+                let widget_size = widget.draw(Some(width), None);
 
                 size[0] += widget_size[0].max(width);
                 size[1] = size[1].max(widget_size[1]);
@@ -81,36 +81,36 @@ impl<'a, 'b, 'c> TableRowHandler<'a, 'b, 'c> {
                 };
 
                 if !first {
-                    draw.draw_pos.pos[0] += line_style.thickness;
+                    draw.location.pos[0] += line_style.thickness;
                 }
 
-                let widget_size = widget.element(
+                let widget_size = widget.draw(
                     Some(width),
-                    Some(DrawContext {
+                    Some(DrawCtx {
                         pdf: draw.pdf,
-                        draw_pos: DrawPos {
+                        location: Location {
                             height_available: height,
-                            ..draw.draw_pos.clone()
+                            ..draw.location.clone()
                         },
                         full_height: 0.0,
-                        next_draw_pos: None,
+                        next_location: None,
                     }),
                 );
 
                 debug_assert!(widget_size[1] <= height);
 
-                draw.draw_pos.pos[0] += widget_size[0].max(width);
+                draw.location.pos[0] += widget_size[0].max(width);
             }
             Pass::DrawContainer {
                 ref layout,
                 height,
-                ref mut draw_pos,
+                ref mut location,
             } => {
                 if !first {
-                    // draw_pos.pos[0] += padding;
+                    // location.pos[0] += padding;
 
-                    draw_pos.layer.save_graphics_state();
-                    let layer = &draw_pos.layer;
+                    location.layer.save_graphics_state();
+                    let layer = &location.layer;
 
                     let (color, _alpha) = u32_to_color_and_alpha(line_style.color);
                     layer.set_outline_color(color);
@@ -122,12 +122,12 @@ impl<'a, 'b, 'c> TableRowHandler<'a, 'b, 'c> {
                         LineDashPattern::default()
                     });
 
-                    let line_x = draw_pos.pos[0] + line_style.thickness / 2.;
+                    let line_x = location.pos[0] + line_style.thickness / 2.;
 
-                    draw_pos.layer.add_shape(printpdf::Line {
+                    location.layer.add_shape(printpdf::Line {
                         points: vec![
-                            (Point::new(Mm(line_x), Mm(draw_pos.pos[1])), false),
-                            (Point::new(Mm(line_x), Mm(draw_pos.pos[1] - height)), false),
+                            (Point::new(Mm(line_x), Mm(location.pos[1])), false),
+                            (Point::new(Mm(line_x), Mm(location.pos[1] - height)), false),
                         ],
                         is_closed: false,
                         has_fill: false,
@@ -135,9 +135,9 @@ impl<'a, 'b, 'c> TableRowHandler<'a, 'b, 'c> {
                         is_clipping_path: false,
                     });
 
-                    draw_pos.layer.restore_graphics_state();
+                    location.layer.restore_graphics_state();
 
-                    draw_pos.pos[0] += line_style.thickness;
+                    location.pos[0] += line_style.thickness;
                 }
 
                 let width = match flex {
@@ -145,7 +145,7 @@ impl<'a, 'b, 'c> TableRowHandler<'a, 'b, 'c> {
                     ColWidth::Fixed(width) => width,
                 };
 
-                draw_pos.pos[0] += width;
+                location.pos[0] += width;
             }
         }
 
@@ -169,7 +169,11 @@ pub struct TableRow<F: Fn(&mut TableRowHandler)> {
 }
 
 impl<F: Fn(&mut TableRowHandler)> Element for TableRow<F> {
-    fn element(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
+        false
+    }
+
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
         let mut layout = MeasureLayout::new(width, self.line_style.thickness);
 
         let mut handler = TableRowHandler(
@@ -199,74 +203,111 @@ impl<F: Fn(&mut TableRowHandler)> Element for TableRow<F> {
         // make immutable
         let size = size;
 
-        // let draw_pos = draw.as_ref().map(|c| c.draw_pos.clone());
+        // let location = draw.as_ref().map(|c| c.location.clone());
 
         // size[0] += self.padding;
         // size[1] += 2. * self.padding;
 
-        if let Some(ctx) = draw {
-            let draw_pos = ctx.draw_pos.clone();
-            let height = if self.y_expand {
-                draw_pos.height_available
-            } else {
-                size[1]
-            };
+        size
+    }
 
-            let mut handler = TableRowHandler(
-                Pass::Draw {
-                    layout: draw_layout.clone(),
-                    // padding: self.padding,
-                    // size: &mut size,
-                    height,
-                    draw: ctx,
-                },
-                true,
-                self.line_style,
-            );
+    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+        let mut layout = MeasureLayout::new(width, self.line_style.thickness);
 
-            (self.content)(&mut handler);
+        let mut handler = TableRowHandler(
+            Pass::MeasureWidth {
+                layout: &mut layout,
+            },
+            true,
+            self.line_style,
+        );
 
-            let mut handler = TableRowHandler(
-                Pass::DrawContainer {
-                    layout: draw_layout,
-                    // padding: self.padding,
-                    height,
-                    draw_pos,
-                },
-                true,
-                self.line_style,
-            );
+        (self.content)(&mut handler);
 
-            (self.content)(&mut handler);
+        let draw_layout = layout.build();
 
-            // draw_pos.pos[0] += self.padding;
+        let mut size = [0.; 2];
+        let mut handler = TableRowHandler(
+            Pass::MeasureSize {
+                layout: draw_layout,
+                size: &mut size,
+            },
+            true,
+            self.line_style,
+        );
 
-            // draw_pos.layer.save_graphics_state();
+        (self.content)(&mut handler);
 
-            // draw_pos
-            //     .layer
-            //     .set_outline_color(u32_to_color_and_alpha(0x000000_FF).0);
+        // make immutable
+        let size = size;
 
-            // draw_pos.layer.set_outline_thickness(mm_to_pt(0.));
-            // draw_pos.layer.add_shape(printpdf::Line {
-            //     points: vec![
-            //         (Point::new(Mm(draw_pos.pos[0]), Mm(draw_pos.pos[1])), false),
-            //         (
-            //             Point::new(Mm(draw_pos.pos[0]), Mm(draw_pos.pos[1] - size[1])),
-            //             false,
-            //         ),
-            //     ],
-            //     is_closed: false,
-            //     has_fill: false,
-            //     has_stroke: true,
-            //     is_clipping_path: false,
-            // });
+        // let location = draw.as_ref().map(|c| c.location.clone());
 
-            // draw_pos.layer.restore_graphics_state();
+        // size[0] += self.padding;
+        // size[1] += 2. * self.padding;
 
-            [if let Some(w) = width { w } else { size[0] }, height]
+        let location = ctx.location.clone();
+        let height = if self.y_expand {
+            location.height_available
         } else {
-            size
-        }
+            size[1]
+        };
+
+        let mut handler = TableRowHandler(
+            Pass::Draw {
+                layout: draw_layout.clone(),
+                // padding: self.padding,
+                // size: &mut size,
+                height,
+                draw: ctx,
+            },
+            true,
+            self.line_style,
+        );
+
+        (self.content)(&mut handler);
+
+        let mut handler = TableRowHandler(
+            Pass::DrawContainer {
+                layout: draw_layout,
+                // padding: self.padding,
+                height,
+                location,
+            },
+            true,
+            self.line_style,
+        );
+
+        (self.content)(&mut handler);
+
+        // location.pos[0] += self.padding;
+
+        // location.layer.save_graphics_state();
+
+        // location
+        //     .layer
+        //     .set_outline_color(u32_to_color_and_alpha(0x000000_FF).0);
+
+        // location.layer.set_outline_thickness(mm_to_pt(0.));
+        // location.layer.add_shape(printpdf::Line {
+        //     points: vec![
+        //         (Point::new(Mm(location.pos[0]), Mm(location.pos[1])), false),
+        //         (
+        //             Point::new(Mm(location.pos[0]), Mm(location.pos[1] - size[1])),
+        //             false,
+        //         ),
+        //     ],
+        //     is_closed: false,
+        //     has_fill: false,
+        //     has_stroke: true,
+        //     is_clipping_path: false,
+        // });
+
+        // location.layer.restore_graphics_state();
+
+        Some(ElementSize {
+            width: if let Some(w) = width { w } else { size[0] },
+            height: Some(height),
+        })
     }
 }

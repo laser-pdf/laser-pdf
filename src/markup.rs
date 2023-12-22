@@ -2,7 +2,6 @@ use std::ops::Deref;
 
 use printpdf::*;
 
-
 use crate::break_text_into_lines::*;
 use crate::text::remove_non_trailing_soft_hyphens;
 use crate::utils::*;
@@ -296,28 +295,28 @@ impl<'a, D: Deref<Target = [u8]>> Spans<'a, D> {
 }
 
 impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
-    fn element(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    fn draw(&self, width: Option<f64>, draw: Option<DrawCtx>) -> [f64; 2] {
         let mut max_width = if let Some(width) = width { width } else { 0. };
 
         let (iter, line_height) = self.pieces_trimmed(width);
         let line_height = line_height + self.extra_line_height;
 
         let line_count = if let Some(mut context) = draw {
-            let mut x = context.draw_pos.pos[0];
-            let mut y = context.draw_pos.pos[1]; // - ascent;
+            let mut x = context.location.pos[0];
+            let mut y = context.location.pos[1]; // - ascent;
 
-            let mut height_available = context.draw_pos.height_available;
+            let mut height_available = context.location.height_available;
 
             let mut draw_rect = 0;
 
             if height_available < line_height {
-                if let Some(ref mut next_draw_pos) = context.next_draw_pos {
-                    let new_draw_pos = next_draw_pos(context.pdf, 0, [max_width, 0.]);
+                if let Some(ref mut next_location) = context.next_location {
+                    let new_location = next_location(context.pdf, 0, [max_width, 0.]);
                     draw_rect = 1;
-                    x = new_draw_pos.pos[0];
-                    y = new_draw_pos.pos[1];
-                    height_available = new_draw_pos.height_available;
-                    context.draw_pos.layer = new_draw_pos.layer;
+                    x = new_location.pos[0];
+                    y = new_location.pos[1];
+                    height_available = new_location.height_available;
+                    context.location.layer = new_location.layer;
                 }
             }
 
@@ -337,19 +336,19 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
                 max_width = max_width.max(frag.x_offset + line_width);
 
                 if frag.new_line {
-                    match context.next_draw_pos {
-                        Some(ref mut next_draw_pos) if height_available < 2. * line_height => {
-                            let new_draw_pos = next_draw_pos(
+                    match context.next_location {
+                        Some(ref mut next_location) if height_available < 2. * line_height => {
+                            let new_location = next_location(
                                 context.pdf,
                                 draw_rect,
                                 [max_width, line_count as f64 * line_height],
                             );
                             draw_rect += 1;
 
-                            x = new_draw_pos.pos[0];
-                            y = new_draw_pos.pos[1]; // - ascent;
-                            height_available = new_draw_pos.height_available;
-                            context.draw_pos.layer = new_draw_pos.layer;
+                            x = new_location.pos[0];
+                            y = new_location.pos[1]; // - ascent;
+                            height_available = new_location.height_available;
+                            context.location.layer = new_location.layer;
                             line_count = 1;
                         }
                         _ => {
@@ -360,12 +359,12 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
                     }
                 }
 
-                context.draw_pos.layer.save_graphics_state();
+                context.location.layer.save_graphics_state();
                 context
-                    .draw_pos
+                    .location
                     .layer
                     .set_fill_color(u32_to_color_and_alpha(frag.color).0);
-                context.draw_pos.layer.use_text(
+                context.location.layer.use_text(
                     &remove_non_trailing_soft_hyphens(frag.text),
                     frag.size,
                     Mm(x + frag.x_offset),
@@ -381,17 +380,17 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
                 // mostly right.
                 if frag.underline {
                     context
-                        .draw_pos
+                        .location
                         .layer
                         .set_outline_color(u32_to_color_and_alpha(frag.color).0);
                     crate::utils::line(
-                        &context.draw_pos.layer,
+                        &context.location.layer,
                         [x + frag.x_offset, y - frag.ascent - 1.0],
                         pt_to_mm(text_width(frag.text, frag.size, &frag.font.font, 0., 0.)),
                         pt_to_mm(if frag.bold { 1.0 } else { 0.5 }),
                     );
                 }
-                context.draw_pos.layer.restore_graphics_state();
+                context.location.layer.restore_graphics_state();
             }
 
             line_count
@@ -417,10 +416,13 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
             line_count
         };
 
-        [max_width, line_count as f64 * line_height]
+        Some(ElementSize {
+            width: max_width,
+            height: Some(line_count as f64 * line_height),
+        })
     }
 
-    // fn widget(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    // fn widget(&self, width: Option<f64>, draw: Option<DrawCtx>) -> [f64; 2] {
     //     #[derive(Copy, Clone)]
     //     struct FontVars {
     //         ascent: f64,
@@ -457,10 +459,10 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
     //     let mut max_width = if let Some(width) = width { width } else { 0. };
 
     //     let line_count = if let Some(mut context) = draw {
-    //         let mut x = context.draw_pos.pos[0];
-    //         let mut y = context.draw_pos.pos[1];// - ascent;
+    //         let mut x = context.location.pos[0];
+    //         let mut y = context.location.pos[1];// - ascent;
 
-    //         let mut height_available = context.draw_pos.height_available;
+    //         let mut height_available = context.location.height_available;
 
     //         let mut line_count = 0;
 
@@ -510,9 +512,9 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
     //                         ul.line.trim_end()
     //                     } else { ul.line };
 
-    //                     context.draw_pos.layer.save_graphics_state();
-    //                     context.draw_pos.layer.set_fill_color(u32_to_color_and_alpha(ul.color).0);
-    //                     context.draw_pos.layer.use_text(
+    //                     context.location.layer.save_graphics_state();
+    //                     context.location.layer.set_fill_color(u32_to_color_and_alpha(ul.color).0);
+    //                     context.location.layer.use_text(
     //                         ul_line,
     //                         size as i64,
     //                         Mm(x + ul.x_offset),
@@ -521,23 +523,23 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
     //                     );
     //                     if ul.underline {
     //                         crate::utils::line(
-    //                             &context.draw_pos.layer,
+    //                             &context.location.layer,
     //                             [x + ul.x_offset, y - ul.font_vars.ascent - 1.0],
     //                             pt_to_mm(text_width(ul_line, self.size, &ul.font.font)),
     //                             pt_to_mm(2.0),
     //                         );
     //                     }
-    //                     context.draw_pos.layer.restore_graphics_state();
+    //                     context.location.layer.restore_graphics_state();
 
     //                     unfinished_line = None;
     //                 } else {
     //                     if height_available < line_height {
-    //                         if let Some(ref mut next_draw_pos) = context.next_draw_pos {
-    //                             let new_draw_pos = next_draw_pos(context.pdf);
-    //                             x = new_draw_pos.pos[0];
-    //                             y = new_draw_pos.pos[1];// - ascent;
-    //                             height_available = new_draw_pos.height_available;
-    //                             context.draw_pos.layer = new_draw_pos.layer;
+    //                         if let Some(ref mut next_location) = context.next_location {
+    //                             let new_location = next_location(context.pdf);
+    //                             x = new_location.pos[0];
+    //                             y = new_location.pos[1];// - ascent;
+    //                             height_available = new_location.height_available;
+    //                             context.location.layer = new_location.layer;
     //                             line_count = 0;
     //                         }
     //                     }
@@ -563,9 +565,9 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
     //                         *max_width = max_width.max(x_offset + line_width);
     //                     }
 
-    //                     context.draw_pos.layer.save_graphics_state();
-    //                     context.draw_pos.layer.set_fill_color(u32_to_color_and_alpha(span.color).0);
-    //                     context.draw_pos.layer.use_text(
+    //                     context.location.layer.save_graphics_state();
+    //                     context.location.layer.set_fill_color(u32_to_color_and_alpha(span.color).0);
+    //                     context.location.layer.use_text(
     //                         line,
     //                         size as i64,
     //                         Mm(x + x_offset),
@@ -574,13 +576,13 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
     //                     );
     //                     if span.underline {
     //                         crate::utils::line(
-    //                             &context.draw_pos.layer,
+    //                             &context.location.layer,
     //                             [x + x_offset, y - font_vars.ascent - 1.0],
     //                             pt_to_mm(text_width(line, self.size, &font.font)),
     //                             pt_to_mm(2.0),
     //                         );
     //                     }
-    //                     context.draw_pos.layer.restore_graphics_state();
+    //                     context.location.layer.restore_graphics_state();
 
     //                     y -= line_height;
     //                     height_available -= line_height;
@@ -599,9 +601,9 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
     //                 *max_width = max_width.max(x_offset);
     //             }
 
-    //             context.draw_pos.layer.save_graphics_state();
-    //             context.draw_pos.layer.set_fill_color(u32_to_color_and_alpha(ul.color).0);
-    //             context.draw_pos.layer.use_text(
+    //             context.location.layer.save_graphics_state();
+    //             context.location.layer.set_fill_color(u32_to_color_and_alpha(ul.color).0);
+    //             context.location.layer.use_text(
     //                 ul_line,
     //                 size as i64,
     //                 Mm(x + ul.x_offset),
@@ -610,13 +612,13 @@ impl<'a, D: Deref<Target = [u8]>> Element for Spans<'a, D> {
     //             );
     //             if ul.underline {
     //                 crate::utils::line(
-    //                     &context.draw_pos.layer,
+    //                     &context.location.layer,
     //                     [x + ul.x_offset, y - ul.font_vars.ascent - 1.0],
     //                     pt_to_mm(text_width(ul_line, self.size, &ul.font.font)),
     //                     pt_to_mm(2.0),
     //                 );
     //             }
-    //             context.draw_pos.layer.restore_graphics_state();
+    //             context.location.layer.restore_graphics_state();
     //         }
 
     //         line_count

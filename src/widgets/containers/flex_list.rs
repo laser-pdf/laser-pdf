@@ -80,7 +80,7 @@ enum Pass<'a, 'b, 'c> {
 
         last_draw_rect: u32,
 
-        draw: Option<DrawContext<'b, 'c>>,
+        draw: Option<DrawCtx<'b, 'c>>,
     },
 }
 
@@ -93,7 +93,7 @@ impl<'a, 'b, 'c> FlexHandler<'a, 'b, 'c> {
                 layout: &mut ref mut layout,
             } => match flex {
                 Flex::Expand(factor) => layout.add_expand(factor),
-                Flex::SelfSized => layout.add_fixed(widget.element(None, None)[0]),
+                Flex::SelfSized => layout.add_fixed(widget.draw(None, None)[0]),
                 Flex::Fixed(width) => layout.add_fixed(width),
             },
             Pass::Render {
@@ -114,7 +114,7 @@ impl<'a, 'b, 'c> FlexHandler<'a, 'b, 'c> {
                 let offset = if let Some(offset) = offset {
                     *offset += gap;
                     if let Some(context) = draw {
-                        context.draw_pos.pos[0] += gap;
+                        context.location.pos[0] += gap;
                     }
                     offset
                 } else {
@@ -125,55 +125,58 @@ impl<'a, 'b, 'c> FlexHandler<'a, 'b, 'c> {
                 let mut draw_rect = 0;
 
                 let widget_size = if let Some(context) = draw {
-                    if let Some(ref mut next_draw_pos) = context.next_draw_pos {
-                        let mut height_available = context.draw_pos.height_available;
+                    if let Some(ref mut next_location) = context.next_location {
+                        let mut height_available = context.location.height_available;
 
-                        widget.element(
+                        widget.draw(
                             expand,
                             // if expand { Some(expand_width) } else { None },
-                            Some(DrawContext {
+                            Some(DrawCtx {
                                 pdf: context.pdf,
-                                draw_pos: context.draw_pos.clone(),
+                                location: context.location.clone(),
                                 full_height: 0.0,
-                                next_draw_pos: Some(&mut |pdf, draw_rect_id, _size| {
-                                    draw_rect = draw_rect_id + 1;
+                                breakable: Some(BreakableDraw {
+                                    get_location: &mut |pdf, draw_rect_id, _size| {
+                                        draw_rect = draw_rect_id + 1;
 
-                                    if draw_rect > *last_draw_rect {
-                                        *last_draw_rect = draw_rect;
-                                        *height = 0.;
-                                    }
+                                        if draw_rect > *last_draw_rect {
+                                            *last_draw_rect = draw_rect;
+                                            *height = 0.;
+                                        }
 
-                                    let mut new_draw_pos = next_draw_pos(
-                                        pdf,
-                                        draw_rect_id,
-                                        // We have to use the full height_available here, because
-                                        // otherwise the answer would change from element to
-                                        // element.
-                                        [width, height_available],
-                                    );
+                                        let mut new_location = next_location(
+                                            pdf,
+                                            draw_rect_id,
+                                            // We have to use the full height_available here, because
+                                            // otherwise the answer would change from element to
+                                            // element.
+                                            [width, height_available],
+                                        );
 
-                                    height_available = new_draw_pos.height_available;
+                                        height_available = new_location.height_available;
 
-                                    new_draw_pos.pos[0] += *offset;
+                                        new_location.pos[0] += *offset;
 
-                                    new_draw_pos
+                                        new_location
+                                    },
+                                    ..break_ctx
                                 }),
                             }),
                         )
                     } else {
-                        widget.element(
+                        widget.draw(
                             expand,
                             // if expand { Some(expand_width) } else { None },
-                            Some(DrawContext {
+                            Some(DrawCtx {
                                 pdf: context.pdf,
-                                draw_pos: context.draw_pos.clone(),
+                                location: context.location.clone(),
                                 full_height: 0.0,
-                                next_draw_pos: None,
+                                next_location: None,
                             }),
                         )
                     }
                 } else {
-                    widget.element(expand, None)
+                    widget.draw(expand, None)
                 };
 
                 let elem_width = if let Some(expand) = expand {
@@ -183,7 +186,7 @@ impl<'a, 'b, 'c> FlexHandler<'a, 'b, 'c> {
                 };
 
                 if let Some(context) = draw {
-                    context.draw_pos.pos[0] += elem_width;
+                    context.location.pos[0] += elem_width;
                 }
 
                 *offset += elem_width;
@@ -212,7 +215,7 @@ impl<'a, 'b, 'c> FlexHandler<'a, 'b, 'c> {
                 let offset = if let Some(offset) = offset {
                     *offset += gap;
                     if let Some(context) = draw {
-                        context.draw_pos.pos[0] += gap;
+                        context.location.pos[0] += gap;
                     }
                     offset
                 } else {
@@ -223,7 +226,7 @@ impl<'a, 'b, 'c> FlexHandler<'a, 'b, 'c> {
                 let elem_width = layout.expand_width(flex);
 
                 if let Some(context) = draw {
-                    context.draw_pos.pos[0] += elem_width;
+                    context.location.pos[0] += elem_width;
                 }
 
                 *offset += elem_width;
@@ -242,7 +245,11 @@ pub enum Flex {
 pub struct FlexList<F: Fn(&mut FlexHandler)>(pub F, pub f64);
 
 impl<F: Fn(&mut FlexHandler)> Element for FlexList<F> {
-    fn element(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
+        false
+    }
+
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
         let mut layout = MeasureLayout::new(width, self.1);
 
         let mut handler = FlexHandler(Pass::Measure {
@@ -273,7 +280,47 @@ impl<F: Fn(&mut FlexHandler)> Element for FlexList<F> {
 
         self.0(&mut handler);
 
-        [width, height]
+        Some(ElementSize {
+            width: width,
+            height: Some(height),
+        })
+    }
+
+    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+        let mut layout = MeasureLayout::new(width, self.1);
+
+        let mut handler = FlexHandler(Pass::Measure {
+            layout: &mut layout,
+        });
+
+        self.0(&mut handler);
+
+        let min_width = layout.no_expand_width + layout.count.saturating_sub(1) as f64 * layout.gap;
+
+        let width = if let Some(w) = width {
+            w.max(min_width)
+        } else {
+            min_width
+        };
+
+        let mut height = 0.0;
+
+        let mut handler = FlexHandler(Pass::Render {
+            layout: layout.build(),
+            gap: self.1,
+            width,
+            height: &mut height,
+            offset: None,
+            last_draw_rect: 0,
+            draw,
+        });
+
+        self.0(&mut handler);
+
+        Some(ElementSize {
+            width: width,
+            height: Some(height),
+        })
     }
 }
 

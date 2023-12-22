@@ -2,7 +2,7 @@ use crate::{widgets::break_whole, *};
 
 pub struct VListHandler<'a, 'b> {
     max_width: Option<f64>,
-    render: Option<DrawContext<'a, 'b>>,
+    render: Option<DrawCtx<'a, 'b>>,
     width: f64,
     height: f64,
     break_page: bool,
@@ -16,105 +16,111 @@ pub struct VListHandler<'a, 'b> {
 impl<'a, 'b> VListHandler<'a, 'b> {
     pub fn el<W: Element>(&mut self, widget: &W) {
         let size = match self.render {
-            Some(DrawContext {
+            Some(DrawCtx {
                 pdf: &mut ref mut pdf,
-                ref mut draw_pos,
+                ref mut location,
                 full_height,
-                next_draw_pos: Some(ref mut next_draw_pos),
+                next_location: Some(ref mut next_location),
             }) => {
                 let start_draw_rect = self.draw_rect;
 
-                let size = widget.element(
+                let size = widget.draw(
                     self.max_width,
-                    Some(DrawContext {
+                    Some(DrawCtx {
                         pdf,
-                        draw_pos: if self.first {
-                            draw_pos.clone()
+                        location: if self.first {
+                            location.clone()
                         } else {
-                            DrawPos {
-                                pos: [draw_pos.pos[0], draw_pos.pos[1] - self.gap],
+                            Location {
+                                pos: [location.pos[0], location.pos[1] - self.gap],
                                 preferred_height: None,
-                                height_available: draw_pos.height_available - self.gap,
-                                layer: draw_pos.layer.clone(),
+                                height_available: location.height_available - self.gap,
+                                layer: location.layer.clone(),
                             }
                         },
                         full_height,
-                        next_draw_pos: Some(&mut |pdf, draw_rect_id, size| {
-                            if !self.first {
-                                self.height += self.gap;
-                                self.first = true;
-                            }
+                        breakable: Some(BreakableDraw {
+                            get_location: &mut |pdf, draw_rect_id| {
+                                if !self.first {
+                                    self.height += self.gap;
+                                    self.first = true;
+                                }
 
-                            let new_draw_pos = next_draw_pos(
-                                pdf,
-                                start_draw_rect + draw_rect_id,
-                                if draw_rect_id == 0 {
-                                    [self.width.max(size[0]), self.height + size[1]]
-                                } else {
-                                    size
-                                },
-                            );
+                                let new_location = next_location(
+                                    pdf,
+                                    start_draw_rect + draw_rect_id,
+                                    if draw_rect_id == 0 {
+                                        Some(ElementSize {
+                                            width: self.width.max(size[0]),
+                                            height: Some(self.height + size[1]),
+                                        })
+                                    } else {
+                                        size
+                                    },
+                                );
 
-                            let new_draw_rect = start_draw_rect + draw_rect_id + 1;
+                                let new_draw_rect = start_draw_rect + draw_rect_id + 1;
 
-                            if new_draw_rect > self.draw_rect {
-                                self.draw_rect = new_draw_rect;
-                                *draw_pos = new_draw_pos.clone();
-                            }
+                                if new_draw_rect > self.draw_rect {
+                                    self.draw_rect = new_draw_rect;
+                                    *location = new_location.clone();
+                                }
 
-                            self.height = 0.0;
+                                self.height = 0.0;
 
-                            new_draw_pos
+                                new_location
+                            },
+                            ..break_ctx
                         }),
                     }),
                 );
 
                 if !self.first && (!self.collapse_empty || size[1] > 0.) {
-                    draw_pos.pos[1] -= self.gap;
-                    draw_pos.height_available -= self.gap;
+                    location.pos[1] -= self.gap;
+                    location.height_available -= self.gap;
                 }
 
-                draw_pos.pos[1] -= size[1];
-                draw_pos.height_available -= size[1];
+                location.pos[1] -= size[1];
+                location.height_available -= size[1];
 
                 size
             }
-            Some(DrawContext {
+            Some(DrawCtx {
                 ref mut pdf,
-                ref mut draw_pos,
+                ref mut location,
                 full_height,
-                next_draw_pos: None,
+                next_location: None,
             }) => {
-                let size = widget.element(
+                let size = widget.draw(
                     self.max_width,
-                    Some(DrawContext {
+                    Some(DrawCtx {
                         pdf,
-                        draw_pos: if self.first {
-                            draw_pos.clone()
+                        location: if self.first {
+                            location.clone()
                         } else {
-                            DrawPos {
-                                pos: [draw_pos.pos[0], draw_pos.pos[1] - self.gap],
+                            Location {
+                                pos: [location.pos[0], location.pos[1] - self.gap],
                                 preferred_height: None,
-                                height_available: draw_pos.height_available - self.gap,
-                                layer: draw_pos.layer.clone(),
+                                height_available: location.height_available - self.gap,
+                                layer: location.layer.clone(),
                             }
                         },
                         full_height,
-                        next_draw_pos: None,
+                        next_location: None,
                     }),
                 );
 
                 if !self.first && (!self.collapse_empty || size[1] > 0.) {
-                    draw_pos.pos[1] -= self.gap;
-                    draw_pos.height_available -= self.gap;
+                    location.pos[1] -= self.gap;
+                    location.height_available -= self.gap;
                 }
 
-                draw_pos.pos[1] -= size[1];
-                draw_pos.height_available -= size[1];
+                location.pos[1] -= size[1];
+                location.height_available -= size[1];
 
                 size
             }
-            None => widget.element(self.max_width, None),
+            None => widget.draw(self.max_width, None),
         };
 
         if self.collapse_empty && size[1] <= 0. {
@@ -130,24 +136,24 @@ impl<'a, 'b> VListHandler<'a, 'b> {
 
     pub fn element<W: Element>(&mut self, widget: &W, break_page: bool) {
         if break_page && self.break_page {
-            self.el(&break_whole(|w: Option<f64>, d: Option<DrawContext>| {
-                widget.element(w, d)
+            self.el(&break_whole(|w: Option<f64>, d: Option<DrawCtx>| {
+                widget.draw(w, d)
             }));
         } else {
             self.el(widget);
         }
     }
 
-    pub fn next_draw_pos(&mut self) {
-        if let Some(DrawContext {
+    pub fn next_location(&mut self) {
+        if let Some(DrawCtx {
             pdf: &mut ref mut pdf,
-            ref mut draw_pos,
-            next_draw_pos: Some(ref mut next_draw_pos),
+            ref mut location,
+            next_location: Some(ref mut next_location),
             ..
         }) = self.render
         {
             // this seems wrong
-            *draw_pos = next_draw_pos(pdf, self.draw_rect, [self.width, self.height]);
+            *location = next_location(pdf, self.draw_rect, [self.width, self.height]);
             self.draw_rect += 1;
         }
     }
@@ -192,19 +198,19 @@ impl<F: Fn(&mut VListHandler)> VList<F> {
 }
 
 impl<F: Fn(&mut VListHandler)> Element for VList<F> {
-    fn element(&self, width: Option<f64>, render: Option<DrawContext>) -> [f64; 2] {
+    fn draw(&self, width: Option<f64>, render: Option<DrawCtx>) -> [f64; 2] {
         // if let Some(context) = &mut render {
-        //     context.draw_pos.pos[1] -= self.gap;
+        //     context.location.pos[1] -= self.gap;
         //     // if let Some(line) = self.line {
         //     //     crate::utils::line(
-        //     //         &mut context.draw_pos.layer,
-        //     //         context.draw_pos.pos,
+        //     //         &mut context.location.layer,
+        //     //         context.location.pos,
         //     //         width.unwrap_or(1.0),
         //     //         line,
         //     //     );
         //     // }
-        //     context.draw_pos.pos[1] -= self.gap;
-        //     context.draw_pos.height_available = (context.draw_pos.height_available - 4.0 * self.gap)
+        //     context.location.pos[1] -= self.gap;
+        //     context.location.height_available = (context.location.height_available - 4.0 * self.gap)
         //         .max(0.0);
         // }
 
@@ -223,6 +229,9 @@ impl<F: Fn(&mut VListHandler)> Element for VList<F> {
 
         (self.list)(&mut handler);
 
-        [handler.width, handler.height]
+        Some(ElementSize {
+            width: handler.width,
+            height: Some(handler.height),
+        })
     }
 }

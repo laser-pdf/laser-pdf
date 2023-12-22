@@ -133,41 +133,70 @@ pub fn deserialize_image<'de, D: Deserializer<'de>>(deserializer: D) -> Result<I
     Ok(deserializer.deserialize_str(ImageVisitor)?)
 }
 
-pub fn image<'a>(image: &'a Image) -> impl Element + 'a {
-    move |width: Option<f64>, draw: Option<DrawContext>| match image {
-        Image::Svg(svg) => SvgWidget { data: svg }.element(width, draw),
-        Image::Pixel(image) => {
-            use printpdf::image::GenericImageView;
+pub struct ImageElement<'a> {
+    image: &'a Image,
+}
 
-            let dimensions = {
-                let (x, y) = image.dimensions();
-                [x as f64 * INCH_TO_MM, y as f64 * INCH_TO_MM]
-            };
+impl<'a> Element for ImageElement<'a> {
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+        match self.image {
+            Image::Svg(svg) => SvgWidget { data: svg }.measure(ctx),
+            Image::Pixel(image) => {
+                use printpdf::image::GenericImageView;
 
-            let (size, scale) = if let Some(width) = width {
-                (
-                    [width, dimensions[1] * width / dimensions[0]],
-                    width / dimensions[0],
-                )
-            } else {
-                (dimensions, 1.0)
-            };
+                let dimensions = {
+                    let (x, y) = image.dimensions();
+                    [x as f64 * INCH_TO_MM, y as f64 * INCH_TO_MM]
+                };
 
-            if let Some(context) = draw {
+                let (size, scale) = if let Some(width) = ctx.width {
+                    (
+                        [width, dimensions[1] * width / dimensions[0]],
+                        width / dimensions[0],
+                    )
+                } else {
+                    (dimensions, 1.0)
+                };
+
+                size
+            }
+        }
+    }
+
+    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+        match self.image {
+            Image::Svg(svg) => SvgWidget { data: svg }.draw(ctx),
+            Image::Pixel(image) => {
+                use printpdf::image::GenericImageView;
+
+                let dimensions = {
+                    let (x, y) = image.dimensions();
+                    [x as f64 * INCH_TO_MM, y as f64 * INCH_TO_MM]
+                };
+
+                let (size, scale) = if let Some(width) = ctx.width {
+                    (
+                        [width, dimensions[1] * width / dimensions[0]],
+                        width / dimensions[0],
+                    )
+                } else {
+                    (dimensions, 1.0)
+                };
+
                 let image = printpdf::Image::from_dynamic_image(image);
 
                 image.add_to_layer(
-                    context.draw_pos.layer,
-                    Some(Mm(context.draw_pos.pos[0])),
-                    Some(Mm(context.draw_pos.pos[1] - size[1])),
+                    ctx.location.layer,
+                    Some(Mm(ctx.location.pos[0])),
+                    Some(Mm(ctx.location.pos[1] - size[1])),
                     None,
                     Some(scale),
                     Some(scale),
                     Some(1.0),
                 );
-            }
 
-            size
+                size
+            }
         }
     }
 }
@@ -177,7 +206,11 @@ pub struct PngWidget<'a> {
 }
 
 impl<'a> Element for PngWidget<'a> {
-    fn element(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
+        false
+    }
+
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
         let decoder = PngDecoder::new(std::io::Cursor::new(self.bytes)).unwrap();
         let dimensions = {
             let (x, y) = decoder.dimensions();
@@ -197,9 +230,42 @@ impl<'a> Element for PngWidget<'a> {
             let image = printpdf::Image::try_from(decoder).unwrap();
 
             image.add_to_layer(
-                context.draw_pos.layer,
-                Some(Mm(context.draw_pos.pos[0])),
-                Some(Mm(context.draw_pos.pos[1] - size[1])),
+                context.location.layer,
+                Some(Mm(context.location.pos[0])),
+                Some(Mm(context.location.pos[1] - size[1])),
+                None,
+                Some(scale),
+                Some(scale),
+                Some(1.0),
+            );
+        }
+
+        size
+    }
+
+    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+        let decoder = PngDecoder::new(std::io::Cursor::new(self.bytes)).unwrap();
+        let dimensions = {
+            let (x, y) = decoder.dimensions();
+            [x as f64 * INCH_TO_MM, y as f64 * INCH_TO_MM]
+        };
+
+        let (size, scale) = if let Some(width) = width {
+            (
+                [width, dimensions[1] * width / dimensions[0]],
+                width / dimensions[0],
+            )
+        } else {
+            (dimensions, 1.0)
+        };
+
+        if let Some(context) = draw {
+            let image = printpdf::Image::try_from(decoder).unwrap();
+
+            image.add_to_layer(
+                context.location.layer,
+                Some(Mm(context.location.pos[0])),
+                Some(Mm(context.location.pos[1] - size[1])),
                 None,
                 Some(scale),
                 Some(scale),
@@ -216,7 +282,11 @@ pub struct SvgWidget<'a> {
 }
 
 impl<'a> Element for SvgWidget<'a> {
-    fn element(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
+        false
+    }
+
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
         let svg = self.data.svg_node();
         let svg_size = svg.size;
         let svg_width = pt_to_mm(svg_size.width());
@@ -239,8 +309,8 @@ impl<'a> Element for SvgWidget<'a> {
                 ]
             };
 
-            let pos = context.draw_pos.pos;
-            let layer = &context.draw_pos.layer;
+            let pos = context.location.pos;
+            let layer = &context.location.layer;
 
             layer.save_graphics_state();
             layer.set_ctm(CurTransMat::Translate(Mm(pos[0]), Mm(pos[1])));
@@ -259,6 +329,58 @@ impl<'a> Element for SvgWidget<'a> {
             layer.restore_graphics_state();
         }
 
-        [width, height]
+        Some(ElementSize {
+            width: width,
+            height: Some(height),
+        })
+    }
+
+    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+        let svg = self.data.svg_node();
+        let svg_size = svg.size;
+        let svg_width = pt_to_mm(svg_size.width());
+        let svg_height = pt_to_mm(svg_size.height());
+
+        let (width, height, scale_factor) = if let Some(width) = width {
+            let scale_factor = width / svg_width;
+
+            (width, svg_height * scale_factor, scale_factor)
+        } else {
+            (svg_width, svg_height, 1.0)
+        };
+
+        if let Some(context) = draw {
+            let view_box_scale = {
+                let rect = svg.view_box.rect;
+                [
+                    svg_size.width() / rect.width(),
+                    svg_size.height() / rect.height(),
+                ]
+            };
+
+            let pos = context.location.pos;
+            let layer = &context.location.layer;
+
+            layer.save_graphics_state();
+            layer.set_ctm(CurTransMat::Translate(Mm(pos[0]), Mm(pos[1])));
+
+            // invert coordinate space and apply scale
+            // the reason this isn't just one call is that lopdf is rounding real numbers to two
+            // decimal digits so calling `set_ctm` twice will me more precise
+            layer.set_ctm(CurTransMat::Scale(
+                scale_factor,  // * view_box_scale[0],
+                -scale_factor, // * view_box_scale[1],
+            ));
+            layer.set_ctm(CurTransMat::Scale(view_box_scale[0], view_box_scale[1]));
+
+            layer.add_svg(&self.data);
+
+            layer.restore_graphics_state();
+        }
+
+        Some(ElementSize {
+            width: width,
+            height: Some(height),
+        })
     }
 }
