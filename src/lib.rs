@@ -144,7 +144,7 @@ impl TryFrom<String> for SerdeImage {
 
 pub struct Pdf {
     pub document: PdfDocumentReference,
-    pub page_size: [f64; 2],
+    pub page_size: (f64, f64),
 }
 
 /// A position for an element to render at.
@@ -153,80 +153,92 @@ pub struct Pdf {
 /// Things are much easier if an element can make width related calculations in the beginning an
 /// doesn't have to recalculate them on a page break.
 #[derive(Clone, Debug)]
-pub struct DrawPos {
+pub struct Location {
     pub layer: PdfLayerReference,
-    pub pos: [f64; 2],
-    pub height_available: f64,
-    pub preferred_height: Option<f64>,
+    pub pos: (f64, f64),
 }
 
-// impl DrawPos {
-//     pub fn next_layer(&self) -> PdfLayerReference {
-//         self.layer.page
-//     }
-// }
+/// This returns a new [Location] because some collection elements need to keep multiple
+/// [Location]s at once (e.g. for page breaking inside of a horizontal list)
+///
+/// The second parameter is which drawing rectangle the break is occurring from. This number
+/// must be counted up for sequential page breaks. This allows the same page break to be
+/// performed twice in a row. A new `draw_rect_id` will be returned from the call to
+/// `next_location`, so if you store the current draw pos, you can just pass the one from there.
+pub type GetLocation<'a> = &'a mut dyn FnMut(&mut Pdf, u32) -> Location;
 
-/// The position is in millimeters and in the pdf coordinate system (meaning the origin is on the
-/// bottom left corner).
-pub struct DrawContext<'a, 'b> {
-    // pub pos: [f64; 2],
-    // pub height_available: f64,
-    pub pdf: &'a mut Pdf,
+pub struct InsufficientFirstHeightCtx {
+    pub width: Option<f64>,
+    pub first_height: f64,
+    // is this needed?
+    // one could argue that the parent should know to not even ask if full height isn't more
+    // on the other hand a text element could have a behavior of printing one line at a time if
+    // full-height is less than the height needed, but available-height might still be even less
+    // than that and in that case text might still use the first one (though the correctness of that
+    // is also questionable)
+    // pub full_height: f64,
+}
 
-    pub draw_pos: DrawPos,
-
-    /// The full height of the current drawing rectangle, usually this is the page height minus some
-    /// amount of border. It is also the height you're expected to get after a break unless there's
-    /// a special [Element] around it like titled.
+pub struct BreakableMeasure<'a> {
     pub full_height: f64,
+    pub break_count: &'a mut u32,
 
-    // /// The height_available after a call to `next_draw_pos`
-    // /// This is fine for the moment. It might change in the future to enable variations in page or
-    // /// column height. Meaning a call to `next_draw_pos` will need to be able to change this or
-    // /// return a new one.
-    // pub next_draw_pos_height: f64,
-    /// This returns a new [DrawPos] because some collection elements need to keep multiple
-    /// [DrawPos]s at once (e.g. for page breaking inside of a horizontal list)
-    ///
-    /// The second parameter is which drawing rectangle the break is occurring from. This number
-    /// must be counted up for sequential page breaks. This allows the same page break to be
-    /// performed twice in a row. A new `draw_rect_id` will be returned from the call to
-    /// `next_draw_pos`, so if you store the current draw pos, you can just pass the one from there.
-    ///
-    /// The third parameter is the size of the [Element] on the specified draw rect. If the same
-    /// page break is performed multiple times, the largest value on each axis should be used by the
-    /// container.
-    ///
-    /// Note: For correctness we might have to change the size to an option, because
-    /// right now `titled` assumes that if the height is zero that means nothing was drawn which
-    /// might not be correct for a zero height line or something. Same goes for `widget_or_break`.
-    /// Or maybe we can say that if width is also zero then there's nothing, but I'm also not sure
-    /// that's correct. We could also just say that zero height must mean there's nothing.
-    pub next_draw_pos: Option<&'b mut dyn FnMut(&mut Pdf, u32, [f64; 2]) -> DrawPos>,
+    /// The minimum height required for any extra locations added to the end. If, for example,
+    /// there's a flex with a text element that gets repeated for each location and other flex
+    /// elements use more locations than this one, the text element will still be drawn on the last
+    /// location via `preferred_break_count` and `preferred_height`. The flex needs to be able to
+    /// predict the height of the last page so that there isn't a single element that is higher than
+    /// the other ones.
+    pub extra_location_min_height: &'a mut f64,
 }
 
-impl Pdf {
-    pub fn next_layer(&mut self, draw_pos: &DrawPos) -> PdfLayerReference {
-        let layer = draw_pos.layer.layer;
-
-        let page = self.document.get_page(draw_pos.layer.page);
-
-        if page.layers_len() > layer.0 + 1 {
-            page.get_layer(PdfLayerIndex(layer.0 + 1))
-        } else {
-            page.add_layer(format!("Layer {}", layer.0 + 1))
-        }
-    }
+pub struct MeasureCtx<'a> {
+    pub width: Option<f64>,
+    pub first_height: f64,
+    pub breakable: Option<BreakableMeasure<'a>>,
 }
 
+pub struct BreakableDraw<'a> {
+    pub full_height: f64,
+    pub preferred_break_count: u32,
+    pub get_location: GetLocation<'a>,
+}
+
+pub struct DrawCtx<'a, 'b> {
+    pdf: &'a mut Pdf,
+    location: Location,
+
+    width: Option<f64>,
+    first_height: f64,
+    preferred_height: f64,
+    breakable: Option<BreakableDraw<'b>>,
+}
+
+pub struct ElementSize {
+    pub width: f64,
+
+    /// None here means that this element doesn't need any space on it's last page. This is useful
+    /// for things like collapsing gaps after a forced break. This in combination with no breaks
+    /// means the element is completely hidden. This can be used to trigger collapsing of gaps even
+    /// hiding certain parent containers, like titled, in turn.
+    pub height: Option<f64>,
+}
+
+/// Rules:
+/// Width returned from measure has to be matched in draw given the same
+/// constraint (even if there's some preferred height).
 pub trait Element {
-    /// A [None] on width means the element should take the width it needs.
-    fn element(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2];
-}
-
-impl<F: Fn(Option<f64>, Option<DrawContext>) -> [f64; 2]> Element for F {
-    #[inline]
-    fn element(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
-        self(width, draw)
+    // will_break_immediately
+    // skip_first_place
+    // skip_first
+    // instant_break
+    // insufficient_height
+    // insufficient_first_height
+    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
+        false
     }
+
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize>;
+
+    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize>;
 }
