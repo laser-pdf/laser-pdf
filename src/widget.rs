@@ -7,27 +7,6 @@ use stb_truetype as tt;
 use crate::utils::u32_to_color_and_alpha;
 
 // not sure if it makes sense to make this generic
-#[derive(Debug)]
-pub struct Font<D: Deref<Target = [u8]>> {
-    pub font_ref: IndirectFontRef,
-    pub font: tt::FontInfo<D>,
-}
-
-#[derive(Debug)]
-pub struct FontSet<'a, D: Deref<Target = [u8]>> {
-    pub regular: &'a Font<D>,
-    pub bold: &'a Font<D>,
-    pub italic: &'a Font<D>,
-    pub bold_italic: &'a Font<D>,
-}
-
-impl<'a, D: Deref<Target = [u8]>> Copy for FontSet<'a, D> {}
-
-impl<'a, D: Deref<Target = [u8]>> Clone for FontSet<'a, D> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
 
 pub struct NoneElement;
 

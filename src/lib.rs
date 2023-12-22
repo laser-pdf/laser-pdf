@@ -1,14 +1,19 @@
-pub mod break_text_into_lines;
-pub mod image;
-pub mod markup;
-pub mod shapes;
-pub mod text;
-pub mod utils;
-pub mod widget;
-pub mod widgets;
+// pub mod break_text_into_lines;
+// pub mod image;
+// pub mod markup;
+// pub mod shapes;
+// pub mod text;
+// pub mod widget;
+// pub mod widgets;
 
-use image::Image;
-use printpdf::indices::PdfLayerIndex;
+pub mod elements;
+pub mod utils;
+
+#[cfg(test)]
+pub mod test_utils;
+
+// use image::Image;
+// use printpdf::indices::PdfLayerIndex;
 use printpdf::*;
 use serde::{Deserialize, Serialize};
 use stb_truetype as tt;
@@ -17,15 +22,37 @@ use std::ops::Deref;
 
 pub const EMPTY_FIELD: &str = "—";
 
+#[derive(Debug)]
+pub struct Font<D: Deref<Target = [u8]>> {
+    pub font_ref: IndirectFontRef,
+    pub font: tt::FontInfo<D>,
+}
+
+#[derive(Debug)]
+pub struct FontSet<'a, D: Deref<Target = [u8]>> {
+    pub regular: &'a Font<D>,
+    pub bold: &'a Font<D>,
+    pub italic: &'a Font<D>,
+    pub bold_italic: &'a Font<D>,
+}
+
+impl<'a, D: Deref<Target = [u8]>> Copy for FontSet<'a, D> {}
+
+impl<'a, D: Deref<Target = [u8]>> Clone for FontSet<'a, D> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
 pub fn make_font<D: AsRef<[u8]> + Deref<Target = [u8]>>(
     doc: &PdfDocumentReference,
     bytes: D,
-) -> widget::Font<D> {
+) -> Font<D> {
     let font_reader = std::io::Cursor::new(&bytes);
     let pdf_font = doc.add_external_font(font_reader).unwrap();
     let font_info = tt::FontInfo::new(bytes, 0).unwrap();
 
-    widget::Font {
+    Font {
         font_ref: pdf_font,
         font: font_info,
     }
@@ -108,39 +135,39 @@ pub struct LineStyle {
     pub cap_style: LineCapStyle,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct SerdeImage {
-    pub path: String,
-    pub image: Image,
-}
+// #[derive(Clone, Serialize, Deserialize)]
+// #[serde(try_from = "String", into = "String")]
+// pub struct SerdeImage {
+//     pub path: String,
+//     pub image: Image,
+// }
 
-impl Into<String> for SerdeImage {
-    fn into(self) -> String {
-        self.path
-    }
-}
+// impl Into<String> for SerdeImage {
+//     fn into(self) -> String {
+//         self.path
+//     }
+// }
 
-impl TryFrom<String> for SerdeImage {
-    type Error = std::io::Error;
+// impl TryFrom<String> for SerdeImage {
+//     type Error = std::io::Error;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        let path: &std::path::Path = value.as_ref();
-        let image = if path.extension().map_or(false, |e| e == "svg") {
-            Image::Svg(
-                usvg::Tree::from_file(path, &Default::default())
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
-            )
-        } else {
-            Image::Pixel(
-                printpdf::image::open(path)
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
-            )
-        };
+//     fn try_from(value: String) -> Result<Self, Self::Error> {
+//         let path: &std::path::Path = value.as_ref();
+//         let image = if path.extension().map_or(false, |e| e == "svg") {
+//             Image::Svg(
+//                 usvg::Tree::from_file(path, &Default::default())
+//                     .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
+//             )
+//         } else {
+//             Image::Pixel(
+//                 printpdf::image::open(path)
+//                     .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
+//             )
+//         };
 
-        Ok(SerdeImage { path: value, image })
-    }
-}
+//         Ok(SerdeImage { path: value, image })
+//     }
+// }
 
 pub struct Pdf {
     pub document: PdfDocumentReference,
