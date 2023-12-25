@@ -251,6 +251,7 @@ pub struct DrawCtx<'a, 'b> {
     pub breakable: Option<BreakableDraw<'b>>,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ElementSize {
     pub width: f64,
 

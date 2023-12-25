@@ -6,24 +6,6 @@ use stb_truetype as tt;
 
 use crate::utils::u32_to_color_and_alpha;
 
-// not sure if it makes sense to make this generic
-
-pub struct NoneElement;
-
-impl Element for NoneElement {
-    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
-        None
-    }
-
-    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
-        None
-    }
-}
-
-pub fn none_element() -> impl Element {
-    move |_: Option<f64>, _: Option<DrawCtx>| [0.; 2]
-}
-
 pub struct Debug<W> {
     element: W,
     color: u32,
