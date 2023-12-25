@@ -225,20 +225,30 @@ pub struct MeasureCtx<'a> {
     pub breakable: Option<BreakableMeasure<'a>>,
 }
 
+pub struct MaxBreaks {
+    /// The maximum number of breaks.
+    pub count: u32,
+
+    /// The maximum height on the last location. Only relevant if the element uses [Self::count]
+    /// breaks. Otherwise [DrawCtx::first_height] or [BreakableDraw::full_height] can be used. This
+    /// always has to be less than either [DrawCtx::first_height] or [BreakableDraw::full_height].
+    pub last_location_max_height: f64,
+}
+
 pub struct BreakableDraw<'a> {
     pub full_height: f64,
-    pub preferred_break_count: u32,
+    pub max_breaks: Option<MaxBreaks>,
     pub get_location: GetLocation<'a>,
 }
 
 pub struct DrawCtx<'a, 'b> {
-    pdf: &'a mut Pdf,
-    location: Location,
+    pub pdf: &'a mut Pdf,
+    pub location: Location,
 
-    width: Option<f64>,
-    first_height: f64,
-    preferred_height: f64,
-    breakable: Option<BreakableDraw<'b>>,
+    pub width: Option<f64>,
+    pub first_height: f64,
+
+    pub breakable: Option<BreakableDraw<'b>>,
 }
 
 pub struct ElementSize {
