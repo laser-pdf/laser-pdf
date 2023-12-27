@@ -19,17 +19,12 @@ mod tests {
 
     #[test]
     fn none_element() {
-        run_element(1., 1., NoneElement)
-            .assert_pages(1)
-            .assert_linear();
+        for output in ElementTestParams::default().run(&NoneElement) {
+            output.assert_size(None);
 
-        assert_eq!(
-            NoneElement.measure(MeasureCtx {
-                width: Some(1.),
-                first_height: 1.,
-                breakable: None
-            }),
-            None,
-        );
+            if let Some(b) = output.breakable {
+                b.assert_break_count(0).assert_extra_location_min_height(0.);
+            }
+        }
     }
 }

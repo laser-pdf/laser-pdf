@@ -225,19 +225,22 @@ pub struct MeasureCtx<'a> {
     pub breakable: Option<BreakableMeasure<'a>>,
 }
 
-pub struct MaxBreaks {
-    /// The maximum number of breaks.
-    pub count: u32,
+impl<'a> MeasureCtx<'a> {
+    pub fn break_if_appropriate_for_min_height(&mut self, height: f64) -> bool {
+        if let Some(ref mut breakable) = self.breakable {
+            if height > self.first_height && breakable.full_height > self.first_height {
+                *breakable.break_count = 1;
+                return true;
+            }
+        }
 
-    /// The maximum height on the last location. Only relevant if the element uses [Self::count]
-    /// breaks. Otherwise [DrawCtx::first_height] or [BreakableDraw::full_height] can be used. This
-    /// always has to be less than either [DrawCtx::first_height] or [BreakableDraw::full_height].
-    pub last_location_max_height: f64,
+        false
+    }
 }
 
 pub struct BreakableDraw<'a> {
     pub full_height: f64,
-    pub max_breaks: Option<MaxBreaks>,
+    pub preferred_height_break_count: u32,
     pub get_location: GetLocation<'a>,
 }
 
@@ -248,7 +251,22 @@ pub struct DrawCtx<'a, 'b> {
     pub width: Option<f64>,
     pub first_height: f64,
 
+    pub preferred_height: f64,
+
     pub breakable: Option<BreakableDraw<'b>>,
+}
+
+impl<'a, 'b> DrawCtx<'a, 'b> {
+    pub fn break_if_appropriate_for_min_height(&mut self, height: f64) -> bool {
+        if let Some(ref mut breakable) = self.breakable {
+            if height > self.first_height && breakable.full_height > self.first_height {
+                self.location = (breakable.get_location)(self.pdf, 0);
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
