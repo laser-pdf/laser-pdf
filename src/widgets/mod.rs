@@ -495,29 +495,6 @@ pub fn break_whole<W: Element>(widget: W) -> impl Element {
     }
 }
 
-pub fn force_break() -> impl Element {
-    move |_width: Option<f64>, draw: Option<DrawCtx>| {
-        if let Some(DrawCtx {
-            pdf,
-            location,
-            next_location: Some(next_location),
-            ..
-        }) = draw
-        {
-            let draw_rect = if location.height_available < 0. {
-                next_location(pdf, 0, [0.; 2]);
-                1
-            } else {
-                0
-            };
-
-            next_location(pdf, draw_rect, [0.; 2]);
-        }
-
-        [0.; 2]
-    }
-}
-
 pub struct StyledBox<W> {
     pub widget: W,
     pub padding_top: f64,
