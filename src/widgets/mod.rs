@@ -309,30 +309,6 @@ impl<W: Element, F: Element> Element for Page<W, F> {
     }
 }
 
-pub struct Rectangle(pub [f64; 2]);
-
-impl Element for Rectangle {
-    fn draw(&self, _width: Option<f64>, draw: Option<DrawCtx>) -> [f64; 2] {
-        if let Some(context) = draw {
-            let points = calculate_points_for_rect(
-                Pt(mm_to_pt(self.0[0])),
-                Pt(mm_to_pt(self.0[1])),
-                Pt(mm_to_pt(context.location.pos[0] + self.0[0] / 2.0)),
-                Pt(mm_to_pt(context.location.pos[1] - self.0[1] / 2.0)),
-            );
-
-            context.location.layer.add_shape(printpdf::Line {
-                points,
-                is_closed: true,
-                has_fill: true,
-                has_stroke: false,
-                is_clipping_path: false,
-            });
-        }
-        self.0
-    }
-}
-
 pub struct HCenter<W: Element>(pub W);
 
 impl<W: Element> Element for HCenter<W> {
