@@ -2,41 +2,74 @@ use printpdf::utils::calculate_points_for_rect;
 
 use crate::{utils::*, *};
 
-pub struct Rectangle((f64, f64));
+pub struct Rectangle {
+    pub size: (f64, f64),
+    pub fill: Option<u32>,
+    pub outline: Option<(f64, u32)>,
+}
 
 impl Element for Rectangle {
     fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
-        ctx.break_if_appropriate_for_min_height(self.0 .1);
+        let outline_thickness = outline_thickness(self);
+        ctx.break_if_appropriate_for_min_height(self.size.1 + outline_thickness);
 
         Some(size(self))
     }
 
     fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
-        ctx.break_if_appropriate_for_min_height(self.0 .1);
+        let outline_thickness = outline_thickness(self);
+        ctx.break_if_appropriate_for_min_height(self.size.1 + outline_thickness);
+
+        let extra_outline_offset = outline_thickness / 2.0;
 
         let points = calculate_points_for_rect(
-            Pt(mm_to_pt(self.0 .0)),
-            Pt(mm_to_pt(self.0 .1)),
-            Pt(mm_to_pt(ctx.location.pos.0 + self.0 .0 / 2.0)),
-            Pt(mm_to_pt(ctx.location.pos.1 - self.0 .1 / 2.0)),
+            Mm(self.size.0),
+            Mm(self.size.1),
+            Mm(ctx.location.pos.0 + self.size.0 / 2.0 + extra_outline_offset),
+            Mm(ctx.location.pos.1 - self.size.1 / 2.0 - extra_outline_offset),
         );
 
-        ctx.location.layer.add_shape(printpdf::Line {
+        ctx.location.layer.save_graphics_state();
+
+        if let Some(color) = self.fill {
+            let (color, alpha) = u32_to_color_and_alpha(color);
+            ctx.location.layer.set_fill_color(color);
+            ctx.location.layer.set_fill_alpha(alpha);
+        }
+
+        if let Some((thickness, color)) = self.outline {
+            // No outline alpha?
+            let (color, _alpha) = u32_to_color_and_alpha(color);
+            ctx.location.layer.set_outline_color(color);
+            ctx.location
+                .layer
+                .set_outline_thickness(mm_to_pt(thickness));
+        }
+
+        ctx.location.layer.add_shape(Line {
             points,
             is_closed: true,
-            has_fill: true,
-            has_stroke: false,
+            has_fill: self.fill.is_some(),
+            has_stroke: self.outline.is_some(),
             is_clipping_path: false,
         });
+
+        ctx.location.layer.restore_graphics_state();
 
         Some(size(self))
     }
 }
 
+fn outline_thickness(rectangle: &Rectangle) -> f64 {
+    rectangle.outline.map(|o| o.0).unwrap_or(0.0)
+}
+
 fn size(rectangle: &Rectangle) -> ElementSize {
+    let outline_thickness = outline_thickness(rectangle);
+
     ElementSize {
-        width: rectangle.0 .0,
-        height: Some(rectangle.0 .1),
+        width: rectangle.size.0 + outline_thickness,
+        height: Some(rectangle.size.1 + outline_thickness),
     }
 }
 
@@ -51,8 +84,11 @@ mod tests {
             first_height: 12.,
             ..Default::default()
         })
-        .run(&Rectangle((12., 13.)))
-        {
+        .run(&Rectangle {
+            size: (11., 12.),
+            fill: None,
+            outline: Some((1., 0)),
+        }) {
             output.assert_size(Some(ElementSize {
                 width: 12.,
                 height: Some(13.),
