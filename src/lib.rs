@@ -1,4 +1,3 @@
-// pub mod break_text_into_lines;
 // pub mod image;
 // pub mod markup;
 // pub mod shapes;
@@ -7,6 +6,7 @@
 // pub mod widgets;
 
 pub mod elements;
+pub mod line_breaking;
 pub mod utils;
 
 #[cfg(test)]
