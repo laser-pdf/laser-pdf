@@ -290,6 +290,7 @@ pub trait Element {
     // instant_break
     // insufficient_height
     // insufficient_first_height
+    #[allow(unused_variables)]
     fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
         false
     }
