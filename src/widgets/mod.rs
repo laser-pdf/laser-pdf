@@ -10,32 +10,6 @@ pub mod containers;
 
 pub use containers::*;
 
-pub struct Gap(pub f64);
-
-impl Element for Gap {
-    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
-        false
-    }
-
-    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
-        let height_available = f64::INFINITY;
-
-        Some(ElementSize {
-            width: width.unwrap_or(0.0),
-            height: Some(self.0.min(height_available)),
-        })
-    }
-
-    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
-        let height_available = ctx.location.height_available;
-
-        Some(ElementSize {
-            width: width.unwrap_or(0.0),
-            height: Some(self.0.min(height_available)),
-        })
-    }
-}
-
 pub struct HGap(pub f64);
 
 impl Element for HGap {
