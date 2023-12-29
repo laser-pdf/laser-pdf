@@ -1,4 +1,4 @@
-use printpdf::utils::calculate_points_for_rect;
+use printpdf::{utils::calculate_points_for_rect, Line};
 
 use crate::{utils::*, *};
 

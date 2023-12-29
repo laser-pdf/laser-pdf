@@ -1,4 +1,4 @@
-use printpdf::utils::calculate_points_for_circle;
+use printpdf::{utils::calculate_points_for_circle, Line};
 
 use crate::{utils::*, *};
 

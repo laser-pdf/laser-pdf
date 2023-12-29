@@ -6,56 +6,25 @@
 // pub mod widgets;
 
 pub mod elements;
-pub mod line_breaking;
+pub mod fonts;
+pub mod text;
 pub mod utils;
 
 #[cfg(test)]
 pub mod test_utils;
 
-// use image::Image;
-// use printpdf::indices::PdfLayerIndex;
-use printpdf::*;
+use fonts::Font;
+use printpdf::{Mm, PdfDocumentReference, PdfLayerReference};
 use serde::{Deserialize, Serialize};
-use stb_truetype as tt;
-
-use std::ops::Deref;
 
 pub const EMPTY_FIELD: &str = "—";
 
 #[derive(Debug)]
-pub struct Font<D: Deref<Target = [u8]>> {
-    pub font_ref: IndirectFontRef,
-    pub font: tt::FontInfo<D>,
-}
-
-#[derive(Debug)]
-pub struct FontSet<'a, D: Deref<Target = [u8]>> {
-    pub regular: &'a Font<D>,
-    pub bold: &'a Font<D>,
-    pub italic: &'a Font<D>,
-    pub bold_italic: &'a Font<D>,
-}
-
-impl<'a, D: Deref<Target = [u8]>> Copy for FontSet<'a, D> {}
-
-impl<'a, D: Deref<Target = [u8]>> Clone for FontSet<'a, D> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-pub fn make_font<D: AsRef<[u8]> + Deref<Target = [u8]>>(
-    doc: &PdfDocumentReference,
-    bytes: D,
-) -> Font<D> {
-    let font_reader = std::io::Cursor::new(&bytes);
-    let pdf_font = doc.add_external_font(font_reader).unwrap();
-    let font_info = tt::FontInfo::new(bytes, 0).unwrap();
-
-    Font {
-        font_ref: pdf_font,
-        font: font_info,
-    }
+pub struct FontSet<'a, F: Font> {
+    pub regular: &'a F,
+    pub bold: &'a F,
+    pub italic: &'a F,
+    pub bold_italic: &'a F,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]

@@ -1,3 +1,5 @@
+use printpdf::Point;
+
 use crate::{utils::*, *};
 
 pub struct Line {

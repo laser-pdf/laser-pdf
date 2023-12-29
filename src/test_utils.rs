@@ -1,4 +1,7 @@
-use printpdf::indices::{PdfLayerIndex, PdfPageIndex};
+use printpdf::{
+    indices::{PdfLayerIndex, PdfPageIndex},
+    PdfDocument,
+};
 
 use crate::*;
 
@@ -290,5 +293,26 @@ impl ElementTestOutput {
     pub fn assert_size(&self, size: Option<ElementSize>) -> &Self {
         assert_eq!(self.size, size);
         self
+    }
+}
+
+pub struct ElementProxy<E, D> {
+    pub element: E,
+    pub before_draw: D,
+}
+
+impl<E: Element, D: Fn(&mut DrawCtx)> Element for ElementProxy<E, D> {
+    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
+        self.element.insufficient_first_height(ctx)
+    }
+
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+        self.element.measure(ctx)
+    }
+
+    fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
+        (self.before_draw)(&mut ctx);
+
+        self.element.draw(ctx)
     }
 }
