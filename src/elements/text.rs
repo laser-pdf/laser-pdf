@@ -309,8 +309,7 @@ mod tests {
 
     #[test]
     fn test_text() {
-        // A fake document for adding the font to. Fake in the sense that the documents that will
-        // actually be drawn upon will not contain the font.
+        // A fake document for adding the font to.
         let doc = PdfDocument::empty("i contain a font");
 
         let font = BuiltinFont::helvetica(&doc);
