@@ -1,12 +1,6 @@
-// pub mod image;
-// pub mod markup;
-// pub mod shapes;
-// pub mod text;
-// pub mod widget;
-// pub mod widgets;
-
 pub mod elements;
 pub mod fonts;
+pub mod image;
 pub mod text;
 pub mod utils;
 
@@ -166,13 +160,20 @@ pub type GetLocation<'a> = &'a mut dyn FnMut(&mut Pdf, u32) -> Location;
 pub struct InsufficientFirstHeightCtx {
     pub width: Option<f64>,
     pub first_height: f64,
+
     // is this needed?
     // one could argue that the parent should know to not even ask if full height isn't more
     // on the other hand a text element could have a behavior of printing one line at a time if
     // full-height is less than the height needed, but available-height might still be even less
     // than that and in that case text might still use the first one (though the correctness of that
     // is also questionable)
-    // pub full_height: f64,
+    pub full_height: f64,
+}
+
+impl InsufficientFirstHeightCtx {
+    pub fn break_appropriate_for_min_height(&self, height: f64) -> bool {
+        height > self.first_height && self.full_height > self.first_height
+    }
 }
 
 pub struct BreakableMeasure<'a> {
