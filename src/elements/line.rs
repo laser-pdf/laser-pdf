@@ -16,7 +16,7 @@ impl Element for Line {
     fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
         ctx.break_if_appropriate_for_min_height(self.style.thickness);
 
-        if let Some(width) = ctx.width {
+        if ctx.width.expand {
             ctx.location.layer.save_graphics_state();
 
             let (color, _alpha) = u32_to_color_and_alpha(self.style.color);
@@ -41,7 +41,7 @@ impl Element for Line {
                 points: vec![
                     (Point::new(Mm(ctx.location.pos.0), Mm(line_y)), false),
                     (
-                        Point::new(Mm(ctx.location.pos.0 + width), Mm(line_y)),
+                        Point::new(Mm(ctx.location.pos.0 + ctx.width.max), Mm(line_y)),
                         false,
                     ),
                 ],
@@ -58,9 +58,9 @@ impl Element for Line {
     }
 }
 
-fn size(line: &Line, width: Option<f64>) -> ElementSize {
+fn size(line: &Line, width: WidthConstraint) -> ElementSize {
     ElementSize {
-        width: width.unwrap_or(0.),
+        width: width.constrain(0.),
         height: Some(line.style.thickness),
     }
 }
@@ -85,7 +85,7 @@ mod tests {
             },
         }) {
             output.assert_size(Some(ElementSize {
-                width: output.width.unwrap_or(0.),
+                width: output.width.constrain(0.),
                 height: Some(1.),
             }));
 

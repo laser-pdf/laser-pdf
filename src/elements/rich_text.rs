@@ -41,6 +41,7 @@ pub struct LineFragment<'a, F: Font> {
     x_offset: f64,
 }
 
+// These are manually implemented because the derive macro would otherwise put a Copy bound on F.
 impl<'a, F: Font> Copy for LineFragment<'a, F> {}
 
 impl<'a, F: Font> Clone for LineFragment<'a, F> {
@@ -68,10 +69,7 @@ pub struct LineFragmentTrimmed<'a, F: Font> {
 }
 
 impl<'a, F: Font> RichText<'a, F> {
-    fn pieces(
-        &'a self,
-        width: Option<f64>,
-    ) -> (impl Iterator<Item = LineFragment<'a, F>> + 'a, f64) {
+    fn pieces(&'a self, width: f64) -> (impl Iterator<Item = LineFragment<'a, F>> + 'a, f64) {
         #[derive(Copy, Clone)]
         struct FontVars {
             ascent: f64,
@@ -161,14 +159,10 @@ impl<'a, F: Font> RichText<'a, F> {
                             }
                         }
                         Some((ref mut gen, font, font_vars, bold, _italic, underline, color)) => {
-                            let next = if let Some(width) = width {
-                                if let FirstLine | LineDone = line_state {
-                                    gen.next(mm_to_pt(width), false)
-                                } else {
-                                    gen.next(mm_to_pt(width - x_offset).max(0.), true)
-                                }
+                            let next = if let FirstLine | LineDone = line_state {
+                                gen.next(mm_to_pt(width), false)
                             } else {
-                                gen.next_unconstrained()
+                                gen.next(mm_to_pt(width - x_offset).max(0.), true)
                             };
 
                             if let Some(next) = next {
@@ -225,7 +219,7 @@ impl<'a, F: Font> RichText<'a, F> {
 
     fn pieces_trimmed(
         &'a self,
-        width: Option<f64>,
+        width: f64,
     ) -> (impl Iterator<Item = LineFragmentTrimmed<'a, F>> + 'a, f64) {
         let (mut iter, line_height) = self.pieces(width);
 
@@ -274,13 +268,9 @@ impl<'a, F: Font> RichText<'a, F> {
 
 impl<'a, F: Font> Element for RichText<'a, F> {
     fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
-        let mut max_width = if let Some(width) = ctx.width {
-            width
-        } else {
-            0.
-        };
+        let mut max_width = ctx.width.constrain(0.);
 
-        let (iter, line_height) = self.pieces_trimmed(ctx.width);
+        let (iter, line_height) = self.pieces_trimmed(ctx.width.max);
         let line_height = line_height + self.extra_line_height;
 
         let mut height_available = ctx.first_height;
@@ -322,13 +312,9 @@ impl<'a, F: Font> Element for RichText<'a, F> {
     }
 
     fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
-        let mut max_width = if let Some(width) = ctx.width {
-            width
-        } else {
-            0.
-        };
+        let mut max_width = ctx.width.constrain(0.);
 
-        let (iter, line_height) = self.pieces_trimmed(ctx.width);
+        let (iter, line_height) = self.pieces_trimmed(ctx.width.max);
         let line_height = line_height + self.extra_line_height;
 
         let mut x = ctx.location.pos.0;
@@ -476,8 +462,7 @@ mod tests {
         // amet
 
         let element = ElementProxy {
-            element: text_element,
-            before_draw: |ctx: &mut DrawCtx| {
+            before_draw: &|ctx: &mut DrawCtx| {
                 // These seem to be stored in a map by name and when drawing a font with the same
                 // needs to exist in the document being drawn on.
                 ctx.pdf
@@ -497,6 +482,7 @@ mod tests {
                     .add_builtin_font(printpdf::BuiltinFont::CourierBoldOblique)
                     .unwrap();
             },
+            ..ElementProxy::new(text_element)
         };
 
         // Since courier is a monospace font all letters should be the same width which makes our
@@ -507,35 +493,19 @@ mod tests {
         for mut output in (ElementTestParams {
             first_height: 2.,
             full_height: line_height,
-            width: letter_width * 6.,
+            width: letter_width * 6.5,
             ..Default::default()
         })
         .run(&element)
         {
             if let Some(ref mut b) = output.breakable {
-                b.assert_break_count(match (output.first_height == 2., output.width.is_some()) {
-                    (false, false) => 0,
-                    (false, true) => 4,
-                    (true, false) => 1,
-                    (true, true) => 5,
-                });
+                b.assert_break_count(if output.first_height == 2. { 5 } else { 4 });
             }
 
             output.assert_size(Some(ElementSize {
-                width: if let Some(width) = output.width {
-                    width
-                } else {
-                    letter_width * 27.
-                },
+                width: output.width.constrain(letter_width * 6.),
 
-                height: Some(
-                    line_height
-                        * if output.breakable.is_some() || output.width.is_none() {
-                            1.
-                        } else {
-                            5.
-                        },
-                ),
+                height: Some(line_height * if output.breakable.is_some() { 1. } else { 5. }),
             }));
         }
     }

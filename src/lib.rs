@@ -148,6 +148,22 @@ pub struct Location {
     pub pos: (f64, f64),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WidthConstraint {
+    pub max: f64,
+    pub expand: bool,
+}
+
+impl WidthConstraint {
+    pub fn constrain(&self, width: f64) -> f64 {
+        if self.expand {
+            self.max
+        } else {
+            width.min(self.max)
+        }
+    }
+}
+
 /// This returns a new [Location] because some collection elements need to keep multiple
 /// [Location]s at once (e.g. for page breaking inside of a horizontal list)
 ///
@@ -158,7 +174,7 @@ pub struct Location {
 pub type GetLocation<'a> = &'a mut dyn FnMut(&mut Pdf, u32) -> Location;
 
 pub struct InsufficientFirstHeightCtx {
-    pub width: Option<f64>,
+    pub width: WidthConstraint,
     pub first_height: f64,
 
     // is this needed?
@@ -190,7 +206,7 @@ pub struct BreakableMeasure<'a> {
 }
 
 pub struct MeasureCtx<'a> {
-    pub width: Option<f64>,
+    pub width: WidthConstraint,
     pub first_height: f64,
     pub breakable: Option<BreakableMeasure<'a>>,
 }
@@ -218,7 +234,7 @@ pub struct DrawCtx<'a, 'b> {
     pub pdf: &'a mut Pdf,
     pub location: Location,
 
-    pub width: Option<f64>,
+    pub width: WidthConstraint,
     pub first_height: f64,
 
     pub preferred_height: f64,

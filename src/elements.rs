@@ -1,5 +1,6 @@
 pub mod circle;
 pub mod force_break;
+pub mod h_center;
 pub mod image;
 pub mod line;
 pub mod none;

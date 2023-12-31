@@ -62,20 +62,16 @@ impl<'a> Element for ImageElement<'a> {
 }
 
 #[inline]
-fn calculate_size(image: &DynamicImage, width: Option<f64>) -> (f64, f64, ElementSize) {
+fn calculate_size(image: &DynamicImage, width: WidthConstraint) -> (f64, f64, ElementSize) {
     let dimensions = {
         let (x, y) = image.dimensions();
         (x as f64 * INCH_TO_MM, y as f64 * INCH_TO_MM)
     };
 
-    let (size, scale) = if let Some(width) = width {
-        (
-            (width, dimensions.1 * width / dimensions.0),
-            width / dimensions.0,
-        )
-    } else {
-        (dimensions, 1.0)
-    };
+    let width = width.constrain(dimensions.0);
+
+    let size = (width, dimensions.1 * width / dimensions.0);
+    let scale = width / dimensions.0;
 
     (
         size.1,

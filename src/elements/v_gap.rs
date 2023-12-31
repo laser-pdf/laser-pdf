@@ -12,9 +12,9 @@ impl Element for VGap {
     }
 }
 
-fn size(v_gap: &VGap, width: Option<f64>, first_height: f64) -> ElementSize {
+fn size(v_gap: &VGap, width: WidthConstraint, first_height: f64) -> ElementSize {
     ElementSize {
-        width: width.unwrap_or(0.0),
+        width: width.constrain(0.),
         height: Some(v_gap.0.min(first_height)),
     }
 }
@@ -33,7 +33,7 @@ mod tests {
         .run(&VGap(28.3))
         {
             output.assert_size(Some(ElementSize {
-                width: output.width.unwrap_or(0.),
+                width: output.width.constrain(0.),
                 height: Some(if output.first_height == 11. {
                     11.
                 } else {

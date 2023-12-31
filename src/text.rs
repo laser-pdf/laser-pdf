@@ -48,6 +48,7 @@ pub fn remove_non_trailing_soft_hyphens(text: &str) -> String {
         .collect()
 }
 
+#[derive(Clone)]
 pub struct BreakTextIntoLines<'a, F: Fn(&str) -> f64> {
     line_generator: LineGenerator<'a, F>,
     max_width: f64,
@@ -72,6 +73,7 @@ pub fn break_text_into_lines<'a, F: Fn(&str) -> f64>(
     }
 }
 
+#[derive(Clone)]
 pub struct LineGenerator<'a, F: Fn(&str) -> f64> {
     text: Option<&'a str>,
     text_width: F,
@@ -86,22 +88,6 @@ impl<'a, F: Fn(&str) -> f64> LineGenerator<'a, F> {
             text: Some(text),
             text_width,
             soft_hyphen_width,
-        }
-    }
-
-    pub fn next_unconstrained(&mut self) -> Option<&'a str> {
-        if let Some(slice) = self.text {
-            for (i, c) in slice.char_indices() {
-                if c == '\n' {
-                    self.text = Some(&slice[i + 1..]);
-                    return Some(&slice[..i]);
-                }
-            }
-
-            self.text = None;
-            Some(slice)
-        } else {
-            None
         }
     }
 

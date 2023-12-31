@@ -205,7 +205,7 @@ impl<'a, F: Font> Text<'a, F> {
         (max_width, line_count as f64 * line_height)
     }
 
-    fn break_into_lines_constrained(&'a self, width: f64) -> impl Iterator<Item = &'a str> {
+    fn break_into_lines(&'a self, width: f64) -> impl Iterator<Item = &'a str> + Clone {
         break_text_into_lines(self.text, mm_to_pt(width), move |text| {
             text_width(
                 text,
@@ -216,41 +216,22 @@ impl<'a, F: Font> Text<'a, F> {
             )
         })
     }
-
-    fn break_into_lines_unconstrained(&'a self) -> impl Iterator<Item = &'a str> + Clone {
-        self.text.split('\n')
-    }
 }
 
 impl<'a, F: Font> Element for Text<'a, F> {
     fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
         let FontMetrics { line_height, .. } = self.compute_font_metrics();
 
-        if let Some(width) = ctx.width {
-            let height = self
-                .layout_lines(
-                    self.break_into_lines_constrained(width),
-                    line_height,
-                    Some(&mut ctx),
-                )
-                .1;
+        let size = self.layout_lines(
+            self.break_into_lines(ctx.width.max),
+            line_height,
+            Some(&mut ctx),
+        );
 
-            Some(ElementSize {
-                width: width,
-                height: Some(height),
-            })
-        } else {
-            let size = self.layout_lines(
-                self.break_into_lines_unconstrained(),
-                line_height,
-                Some(&mut ctx),
-            );
-
-            Some(ElementSize {
-                width: size.0,
-                height: Some(size.1),
-            })
-        }
+        Some(ElementSize {
+            width: ctx.width.constrain(size.0),
+            height: Some(size.1),
+        })
     }
 
     fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
@@ -259,39 +240,23 @@ impl<'a, F: Font> Element for Text<'a, F> {
             line_height,
         } = self.compute_font_metrics();
 
-        if let Some(width) = ctx.width {
-            let height = self
-                .render_lines(
-                    self.break_into_lines_constrained(width),
-                    ctx,
-                    ascent,
-                    line_height,
-                    width,
-                )
-                .1;
+        let lines = self.break_into_lines(ctx.width.max);
 
-            Some(ElementSize {
-                width: width,
-                height: Some(height),
-            })
+        // For left alignment we don't need to pre-layout because the
+        // x offset is always zero.
+        let width = if ctx.width.expand || self.align == TextAlign::Left {
+            0.
         } else {
-            let lines = self.break_into_lines_unconstrained();
+            self.layout_lines(lines.clone(), line_height, None).0
+        };
 
-            // For left alignment we don't need to pre-layout because the
-            // x offset is always zero.
-            let width = if self.align == TextAlign::Left {
-                0.
-            } else {
-                self.layout_lines(lines.clone(), line_height, None).0
-            };
+        let width_constraint = ctx.width;
+        let size = self.render_lines(lines, ctx, ascent, line_height, width);
 
-            let size = self.render_lines(lines, ctx, ascent, line_height, width);
-
-            Some(ElementSize {
-                width: size.0,
-                height: Some(size.1),
-            })
-        }
+        Some(ElementSize {
+            width: width_constraint.constrain(size.0),
+            height: Some(size.1),
+        })
     }
 }
 
@@ -319,8 +284,7 @@ mod tests {
         };
 
         let element = ElementProxy {
-            element: text_element,
-            before_draw: |ctx: &mut DrawCtx| {
+            before_draw: &|ctx: &mut DrawCtx| {
                 // These seem to be stored in a map by name and when drawing a font with the same
                 // needs to exist in the document being drawn on.
                 ctx.pdf
@@ -328,6 +292,7 @@ mod tests {
                     .add_builtin_font(printpdf::BuiltinFont::Helvetica)
                     .unwrap();
             },
+            ..ElementProxy::new(text_element)
         };
 
         for mut output in (ElementTestParams {
@@ -342,11 +307,7 @@ mod tests {
             }
 
             output.assert_size(Some(ElementSize {
-                width: if let Some(width) = output.width {
-                    width
-                } else {
-                    19.291312152
-                },
+                width: output.width.constrain(19.291312152),
 
                 // Note: I'm not sure this line height is correct. When running the same test with
                 // Nimbus Sans L, which is supposed to be fully metrically compatible with
