@@ -1,10 +1,16 @@
 use crate::*;
 
-pub struct HCenter<E: Element>(pub E);
+pub enum HorizontalAlignment {
+    Left,
+    Center,
+    Right,
+}
 
-impl<E: Element> Element for HCenter<E> {
+pub struct HAlign<E: Element>(pub HorizontalAlignment, pub E);
+
+impl<E: Element> Element for HAlign<E> {
     fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
-        self.0
+        self.1
             .insufficient_first_height(InsufficientFirstHeightCtx {
                 width: WidthConstraint {
                     expand: false,
@@ -17,7 +23,7 @@ impl<E: Element> Element for HCenter<E> {
     fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
         let width = ctx.width;
 
-        let size = self.0.measure(MeasureCtx {
+        let size = self.1.measure(MeasureCtx {
             width: WidthConstraint {
                 expand: false,
                 max: width.max,
@@ -38,7 +44,7 @@ impl<E: Element> Element for HCenter<E> {
             let mut break_count = 0;
             let mut extra_location_min_height = 0.;
 
-            let element_size = self.0.measure(MeasureCtx {
+            let element_size = self.1.measure(MeasureCtx {
                 width: WidthConstraint {
                     max: width.max,
                     expand: false,
@@ -55,7 +61,11 @@ impl<E: Element> Element for HCenter<E> {
             let element_width;
 
             if let Some(size) = element_size {
-                x_offset = (width.max - size.width) / 2.0;
+                x_offset = match self.0 {
+                    HorizontalAlignment::Left => 0.,
+                    HorizontalAlignment::Center => (width.max - size.width) / 2.0,
+                    HorizontalAlignment::Right => width.max - size.width,
+                };
                 element_width = size.width;
             } else {
                 x_offset = 0.;
@@ -70,7 +80,7 @@ impl<E: Element> Element for HCenter<E> {
             };
 
             if let Some(breakable) = ctx.breakable {
-                self.0.draw(DrawCtx {
+                self.1.draw(DrawCtx {
                     width: width_constraint,
                     breakable: Some(BreakableDraw {
                         full_height: breakable.full_height,
@@ -86,14 +96,14 @@ impl<E: Element> Element for HCenter<E> {
                     ..ctx
                 })
             } else {
-                self.0.draw(DrawCtx {
+                self.1.draw(DrawCtx {
                     width: width_constraint,
                     breakable: None,
                     ..ctx
                 })
             }
         } else {
-            self.0.draw(ctx)
+            self.1.draw(ctx)
         };
 
         size.map(|size| ElementSize {
@@ -111,10 +121,11 @@ mod tests {
     };
 
     use super::*;
+    use HorizontalAlignment::*;
 
     #[test]
-    fn test_h_center_none() {
-        for output in ElementTestParams::default().run(&HCenter(NoneElement)) {
+    fn test_h_align_none() {
+        for output in ElementTestParams::default().run(&HAlign(Center, NoneElement)) {
             output.assert_size(None);
 
             if let Some(b) = output.breakable {
@@ -124,7 +135,7 @@ mod tests {
     }
 
     #[test]
-    fn test_h_center_fake_text() {
+    fn test_h_align_fake_text() {
         let element = BuildElement(|build_ctx, callback| {
             let content = FakeText {
                 width: 5.,
@@ -154,7 +165,7 @@ mod tests {
                 },
                 ..ElementProxy::new(content)
             };
-            callback.call(HCenter(proxy))
+            callback.call(HAlign(Center, proxy))
         });
 
         for output in (ElementTestParams {
@@ -184,7 +195,7 @@ mod tests {
     }
 
     #[test]
-    fn test_h_center_too_wide() {
+    fn test_h_align_too_wide() {
         // If the element wants to be wider than the width constraint the element should just get
         // the width constraint.
 
@@ -214,7 +225,7 @@ mod tests {
                 },
                 ..ElementProxy::new(content)
             };
-            callback.call(HCenter(proxy))
+            callback.call(HAlign(Center, proxy))
         });
 
         for output in (ElementTestParams {
@@ -269,7 +280,7 @@ mod tests {
             width: 4.,
             ..Default::default()
         })
-        .run(&HCenter(Overdraw))
+        .run(&HAlign(Center, Overdraw))
         {
             output.assert_size(Some(ElementSize {
                 width: 4.,
@@ -283,7 +294,7 @@ mod tests {
     }
 
     #[test]
-    fn test_h_center_fake_image() {
+    fn test_h_align_fake_image() {
         let element = BuildElement(|build_ctx, callback| {
             let content = FakeImage {
                 width: 5.,
@@ -301,18 +312,18 @@ mod tests {
                     );
                     assert_eq!(
                         ctx.location.pos.0,
-                        12. + if ctx.width.expand { 2.5 } else { 0. }
+                        12. + if ctx.width.expand { 5. } else { 0. }
                     );
                 },
                 after_break: &|_location_idx: u32,
                                location: &Location,
                                width: WidthConstraint,
                                _first_height| {
-                    assert_eq!(location.pos.0, 12. + if width.expand { 2.5 } else { 0. });
+                    assert_eq!(location.pos.0, 12. + if width.expand { 5. } else { 0. });
                 },
                 ..ElementProxy::new(content)
             };
-            callback.call(HCenter(proxy))
+            callback.call(HAlign(Right, proxy))
         });
 
         for output in (ElementTestParams {
@@ -336,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    fn test_h_center_fake_image_too_wide() {
+    fn test_h_align_fake_image_too_wide() {
         let element = BuildElement(|build_ctx, callback| {
             let content = FakeImage {
                 width: 10.,
@@ -362,7 +373,7 @@ mod tests {
                 },
                 ..ElementProxy::new(content)
             };
-            callback.call(HCenter(proxy))
+            callback.call(HAlign(Right, proxy))
         });
 
         for output in (ElementTestParams {
@@ -375,6 +386,58 @@ mod tests {
         {
             output.assert_size(Some(ElementSize {
                 width: 5.,
+                height: Some(2.),
+            }));
+
+            if let Some(b) = output.breakable {
+                b.assert_break_count(if output.first_height == 1. { 1 } else { 0 })
+                    .assert_extra_location_min_height(0.);
+            }
+        }
+    }
+
+    #[test]
+    fn test_h_align_cancel_out() {
+        // Alignments should be able to cancel each other out.
+
+        let element = BuildElement(|build_ctx, callback| {
+            let content = FakeImage {
+                width: 5.,
+                height: 2.,
+            };
+
+            let proxy = ElementProxy {
+                before_draw: &|ctx: &mut DrawCtx| {
+                    assert_eq!(
+                        ctx.width,
+                        WidthConstraint {
+                            max: if build_ctx.width.expand { 5. } else { 10. },
+                            expand: build_ctx.width.expand,
+                        }
+                    );
+                    assert_eq!(ctx.location.pos.0, 12.);
+                },
+                after_break: &|_location_idx: u32,
+                               location: &Location,
+                               _width: WidthConstraint,
+                               _first_height| {
+                    assert_eq!(location.pos.0, 12.);
+                },
+                ..ElementProxy::new(content)
+            };
+            callback.call(HAlign(Left, HAlign(Right, proxy)))
+        });
+
+        for output in (ElementTestParams {
+            first_height: 1.,
+            full_height: 4.,
+            width: 10.,
+            ..Default::default()
+        })
+        .run(&element)
+        {
+            output.assert_size(Some(ElementSize {
+                width: output.width.constrain(5.),
                 height: Some(2.),
             }));
 
