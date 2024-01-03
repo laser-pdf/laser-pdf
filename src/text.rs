@@ -1,6 +1,5 @@
 use std::ops::Deref;
 
-
 use printpdf::types::pdf_layer::GappedTextElement;
 use printpdf::*;
 use serde::Deserialize;
@@ -105,7 +104,7 @@ impl<'a, D: Deref<Target = [u8]>> Element for TextColor<'a, D> {
 pub struct TextVertical<'a, D: Deref<Target = [u8]>> {
     pub text: &'a str,
     pub font: &'a crate::widget::Font<D>,
-    pub size: u16,
+    pub size: f64,
     pub color: [f64; 3],
     pub underline: bool,
 }
@@ -123,7 +122,7 @@ impl<'a, D: Deref<Target = [u8]>> Element for TextVertical<'a, D> {
 
         fn render_lines<'a, L: Iterator<Item = &'a str>, D: Deref<Target = [u8]>>(
             lines: L,
-            size: u16,
+            size: f64,
             font: &'a crate::widget::Font<D>,
             color: [f64; 3],
             draw: Option<DrawContext>,
@@ -144,7 +143,7 @@ impl<'a, D: Deref<Target = [u8]>> Element for TextVertical<'a, D> {
 
                 for line in lines {
                     *max_width =
-                        max_width.max(pt_to_mm(text_width(line, size as f64, &font.font, 0., 0.)));
+                        max_width.max(pt_to_mm(text_width(line, size, &font.font, 0., 0.)));
 
                     // if height_available < line_height {
                     //     if let Some(ref mut next_draw_pos) = context.next_draw_pos {
@@ -168,10 +167,10 @@ impl<'a, D: Deref<Target = [u8]>> Element for TextVertical<'a, D> {
                             color[0], color[1], color[2], None,
                         )));
                     context.draw_pos.layer.begin_text_section();
-                    context.draw_pos.layer.set_font(pdf_font, size as f64);
+                    context.draw_pos.layer.set_font(pdf_font, size);
                     context.draw_pos.layer.set_ctm(CurTransMat::Translate(
                         Mm(x + ascent),
-                        Mm(y - pt_to_mm(text_width(line, size as f64, &font.font, 0., 0.))),
+                        Mm(y - pt_to_mm(text_width(line, size, &font.font, 0., 0.))),
                     ));
                     context.draw_pos.layer.set_ctm(CurTransMat::Rotate(90.));
                     context.draw_pos.layer.write_text(line, pdf_font);
@@ -181,7 +180,7 @@ impl<'a, D: Deref<Target = [u8]>> Element for TextVertical<'a, D> {
                         crate::utils::line(
                             &context.draw_pos.layer,
                             [x, y - 1.0],
-                            pt_to_mm(text_width(line, size as f64, &font.font, 0., 0.)),
+                            pt_to_mm(text_width(line, size, &font.font, 0., 0.)),
                             pt_to_mm(2.0),
                         );
                     }
@@ -196,7 +195,7 @@ impl<'a, D: Deref<Target = [u8]>> Element for TextVertical<'a, D> {
                 let mut line_count = 0;
                 for line in lines {
                     *max_width =
-                        max_width.max(pt_to_mm(text_width(line, size as f64, &font.font, 0., 0.)));
+                        max_width.max(pt_to_mm(text_width(line, size, &font.font, 0., 0.)));
                     line_count += 1;
                 }
                 line_count
