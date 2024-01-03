@@ -1,5 +1,6 @@
 pub mod align_bottom;
 pub mod break_list;
+pub mod changing_title;
 pub mod first_draw_rect_min_height;
 pub mod flex_list;
 pub mod page;
@@ -13,6 +14,7 @@ pub mod v_list;
 pub mod widget_or_break;
 
 pub use align_bottom::*;
+pub use changing_title::*;
 pub use first_draw_rect_min_height::*;
 pub use flex_list::*;
 pub use page::*;
