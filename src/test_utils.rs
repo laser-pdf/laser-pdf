@@ -441,7 +441,7 @@ impl FakeText {
             (self.lines, 0)
         } else {
             let remaining_lines = self.lines - first_lines;
-            let lines_per_page = (full_height / self.line_height).floor() as u32;
+            let lines_per_page = ((full_height / self.line_height).floor() as u32).max(1);
             let full_pages = remaining_lines / lines_per_page;
             let last_page_lines = remaining_lines % lines_per_page;
 
