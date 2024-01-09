@@ -82,8 +82,8 @@ pub fn repeat_bottom<C: Element, B: Element>(
             );
 
             [
-                content_size[0].max(bottom_height),
-                content_size[1] + bottom_size[1],
+                content_size[0].max(bottom_size[0]),
+                content_size[1] + bottom_height,
             ]
         } else {
             let content_size = content.element(width, None);
