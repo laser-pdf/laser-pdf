@@ -24,7 +24,7 @@ pub fn pin_below<C: Element, B: Element>(content: C, pinned_element: B, gap: f64
                             draw_pos = next_draw_pos(
                                 pdf,
                                 draw_rect_id,
-                                [size[0].max(pinned_size[0]), size[1] + pinned_height],
+                                [size[0].max(pinned_size[0]), size[1]],
                             );
                             DrawPos {
                                 height_available: draw_pos.height_available - pinned_height,
