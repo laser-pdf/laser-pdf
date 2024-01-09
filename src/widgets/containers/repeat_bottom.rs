@@ -45,7 +45,11 @@ pub fn repeat_bottom<C: Element, B: Element>(
                                 draw_rect_id,
                                 [size[0].max(bottom_size[0]), size[1] + bottom_height],
                             );
-                            draw_pos.clone()
+
+                            DrawPos {
+                                height_available: draw_pos.height_available - bottom_height,
+                                ..draw_pos.clone()
+                            }
                         }),
                     }),
                 )
