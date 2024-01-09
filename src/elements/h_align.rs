@@ -9,15 +9,14 @@ pub enum HorizontalAlignment {
 pub struct HAlign<E: Element>(pub HorizontalAlignment, pub E);
 
 impl<E: Element> Element for HAlign<E> {
-    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
-        self.1
-            .insufficient_first_height(InsufficientFirstHeightCtx {
-                width: WidthConstraint {
-                    expand: false,
-                    ..ctx.width
-                },
-                ..ctx
-            })
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        self.1.first_location_usage(FirstLocationUsageCtx {
+            width: WidthConstraint {
+                expand: false,
+                ..ctx.width
+            },
+            ..ctx
+        })
     }
 
     fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {

@@ -9,13 +9,12 @@ pub struct Padding<E: Element> {
 }
 
 impl<E: Element> Element for Padding<E> {
-    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
-        self.element
-            .insufficient_first_height(InsufficientFirstHeightCtx {
-                width: self.width(ctx.width),
-                first_height: self.height(ctx.first_height),
-                full_height: self.height(ctx.full_height),
-            })
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        self.element.first_location_usage(FirstLocationUsageCtx {
+            width: self.width(ctx.width),
+            first_height: self.height(ctx.first_height),
+            full_height: self.height(ctx.full_height),
+        })
     }
 
     fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {

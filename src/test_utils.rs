@@ -313,8 +313,8 @@ impl<'a, E: Element> ElementProxy<'a, E> {
 }
 
 impl<'a, E: Element> Element for ElementProxy<'a, E> {
-    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
-        self.element.insufficient_first_height(ctx)
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        self.element.first_location_usage(ctx)
     }
 
     fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
@@ -369,8 +369,8 @@ pub struct BuildElement<F: Fn(BuildElementCtx, BuildElementCallback) -> BuildEle
 impl<F: Fn(BuildElementCtx, BuildElementCallback) -> BuildElementReturnToken> Element
     for BuildElement<F>
 {
-    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
-        let mut ret = false;
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        let mut ret = FirstLocationUsage::ElementHidden;
 
         let build_ctx = BuildElementCtx {
             width: ctx.width,
@@ -382,7 +382,7 @@ impl<F: Fn(BuildElementCtx, BuildElementCallback) -> BuildElementReturnToken> El
 
         (self.0)(
             build_ctx,
-            BuildElementCallback(&mut |e| ret = e.insufficient_first_height(ctx.take().unwrap())),
+            BuildElementCallback(&mut |e| ret = e.first_location_usage(ctx.take().unwrap())),
         );
         ret
     }
@@ -458,8 +458,12 @@ impl FakeText {
 }
 
 impl Element for FakeText {
-    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
-        ctx.first_height < self.line_height
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        if ctx.first_height < self.line_height {
+            FirstLocationUsage::WillSkip
+        } else {
+            FirstLocationUsage::WillUse
+        }
     }
 
     fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
@@ -521,8 +525,12 @@ impl FakeImage {
 }
 
 impl Element for FakeImage {
-    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
-        ctx.break_appropriate_for_min_height(self.size(ctx.width).0)
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        if ctx.break_appropriate_for_min_height(self.size(ctx.width).0) {
+            FirstLocationUsage::WillSkip
+        } else {
+            FirstLocationUsage::WillUse
+        }
     }
 
     fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {

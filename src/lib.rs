@@ -173,7 +173,13 @@ impl WidthConstraint {
 /// `next_location`, so if you store the current draw pos, you can just pass the one from there.
 pub type GetLocation<'a> = &'a mut dyn FnMut(&mut Pdf, u32) -> Location;
 
-pub struct InsufficientFirstHeightCtx {
+pub enum FirstLocationUsage {
+    ElementHidden,
+    WillUse,
+    WillSkip,
+}
+
+pub struct FirstLocationUsageCtx {
     pub width: WidthConstraint,
     pub first_height: f64,
 
@@ -186,7 +192,7 @@ pub struct InsufficientFirstHeightCtx {
     pub full_height: f64,
 }
 
-impl InsufficientFirstHeightCtx {
+impl FirstLocationUsageCtx {
     pub fn break_appropriate_for_min_height(&self, height: f64) -> bool {
         height > self.first_height && self.full_height > self.first_height
     }
@@ -270,15 +276,9 @@ pub struct ElementSize {
 /// Width returned from measure has to be matched in draw given the same
 /// constraint (even if there's some preferred height).
 pub trait Element {
-    // will_break_immediately
-    // skip_first_place
-    // skip_first
-    // instant_break
-    // insufficient_height
-    // insufficient_first_height
     #[allow(unused_variables)]
-    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
-        false
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        FirstLocationUsage::WillUse
     }
 
     fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize>;

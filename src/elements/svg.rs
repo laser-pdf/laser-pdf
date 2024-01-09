@@ -7,10 +7,14 @@ pub struct Svg<'a> {
 }
 
 impl<'a> Element for Svg<'a> {
-    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let (height, _, _) = calculate_size(self.data, ctx.width);
 
-        ctx.break_appropriate_for_min_height(height)
+        if ctx.break_appropriate_for_min_height(height) {
+            FirstLocationUsage::WillSkip
+        } else {
+            FirstLocationUsage::WillUse
+        }
     }
 
     fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {

@@ -11,13 +11,17 @@ pub struct ImageElement<'a> {
 }
 
 impl<'a> Element for ImageElement<'a> {
-    fn insufficient_first_height(&self, ctx: InsufficientFirstHeightCtx) -> bool {
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         match self.image {
-            Image::Svg(svg) => Svg { data: svg }.insufficient_first_height(ctx),
+            Image::Svg(svg) => Svg { data: svg }.first_location_usage(ctx),
             Image::Pixel(image) => {
                 let (height, _, _) = calculate_size(image, ctx.width);
 
-                ctx.break_appropriate_for_min_height(height)
+                if ctx.break_appropriate_for_min_height(height) {
+                    FirstLocationUsage::WillSkip
+                } else {
+                    FirstLocationUsage::WillUse
+                }
             }
         }
     }
