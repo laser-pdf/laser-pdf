@@ -3,18 +3,18 @@ use crate::*;
 pub struct VGap(pub f64);
 
 impl Element for VGap {
-    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
-        Some(size(self, ctx.width, ctx.first_height))
+    fn measure(&self, ctx: MeasureCtx) -> ElementSize {
+        size(self, ctx.first_height)
     }
 
-    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
-        Some(size(self, ctx.width, ctx.first_height))
+    fn draw(&self, ctx: DrawCtx) -> ElementSize {
+        size(self, ctx.first_height)
     }
 }
 
-fn size(v_gap: &VGap, width: WidthConstraint, first_height: f64) -> ElementSize {
+fn size(v_gap: &VGap, first_height: f64) -> ElementSize {
     ElementSize {
-        width: width.constrain(0.),
+        width: None,
         height: Some(v_gap.0.min(first_height)),
     }
 }
@@ -32,14 +32,14 @@ mod tests {
         })
         .run(&VGap(28.3))
         {
-            output.assert_size(Some(ElementSize {
-                width: output.width.constrain(0.),
+            output.assert_size(ElementSize {
+                width: None,
                 height: Some(if output.first_height == 11. {
                     11.
                 } else {
                     28.3
                 }),
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(0).assert_extra_location_min_height(0.);

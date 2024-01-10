@@ -19,7 +19,7 @@ impl<E: Element> Element for HAlign<E> {
         })
     }
 
-    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         let width = ctx.width;
 
         let size = self.1.measure(MeasureCtx {
@@ -30,13 +30,13 @@ impl<E: Element> Element for HAlign<E> {
             ..ctx
         });
 
-        size.map(|size| ElementSize {
-            width: width.constrain(size.width),
+        ElementSize {
+            width: size.width.map(|w| width.constrain(w)),
             height: size.height,
-        })
+        }
     }
 
-    fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         let width = ctx.width;
 
         let size = if width.expand {
@@ -59,13 +59,13 @@ impl<E: Element> Element for HAlign<E> {
             let x_offset;
             let element_width;
 
-            if let Some(size) = element_size {
+            if let Some(w) = element_size.width {
                 x_offset = match self.0 {
                     HorizontalAlignment::Left => 0.,
-                    HorizontalAlignment::Center => (width.max - size.width) / 2.0,
-                    HorizontalAlignment::Right => width.max - size.width,
+                    HorizontalAlignment::Center => (width.max - w) / 2.0,
+                    HorizontalAlignment::Right => width.max - w,
                 };
-                element_width = size.width;
+                element_width = w;
             } else {
                 x_offset = 0.;
                 element_width = ctx.width.max;
@@ -105,10 +105,10 @@ impl<E: Element> Element for HAlign<E> {
             self.1.draw(ctx)
         };
 
-        size.map(|size| ElementSize {
-            width: width.constrain(size.width),
+        ElementSize {
+            width: size.width.map(|w| width.constrain(w)),
             height: size.height,
-        })
+        }
     }
 }
 
@@ -125,7 +125,10 @@ mod tests {
     #[test]
     fn test_h_align_none() {
         for output in ElementTestParams::default().run(&HAlign(Center, NoneElement)) {
-            output.assert_size(None);
+            output.assert_size(ElementSize {
+                width: None,
+                height: None,
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(0).assert_extra_location_min_height(0.);
@@ -175,8 +178,8 @@ mod tests {
         })
         .run(&element)
         {
-            output.assert_size(Some(ElementSize {
-                width: output.width.constrain(5.),
+            output.assert_size(ElementSize {
+                width: Some(output.width.constrain(5.)),
                 height: Some(if output.breakable.is_none() {
                     10.
                 } else if output.first_height == 1. {
@@ -184,7 +187,7 @@ mod tests {
                 } else {
                     2.
                 }),
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 1. { 5 } else { 4 })
@@ -235,8 +238,8 @@ mod tests {
         })
         .run(&element)
         {
-            output.assert_size(Some(ElementSize {
-                width: output.width.constrain(5.),
+            output.assert_size(ElementSize {
+                width: Some(output.width.constrain(5.)),
                 height: Some(if output.breakable.is_none() {
                     2.
                 } else if output.first_height == 1. {
@@ -244,7 +247,7 @@ mod tests {
                 } else {
                     2.
                 }),
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 1. { 1 } else { 0 })
@@ -258,18 +261,18 @@ mod tests {
         struct Overdraw;
 
         impl Element for Overdraw {
-            fn measure(&self, _: MeasureCtx) -> Option<ElementSize> {
-                Some(ElementSize {
-                    width: 5.,
+            fn measure(&self, _: MeasureCtx) -> ElementSize {
+                ElementSize {
+                    width: Some(5.),
                     height: None,
-                })
+                }
             }
 
-            fn draw(&self, _: DrawCtx) -> Option<ElementSize> {
-                Some(ElementSize {
-                    width: 5.,
+            fn draw(&self, _: DrawCtx) -> ElementSize {
+                ElementSize {
+                    width: Some(5.),
                     height: None,
-                })
+                }
             }
         }
 
@@ -281,10 +284,10 @@ mod tests {
         })
         .run(&HAlign(Center, Overdraw))
         {
-            output.assert_size(Some(ElementSize {
-                width: 4.,
+            output.assert_size(ElementSize {
+                width: Some(4.),
                 height: None,
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(0).assert_extra_location_min_height(0.);
@@ -333,10 +336,10 @@ mod tests {
         })
         .run(&element)
         {
-            output.assert_size(Some(ElementSize {
-                width: output.width.constrain(5.),
+            output.assert_size(ElementSize {
+                width: Some(output.width.constrain(5.)),
                 height: Some(2.),
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 1. { 1 } else { 0 })
@@ -383,10 +386,10 @@ mod tests {
         })
         .run(&element)
         {
-            output.assert_size(Some(ElementSize {
-                width: 5.,
+            output.assert_size(ElementSize {
+                width: Some(5.),
                 height: Some(2.),
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 1. { 1 } else { 0 })
@@ -435,10 +438,10 @@ mod tests {
         })
         .run(&element)
         {
-            output.assert_size(Some(ElementSize {
-                width: output.width.constrain(5.),
+            output.assert_size(ElementSize {
+                width: Some(output.width.constrain(5.)),
                 height: Some(2.),
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 1. { 1 } else { 0 })

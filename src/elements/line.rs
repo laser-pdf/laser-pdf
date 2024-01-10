@@ -7,13 +7,13 @@ pub struct Line {
 }
 
 impl Element for Line {
-    fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         ctx.break_if_appropriate_for_min_height(self.style.thickness);
 
-        Some(size(self, ctx.width))
+        size(self, ctx.width)
     }
 
-    fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         ctx.break_if_appropriate_for_min_height(self.style.thickness);
 
         if ctx.width.expand {
@@ -54,13 +54,13 @@ impl Element for Line {
             ctx.location.layer.restore_graphics_state();
         }
 
-        Some(size(self, ctx.width))
+        size(self, ctx.width)
     }
 }
 
 fn size(line: &Line, width: WidthConstraint) -> ElementSize {
     ElementSize {
-        width: width.constrain(0.),
+        width: Some(width.constrain(0.)),
         height: Some(line.style.thickness),
     }
 }
@@ -84,10 +84,10 @@ mod tests {
                 cap_style: LineCapStyle::Butt,
             },
         }) {
-            output.assert_size(Some(ElementSize {
-                width: output.width.constrain(0.),
+            output.assert_size(ElementSize {
+                width: Some(output.width.constrain(0.)),
                 height: Some(1.),
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 if output.first_height == 0.2 {

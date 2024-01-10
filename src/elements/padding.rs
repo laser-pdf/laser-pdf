@@ -17,7 +17,7 @@ impl<E: Element> Element for Padding<E> {
         })
     }
 
-    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         let mut break_count = 0;
         let mut extra_location_min_height = 0.;
 
@@ -39,7 +39,7 @@ impl<E: Element> Element for Padding<E> {
         self.size(size)
     }
 
-    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let width = self.width(ctx.width);
 
         let draw_ctx = DrawCtx {
@@ -96,11 +96,11 @@ impl<E: Element> Padding<E> {
         input - self.top - self.bottom
     }
 
-    fn size(&self, size: Option<ElementSize>) -> Option<ElementSize> {
-        size.map(|size| ElementSize {
-            width: size.width + self.left + self.right,
-            height: size.height.map(|height| height + self.top + self.bottom),
-        })
+    fn size(&self, size: ElementSize) -> ElementSize {
+        ElementSize {
+            width: size.width.map(|w| w + self.left + self.right),
+            height: size.height.map(|h| h + self.top + self.bottom),
+        }
     }
 }
 
@@ -154,8 +154,8 @@ mod tests {
         })
         .run(&element)
         {
-            output.assert_size(Some(ElementSize {
-                width: output.width.constrain(35.),
+            output.assert_size(ElementSize {
+                width: Some(output.width.constrain(35.)),
                 height: Some(if output.breakable.is_none() {
                     10. + 29.
                 } else if output.first_height == 30.1 {
@@ -163,7 +163,7 @@ mod tests {
                 } else {
                     2. + 29.
                 }),
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 30.1 { 5 } else { 4 })

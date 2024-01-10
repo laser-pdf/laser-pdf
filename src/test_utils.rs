@@ -8,28 +8,7 @@ use crate::*;
 pub struct DrawStats {
     break_count: u32,
     breaks: Vec<u32>,
-    size: Option<ElementSize>,
-}
-
-impl DrawStats {
-    pub fn assert_pages(&self, pages: u32) -> &Self {
-        assert_eq!(self.break_count + 1, pages);
-        self
-    }
-
-    pub fn assert_linear(&self) -> &Self {
-        self.assert_breaks((1..(self.breaks.len() as u32 + 1)).collect::<Vec<_>>())
-    }
-
-    pub fn assert_breaks(&self, breaks: impl IntoIterator<Item = u32>) -> &Self {
-        assert!(breaks.into_iter().eq(self.breaks.iter().copied()));
-        self
-    }
-
-    pub fn assert_size(&self, size: Option<ElementSize>) -> &Self {
-        assert_eq!(self.size, size);
-        self
-    }
+    size: ElementSize,
 }
 
 struct BreakableDrawConfig {
@@ -102,7 +81,7 @@ fn draw_element<E: Element>(
 pub struct MeasureStats {
     break_count: u32,
     extra_location_min_height: f64,
-    size: Option<ElementSize>,
+    size: ElementSize,
 }
 
 pub fn measure_element<E: Element>(
@@ -158,7 +137,7 @@ fn test_measure_draw_compatibility<E: Element>(
         element,
         width,
         first_height,
-        measure.size.map_or(0., |s| s.height.unwrap_or(0.)),
+        measure.size.height.unwrap_or(0.),
         pos,
         page_size,
         full_height.map(|f| BreakableDrawConfig {
@@ -283,13 +262,13 @@ pub struct ElementTestOutput {
     pub pos: (f64, f64),
     pub page_size: (f64, f64),
 
-    pub size: Option<ElementSize>,
+    pub size: ElementSize,
 
     pub breakable: Option<ElementTestOutputBreakable>,
 }
 
 impl ElementTestOutput {
-    pub fn assert_size(&self, size: Option<ElementSize>) -> &Self {
+    pub fn assert_size(&self, size: ElementSize) -> &Self {
         assert_eq!(self.size, size);
         self
     }
@@ -317,11 +296,11 @@ impl<'a, E: Element> Element for ElementProxy<'a, E> {
         self.element.first_location_usage(ctx)
     }
 
-    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         self.element.measure(ctx)
     }
 
-    fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         (self.before_draw)(&mut ctx);
 
         if let Some(breakable) = ctx.breakable {
@@ -370,7 +349,7 @@ impl<F: Fn(BuildElementCtx, BuildElementCallback) -> BuildElementReturnToken> El
     for BuildElement<F>
 {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        let mut ret = FirstLocationUsage::ElementHidden;
+        let mut ret = FirstLocationUsage::NoneHeight;
 
         let build_ctx = BuildElementCtx {
             width: ctx.width,
@@ -387,8 +366,11 @@ impl<F: Fn(BuildElementCtx, BuildElementCallback) -> BuildElementReturnToken> El
         ret
     }
 
-    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
-        let mut ret = None;
+    fn measure(&self, ctx: MeasureCtx) -> ElementSize {
+        let mut ret = ElementSize {
+            width: None,
+            height: None,
+        };
 
         let build_ctx = BuildElementCtx {
             width: ctx.width,
@@ -405,8 +387,11 @@ impl<F: Fn(BuildElementCtx, BuildElementCallback) -> BuildElementReturnToken> El
         ret
     }
 
-    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
-        let mut ret = None;
+    fn draw(&self, ctx: DrawCtx) -> ElementSize {
+        let mut ret = ElementSize {
+            width: None,
+            height: None,
+        };
 
         let build_ctx = BuildElementCtx {
             width: ctx.width,
@@ -466,7 +451,7 @@ impl Element for FakeText {
         }
     }
 
-    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         let lines = if let Some(breakable) = ctx.breakable {
             let (lines, breaks) = self.lines_and_breaks(ctx.first_height, breakable.full_height);
 
@@ -476,13 +461,13 @@ impl Element for FakeText {
             self.lines
         };
 
-        Some(ElementSize {
-            width: ctx.width.constrain(self.width),
+        ElementSize {
+            width: Some(ctx.width.constrain(self.width)),
             height: Some(lines as f64 * self.line_height),
-        })
+        }
     }
 
-    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let lines = if let Some(breakable) = ctx.breakable {
             let (lines, breaks) = self.lines_and_breaks(ctx.first_height, breakable.full_height);
 
@@ -495,10 +480,10 @@ impl Element for FakeText {
             self.lines
         };
 
-        Some(ElementSize {
-            width: ctx.width.constrain(self.width),
+        ElementSize {
+            width: Some(ctx.width.constrain(self.width)),
             height: Some(lines as f64 * self.line_height),
-        })
+        }
     }
 }
 
@@ -517,7 +502,7 @@ impl FakeImage {
         (
             size.1,
             ElementSize {
-                width: size.0,
+                width: Some(size.0),
                 height: Some(size.1),
             },
         )
@@ -533,16 +518,16 @@ impl Element for FakeImage {
         }
     }
 
-    fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let (height, size) = self.size(ctx.width);
         ctx.break_if_appropriate_for_min_height(height);
-        Some(size)
+        size
     }
 
-    fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         let (height, size) = self.size(ctx.width);
         ctx.break_if_appropriate_for_min_height(height);
-        Some(size)
+        size
     }
 }
 
@@ -570,12 +555,12 @@ mod tests {
                 b.assert_break_count(if output.first_height == 1.999 { 4 } else { 3 });
             }
 
-            output.assert_size(Some(ElementSize {
-                width: if output.width.expand {
+            output.assert_size(ElementSize {
+                width: Some(if output.width.expand {
                     output.width.max
                 } else {
                     5.
-                },
+                }),
 
                 height: Some(if output.breakable.is_some() {
                     if output.first_height == 1.999 {
@@ -586,7 +571,7 @@ mod tests {
                 } else {
                     11.
                 }),
-            }));
+            });
         }
     }
 }

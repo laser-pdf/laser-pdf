@@ -17,15 +17,15 @@ impl<'a> Element for Svg<'a> {
         }
     }
 
-    fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let (height, _, element_size) = calculate_size(self.data, ctx.width);
 
         ctx.break_if_appropriate_for_min_height(height);
 
-        Some(element_size)
+        element_size
     }
 
-    fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         let (height, scale_factor, element_size) = calculate_size(self.data, ctx.width);
 
         ctx.break_if_appropriate_for_min_height(height);
@@ -60,7 +60,7 @@ impl<'a> Element for Svg<'a> {
 
         layer.restore_graphics_state();
 
-        Some(element_size)
+        element_size
     }
 }
 
@@ -79,7 +79,7 @@ fn calculate_size(data: &usvg::Tree, width: WidthConstraint) -> (f64, f64, Eleme
         height,
         scale_factor,
         ElementSize {
-            width,
+            width: Some(width),
             height: Some(height),
         },
     )

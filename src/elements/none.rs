@@ -3,12 +3,18 @@ use crate::*;
 pub struct NoneElement;
 
 impl Element for NoneElement {
-    fn measure(&self, _ctx: MeasureCtx) -> Option<ElementSize> {
-        None
+    fn measure(&self, _ctx: MeasureCtx) -> ElementSize {
+        ElementSize {
+            width: None,
+            height: None,
+        }
     }
 
-    fn draw(&self, _ctx: DrawCtx) -> Option<ElementSize> {
-        None
+    fn draw(&self, _ctx: DrawCtx) -> ElementSize {
+        ElementSize {
+            width: None,
+            height: None,
+        }
     }
 }
 
@@ -20,7 +26,10 @@ mod tests {
     #[test]
     fn none_element() {
         for output in ElementTestParams::default().run(&NoneElement) {
-            output.assert_size(None);
+            output.assert_size(ElementSize {
+                width: None,
+                height: None,
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(0).assert_extra_location_min_height(0.);

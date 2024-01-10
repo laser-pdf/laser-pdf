@@ -267,7 +267,7 @@ impl<'a, F: Font> RichText<'a, F> {
 }
 
 impl<'a, F: Font> Element for RichText<'a, F> {
-    fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let mut max_width = ctx.width.constrain(0.);
 
         let (iter, line_height) = self.pieces_trimmed(ctx.width.max);
@@ -305,13 +305,13 @@ impl<'a, F: Font> Element for RichText<'a, F> {
             }
         }
 
-        Some(ElementSize {
-            width: max_width,
+        ElementSize {
+            width: Some(max_width),
             height: Some(line_count as f64 * line_height),
-        })
+        }
     }
 
-    fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         let mut max_width = ctx.width.constrain(0.);
 
         let (iter, line_height) = self.pieces_trimmed(ctx.width.max);
@@ -396,10 +396,10 @@ impl<'a, F: Font> Element for RichText<'a, F> {
             ctx.location.layer.restore_graphics_state();
         }
 
-        Some(ElementSize {
-            width: max_width,
+        ElementSize {
+            width: Some(max_width),
             height: Some(line_count as f64 * line_height),
-        })
+        }
     }
 }
 
@@ -502,11 +502,11 @@ mod tests {
                 b.assert_break_count(if output.first_height == 2. { 5 } else { 4 });
             }
 
-            output.assert_size(Some(ElementSize {
-                width: output.width.constrain(letter_width * 6.),
+            output.assert_size(ElementSize {
+                width: Some(output.width.constrain(letter_width * 6.)),
 
                 height: Some(line_height * if output.breakable.is_some() { 1. } else { 5. }),
-            }));
+            });
         }
     }
 }

@@ -219,7 +219,7 @@ impl<'a, F: Font> Text<'a, F> {
 }
 
 impl<'a, F: Font> Element for Text<'a, F> {
-    fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let FontMetrics { line_height, .. } = self.compute_font_metrics();
 
         let size = self.layout_lines(
@@ -228,13 +228,13 @@ impl<'a, F: Font> Element for Text<'a, F> {
             Some(&mut ctx),
         );
 
-        Some(ElementSize {
-            width: ctx.width.constrain(size.0),
+        ElementSize {
+            width: Some(ctx.width.constrain(size.0)),
             height: Some(size.1),
-        })
+        }
     }
 
-    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let FontMetrics {
             ascent,
             line_height,
@@ -253,10 +253,10 @@ impl<'a, F: Font> Element for Text<'a, F> {
         let width_constraint = ctx.width;
         let size = self.render_lines(lines, ctx, ascent, line_height, width);
 
-        Some(ElementSize {
-            width: width_constraint.constrain(size.0),
+        ElementSize {
+            width: Some(width_constraint.constrain(size.0)),
             height: Some(size.1),
-        })
+        }
     }
 }
 
@@ -306,8 +306,8 @@ mod tests {
                 b.assert_break_count(if output.first_height == 4. { 2 } else { 1 });
             }
 
-            output.assert_size(Some(ElementSize {
-                width: output.width.constrain(19.291312152),
+            output.assert_size(ElementSize {
+                width: Some(output.width.constrain(19.291312152)),
 
                 // Note: I'm not sure this line height is correct. When running the same test with
                 // Nimbus Sans L, which is supposed to be fully metrically compatible with
@@ -322,7 +322,7 @@ mod tests {
                 // explain the slight difference). The numbers for that one are 19.293924914062497
                 // and 4.86792298828125.
                 height: Some(4.893736415999999 * if output.breakable.is_some() { 1. } else { 2. }),
-            }));
+            });
         }
     }
 }

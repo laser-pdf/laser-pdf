@@ -9,14 +9,14 @@ pub struct Rectangle {
 }
 
 impl Element for Rectangle {
-    fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let outline_thickness = outline_thickness(self);
         ctx.break_if_appropriate_for_min_height(self.size.1 + outline_thickness);
 
-        Some(size(self))
+        size(self)
     }
 
-    fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         let outline_thickness = outline_thickness(self);
         ctx.break_if_appropriate_for_min_height(self.size.1 + outline_thickness);
 
@@ -56,7 +56,7 @@ impl Element for Rectangle {
 
         ctx.location.layer.restore_graphics_state();
 
-        Some(size(self))
+        size(self)
     }
 }
 
@@ -68,7 +68,7 @@ fn size(rectangle: &Rectangle) -> ElementSize {
     let outline_thickness = outline_thickness(rectangle);
 
     ElementSize {
-        width: rectangle.size.0 + outline_thickness,
+        width: Some(rectangle.size.0 + outline_thickness),
         height: Some(rectangle.size.1 + outline_thickness),
     }
 }
@@ -89,10 +89,10 @@ mod tests {
             fill: None,
             outline: Some((1., 0)),
         }) {
-            output.assert_size(Some(ElementSize {
-                width: 12.,
+            output.assert_size(ElementSize {
+                width: Some(12.),
                 height: Some(13.),
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 if output.first_height == 12. {

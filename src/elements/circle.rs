@@ -9,14 +9,14 @@ pub struct Circle {
 }
 
 impl Element for Circle {
-    fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let outline_thickness = outline_thickness(self);
         ctx.break_if_appropriate_for_min_height(self.radius * 2. + outline_thickness);
 
-        Some(size(self))
+        size(self)
     }
 
-    fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         let outline_thickness = outline_thickness(self);
         ctx.break_if_appropriate_for_min_height(self.radius * 2. + outline_thickness);
 
@@ -55,7 +55,7 @@ impl Element for Circle {
 
         ctx.location.layer.restore_graphics_state();
 
-        Some(size(self))
+        size(self)
     }
 }
 
@@ -69,7 +69,7 @@ fn size(circle: &Circle) -> ElementSize {
     let size = circle.radius * 2. + outline_thickness;
 
     ElementSize {
-        width: size,
+        width: Some(size),
         height: Some(size),
     }
 }
@@ -90,10 +90,10 @@ mod tests {
             fill: None,
             outline: Some((1., 0)),
         }) {
-            output.assert_size(Some(ElementSize {
-                width: 12.,
+            output.assert_size(ElementSize {
+                width: Some(12.),
                 height: Some(12.),
-            }));
+            });
 
             if let Some(b) = output.breakable {
                 if output.first_height == 11. {

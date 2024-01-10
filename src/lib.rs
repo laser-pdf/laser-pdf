@@ -173,8 +173,9 @@ impl WidthConstraint {
 /// `next_location`, so if you store the current draw pos, you can just pass the one from there.
 pub type GetLocation<'a> = &'a mut dyn FnMut(&mut Pdf, u32) -> Location;
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum FirstLocationUsage {
-    ElementHidden,
+    NoneHeight,
     WillUse,
     WillSkip,
 }
@@ -263,7 +264,7 @@ impl<'a, 'b> DrawCtx<'a, 'b> {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ElementSize {
-    pub width: f64,
+    pub width: Option<f64>,
 
     /// None here means that this element doesn't need any space on it's last page. This is useful
     /// for things like collapsing gaps after a forced break. This in combination with no breaks
@@ -281,7 +282,7 @@ pub trait Element {
         FirstLocationUsage::WillUse
     }
 
-    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize>;
+    fn measure(&self, ctx: MeasureCtx) -> ElementSize;
 
-    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize>;
+    fn draw(&self, ctx: DrawCtx) -> ElementSize;
 }

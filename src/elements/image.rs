@@ -26,7 +26,7 @@ impl<'a> Element for ImageElement<'a> {
         }
     }
 
-    fn measure(&self, mut ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         match self.image {
             Image::Svg(svg) => Svg { data: svg }.measure(ctx),
             Image::Pixel(image) => {
@@ -34,12 +34,12 @@ impl<'a> Element for ImageElement<'a> {
 
                 ctx.break_if_appropriate_for_min_height(height);
 
-                Some(element_size)
+                element_size
             }
         }
     }
 
-    fn draw(&self, mut ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         match self.image {
             Image::Svg(svg) => Svg { data: svg }.draw(ctx),
             Image::Pixel(image) => {
@@ -59,7 +59,7 @@ impl<'a> Element for ImageElement<'a> {
                     Some(1.0),
                 );
 
-                Some(element_size)
+                element_size
             }
         }
     }
@@ -81,7 +81,7 @@ fn calculate_size(image: &DynamicImage, width: WidthConstraint) -> (f64, f64, El
         size.1,
         scale,
         ElementSize {
-            width: size.0,
+            width: Some(size.0),
             height: Some(size.1),
         },
     )

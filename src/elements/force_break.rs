@@ -3,20 +3,26 @@ use crate::*;
 struct ForceBreak;
 
 impl Element for ForceBreak {
-    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+    fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         if let Some(breakable) = ctx.breakable {
             *breakable.break_count = 1;
         }
 
-        None
+        ElementSize {
+            width: None,
+            height: None,
+        }
     }
 
-    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+    fn draw(&self, ctx: DrawCtx) -> ElementSize {
         if let Some(breakable) = ctx.breakable {
             (breakable.get_location)(ctx.pdf, 0);
         }
 
-        None
+        ElementSize {
+            width: None,
+            height: None,
+        }
     }
 }
 
@@ -28,7 +34,10 @@ mod tests {
     #[test]
     fn test_force_break() {
         for output in ElementTestParams::default().run(&ForceBreak) {
-            output.assert_size(None);
+            output.assert_size(ElementSize {
+                width: None,
+                height: None,
+            });
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(1);
