@@ -1,6 +1,6 @@
 use crate::*;
 
-struct ForceBreak;
+pub struct ForceBreak;
 
 impl Element for ForceBreak {
     fn measure(&self, ctx: MeasureCtx) -> ElementSize {
