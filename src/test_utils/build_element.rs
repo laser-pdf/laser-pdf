@@ -12,17 +12,38 @@ impl<'a> BuildElementCallback<'a> {
     }
 }
 
+pub struct BreakableDraw {
+    pub full_height: f64,
+    pub preferred_height_break_count: u32,
+}
+
 pub enum Pass {
-    FirstLocationUsage,
-    Measure,
-    Draw,
+    FirstLocationUsage {
+        full_height: f64,
+    },
+    Measure {
+        full_height: Option<f64>,
+    },
+    Draw {
+        preferred_height: Option<f64>,
+        breakable: Option<BreakableDraw>,
+    },
 }
 
 pub struct BuildElementCtx {
     pub width: WidthConstraint,
     pub first_height: f64,
-    pub full_height: Option<f64>,
     pub pass: Pass,
+}
+
+impl BuildElementCtx {
+    pub fn is_breakable(&self) -> bool {
+        match self.pass {
+            Pass::FirstLocationUsage { .. } => true,
+            Pass::Measure { full_height } => full_height.is_some(),
+            Pass::Draw { ref breakable, .. } => breakable.is_some(),
+        }
+    }
 }
 
 pub struct BuildElement<F: Fn(BuildElementCtx, BuildElementCallback) -> BuildElementReturnToken>(
@@ -38,8 +59,9 @@ impl<F: Fn(BuildElementCtx, BuildElementCallback) -> BuildElementReturnToken> El
         let build_ctx = BuildElementCtx {
             width: ctx.width,
             first_height: ctx.first_height,
-            full_height: Some(ctx.full_height),
-            pass: Pass::FirstLocationUsage,
+            pass: Pass::FirstLocationUsage {
+                full_height: ctx.full_height,
+            },
         };
 
         let mut ctx = Some(ctx);
@@ -60,8 +82,9 @@ impl<F: Fn(BuildElementCtx, BuildElementCallback) -> BuildElementReturnToken> El
         let build_ctx = BuildElementCtx {
             width: ctx.width,
             first_height: ctx.first_height,
-            full_height: ctx.breakable.as_ref().map(|b| b.full_height),
-            pass: Pass::Measure,
+            pass: Pass::Measure {
+                full_height: ctx.breakable.as_ref().map(|b| b.full_height),
+            },
         };
 
         let mut ctx = Some(ctx);
@@ -82,8 +105,13 @@ impl<F: Fn(BuildElementCtx, BuildElementCallback) -> BuildElementReturnToken> El
         let build_ctx = BuildElementCtx {
             width: ctx.width,
             first_height: ctx.first_height,
-            full_height: ctx.breakable.as_ref().map(|b| b.full_height),
-            pass: Pass::Draw,
+            pass: Pass::Draw {
+                preferred_height: ctx.preferred_height,
+                breakable: ctx.breakable.as_ref().map(|b| BreakableDraw {
+                    full_height: b.full_height,
+                    preferred_height_break_count: b.preferred_height_break_count,
+                }),
+            },
         };
 
         let mut ctx = Some(ctx);

@@ -33,7 +33,7 @@ fn draw_element<E: Element>(
     element: &E,
     width: WidthConstraint,
     first_height: f64,
-    preferred_height: f64,
+    preferred_height: Option<f64>,
     pos: (f64, f64),
     page_size: (f64, f64),
     breakable: Option<BreakableDrawConfig>,
@@ -138,7 +138,7 @@ fn test_measure_draw_compatibility<E: Element>(
         element,
         width,
         first_height,
-        0.,
+        None,
         pos,
         page_size,
         full_height.map(|f| BreakableDrawConfig {
@@ -150,7 +150,7 @@ fn test_measure_draw_compatibility<E: Element>(
         element,
         width,
         first_height,
-        measure.size.height.unwrap_or(0.),
+        measure.size.height,
         pos,
         page_size,
         full_height.map(|f| BreakableDrawConfig {

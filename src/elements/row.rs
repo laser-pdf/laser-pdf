@@ -1,0 +1,877 @@
+use crate::{
+    flex::{DrawLayout, MeasureLayout},
+    utils::max_optional_size,
+    *,
+};
+
+pub struct Row<F: Fn(&mut RowContent)> {
+    pub gap: f64,
+    pub expand: bool,
+    pub content: F,
+}
+
+impl<F: Fn(&mut RowContent)> Element for Row<F> {
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        FirstLocationUsage::WillUse
+    }
+
+    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
+        let mut measure_layout = MeasureLayout::new(ctx.width.max, self.gap);
+
+        let mut max_height = None;
+
+        (self.content)(&mut RowContent {
+            width: ctx.width,
+            first_height: ctx.first_height,
+            pass: Pass::MeasureNonExpanded {
+                layout: &mut measure_layout,
+                max_height: Some(&mut max_height),
+                breakable: ctx.breakable.as_mut(),
+            },
+        });
+
+        let mut width = measure_layout.no_expand_width();
+
+        let draw_layout = measure_layout.build();
+
+        (self.content)(&mut RowContent {
+            width: ctx.width,
+            first_height: ctx.first_height,
+            pass: Pass::MeasureExpanded {
+                layout: &draw_layout,
+                max_height: &mut max_height,
+                width: if ctx.width.expand {
+                    None
+                } else {
+                    Some(&mut width)
+                },
+                width_expand: ctx.width.expand,
+                gap: self.gap,
+                breakable: ctx.breakable.as_mut(),
+            },
+        });
+
+        ElementSize {
+            width: if ctx.width.expand {
+                Some(ctx.width.max)
+            } else {
+                width
+            },
+            height: max_height,
+        }
+    }
+
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
+        let mut measure_layout = MeasureLayout::new(ctx.width.max, self.gap);
+
+        let mut max_height = None;
+
+        let mut break_count = 0;
+        let mut extra_location_min_height = 0.;
+
+        (self.content)(&mut RowContent {
+            width: ctx.width,
+            first_height: ctx.first_height,
+            pass: Pass::MeasureNonExpanded {
+                layout: &mut measure_layout,
+                max_height: if self.expand {
+                    Some(&mut max_height)
+                } else {
+                    None
+                },
+                breakable: ctx
+                    .breakable
+                    .as_ref()
+                    .map(|b| BreakableMeasure {
+                        full_height: b.full_height,
+
+                        // in the non-expand case these will just be ignored
+                        break_count: &mut break_count,
+                        extra_location_min_height: &mut extra_location_min_height,
+                    })
+                    .as_mut(),
+            },
+        });
+
+        let draw_layout = measure_layout.build();
+
+        // If we want to expand all of the children to the same size we need an additional pass here
+        // to figure out the maximum height & break count of all of the children. This is part of
+        // the reason why expanding isn't just what Row always does.
+        if self.expand {
+            (self.content)(&mut RowContent {
+                width: ctx.width,
+                first_height: ctx.first_height,
+                pass: Pass::MeasureExpanded {
+                    layout: &draw_layout,
+                    max_height: &mut max_height,
+                    width_expand: ctx.width.expand,
+                    width: None, // We'll get that from draw. No point in getting it twice.
+                    gap: self.gap,
+                    breakable: ctx
+                        .breakable
+                        .as_ref()
+                        .map(|b| BreakableMeasure {
+                            full_height: b.full_height,
+
+                            // in the non-expand case these will just be ignored
+                            break_count: &mut break_count,
+                            extra_location_min_height: &mut extra_location_min_height,
+                        })
+                        .as_mut(),
+                },
+            });
+
+            if let Some(ref mut b) = ctx.breakable {
+                match break_count.cmp(&b.preferred_height_break_count) {
+                    std::cmp::Ordering::Less => (),
+                    std::cmp::Ordering::Equal => {
+                        ctx.preferred_height = max_optional_size(ctx.preferred_height, max_height);
+                    }
+                    std::cmp::Ordering::Greater => {
+                        b.preferred_height_break_count = break_count;
+                        ctx.preferred_height = max_height;
+                    }
+                }
+            } else {
+                ctx.preferred_height = max_optional_size(ctx.preferred_height, max_height);
+            }
+        }
+
+        let mut width = None;
+
+        (self.content)(&mut RowContent {
+            width: ctx.width,
+            first_height: ctx.first_height,
+            pass: Pass::Draw {
+                layout: &draw_layout,
+                max_height: &mut max_height,
+                width: &mut width,
+                width_expand: ctx.width.expand,
+                gap: self.gap,
+                pdf: ctx.pdf,
+                location: ctx.location,
+                preferred_height: ctx.preferred_height,
+                break_count: 0,
+                breakable: ctx.breakable.as_mut(),
+            },
+        });
+
+        ElementSize {
+            width: if ctx.width.expand {
+                Some(ctx.width.max)
+            } else {
+                width
+            },
+            height: max_height,
+        }
+    }
+}
+
+pub struct RowContent<'a, 'b, 'c> {
+    width: WidthConstraint,
+    first_height: f64,
+    pass: Pass<'a, 'b, 'c>,
+}
+
+enum Pass<'a, 'b, 'c> {
+    MeasureNonExpanded {
+        layout: &'a mut MeasureLayout,
+        max_height: Option<&'a mut Option<f64>>,
+        breakable: Option<&'a mut BreakableMeasure<'b>>,
+    },
+
+    FirstLocationUsage {},
+
+    MeasureExpanded {
+        layout: &'a DrawLayout,
+        max_height: &'a mut Option<f64>,
+        width: Option<&'a mut Option<f64>>,
+        width_expand: bool,
+        gap: f64,
+        breakable: Option<&'a mut BreakableMeasure<'b>>,
+    },
+
+    Draw {
+        layout: &'a DrawLayout,
+        max_height: &'a mut Option<f64>,
+        width: &'a mut Option<f64>,
+        width_expand: bool,
+
+        gap: f64,
+
+        pdf: &'c mut Pdf,
+        location: Location,
+
+        preferred_height: Option<f64>,
+        break_count: u32,
+        breakable: Option<&'a mut BreakableDraw<'b>>,
+    },
+}
+
+pub enum Flex {
+    Expand(u8),
+    SelfSized,
+    Fixed(f64),
+}
+
+fn add_height(
+    max_height: &mut Option<f64>,
+    breakable: Option<&mut BreakableMeasure>,
+    size: ElementSize,
+    break_count: u32,
+    extra_location_min_height: f64,
+) {
+    if let Some(b) = breakable {
+        *b.extra_location_min_height = extra_location_min_height.max(*b.extra_location_min_height);
+
+        match break_count.cmp(b.break_count) {
+            std::cmp::Ordering::Less => (),
+            std::cmp::Ordering::Equal => {
+                *max_height = max_optional_size(*max_height, size.height);
+            }
+            std::cmp::Ordering::Greater => {
+                *b.break_count = break_count;
+                *max_height = size.height;
+            }
+        }
+    } else {
+        *max_height = max_optional_size(*max_height, size.height);
+    }
+}
+
+impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
+    pub fn add<E: Element>(&mut self, element: &E, flex: Flex) {
+        match self.pass {
+            Pass::MeasureNonExpanded {
+                layout: &mut ref mut layout,
+                ref mut max_height,
+                ref mut breakable,
+            } => match flex {
+                Flex::Expand(fraction) => {
+                    layout.add_expand(fraction);
+                }
+                Flex::SelfSized => {
+                    let mut break_count = 0;
+                    let mut extra_location_min_height = 0.;
+
+                    let size = element.measure(MeasureCtx {
+                        width: WidthConstraint {
+                            expand: false,
+                            ..self.width
+                        },
+                        first_height: self.first_height,
+                        breakable: breakable.as_deref_mut().map(|b| BreakableMeasure {
+                            full_height: b.full_height,
+                            break_count: &mut break_count,
+                            extra_location_min_height: &mut extra_location_min_height,
+                        }),
+                    });
+
+                    if let Some(max_height) = max_height {
+                        // if max_height is None we're not interested in height or breaks
+                        add_height(
+                            max_height,
+                            breakable.as_deref_mut(),
+                            size,
+                            break_count,
+                            extra_location_min_height,
+                        );
+                    }
+
+                    // elements with no width are collapsed
+                    if let Some(w) = size.width {
+                        layout.add_fixed(w);
+                    }
+                }
+                Flex::Fixed(width) => {
+                    layout.add_fixed(width);
+
+                    if let Some(max_height) = max_height {
+                        let mut break_count = 0;
+                        let mut extra_location_min_height = 0.;
+
+                        let size = element.measure(MeasureCtx {
+                            width: WidthConstraint {
+                                max: width,
+                                expand: true,
+                            },
+                            first_height: self.first_height,
+                            breakable: breakable.as_mut().map(|b| BreakableMeasure {
+                                full_height: b.full_height,
+                                break_count: &mut break_count,
+                                extra_location_min_height: &mut extra_location_min_height,
+                            }),
+                        });
+
+                        add_height(
+                            max_height,
+                            breakable.as_deref_mut(),
+                            size,
+                            break_count,
+                            extra_location_min_height,
+                        );
+                    }
+                }
+            },
+
+            Pass::MeasureExpanded {
+                layout,
+                max_height: &mut ref mut max_height,
+                ref mut width,
+                width_expand,
+                gap,
+                ref mut breakable,
+            } => match flex {
+                Flex::Expand(fraction) => {
+                    let element_width = layout.expand_width(fraction);
+
+                    let mut break_count = 0;
+                    let mut extra_location_min_height = 0.;
+
+                    let size = element.measure(MeasureCtx {
+                        width: WidthConstraint {
+                            max: element_width,
+                            expand: width_expand,
+                        },
+                        first_height: self.first_height,
+                        breakable: breakable.as_deref_mut().map(|b| BreakableMeasure {
+                            full_height: b.full_height,
+                            break_count: &mut break_count,
+                            extra_location_min_height: &mut extra_location_min_height,
+                        }),
+                    });
+
+                    add_height(
+                        max_height,
+                        breakable.as_deref_mut(),
+                        size,
+                        break_count,
+                        extra_location_min_height,
+                    );
+
+                    if let &mut Some(&mut ref mut width) = width {
+                        if let Some(w) = size.width {
+                            if let Some(width) = width {
+                                *width += gap + w;
+                            } else {
+                                *width = Some(w);
+                            }
+                        }
+                    }
+                }
+                Flex::SelfSized => (),
+                Flex::Fixed(_) => (),
+            },
+
+            Pass::Draw {
+                layout,
+                max_height: &mut ref mut max_height,
+                width: &mut ref mut width,
+                width_expand,
+                gap,
+                pdf: &mut ref mut pdf,
+                ref location,
+                preferred_height,
+                ref mut break_count,
+                ref mut breakable,
+            } => {
+                let width_constraint = match flex {
+                    Flex::Expand(fraction) => WidthConstraint {
+                        max: layout.expand_width(fraction),
+                        expand: width_expand,
+                    },
+                    Flex::SelfSized => WidthConstraint {
+                        max: self.width.max,
+                        expand: false,
+                    },
+                    Flex::Fixed(width) => WidthConstraint {
+                        max: width,
+                        expand: true,
+                    },
+                };
+
+                let mut element_break_count = 0;
+
+                let x_offset = if let &mut Some(width) = width {
+                    width + gap
+                } else {
+                    0.
+                };
+
+                let size = element.draw(DrawCtx {
+                    pdf,
+                    location: Location {
+                        pos: (location.pos.0 + x_offset, location.pos.1),
+                        ..location.clone()
+                    },
+
+                    width: width_constraint,
+                    first_height: self.first_height,
+                    preferred_height,
+
+                    // some trickery to get rust to make a temporary option that owns the closure
+                    breakable: breakable
+                        .as_deref_mut()
+                        .map(|b| {
+                            (
+                                b.full_height,
+                                b.preferred_height_break_count,
+                                |pdf: &mut Pdf, location_idx: u32| {
+                                    element_break_count = element_break_count.max(location_idx + 1);
+
+                                    let mut new_location = (b.get_location)(pdf, location_idx);
+                                    new_location.pos.0 += x_offset;
+                                    new_location
+                                },
+                            )
+                        })
+                        .as_mut()
+                        .map(
+                            |&mut (
+                                full_height,
+                                preferred_height_break_count,
+                                ref mut get_location,
+                            )| {
+                                BreakableDraw {
+                                    full_height,
+                                    preferred_height_break_count,
+                                    get_location,
+                                }
+                            },
+                        ),
+                });
+
+                if breakable.is_some() {
+                    match element_break_count.cmp(break_count) {
+                        std::cmp::Ordering::Less => (),
+                        std::cmp::Ordering::Equal => {
+                            *max_height = max_optional_size(*max_height, size.height);
+                        }
+                        std::cmp::Ordering::Greater => {
+                            *break_count = element_break_count;
+                            *max_height = size.height;
+                        }
+                    }
+                } else {
+                    *max_height = max_optional_size(*max_height, size.height);
+                }
+
+                let mut width_add = |w| {
+                    if let Some(width) = width {
+                        *width += gap + w;
+                    } else {
+                        *width = Some(w);
+                    }
+                };
+
+                match (flex, width_expand) {
+                    (Flex::Expand(_), true) | (Flex::Fixed(_), _) => {
+                        width_add(width_constraint.max);
+                    }
+                    (Flex::Expand(_), false) | (Flex::SelfSized, _) => {
+                        if let Some(w) = size.width {
+                            width_add(w);
+                        }
+                    }
+                }
+            }
+
+            _ => todo!(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        elements::{force_break::ForceBreak, none::NoneElement, rectangle::Rectangle},
+        test_utils::{build_element::BuildElementCtx, *},
+    };
+
+    #[test]
+    fn test_empty_row() {
+        let element = Row {
+            gap: 12.,
+            expand: true,
+            content: |_content| {},
+        };
+
+        for output in ElementTestParams::default().run(&element) {
+            output.assert_size(ElementSize {
+                width: if output.width.expand {
+                    Some(output.width.max)
+                } else {
+                    None
+                },
+                height: None,
+            });
+
+            if let Some(b) = output.breakable {
+                b.assert_break_count(0);
+                b.assert_extra_location_min_height(0.);
+            }
+        }
+
+        let element = Row {
+            gap: 12.,
+            expand: false,
+            content: |_content| {},
+        };
+
+        for output in ElementTestParams::default().run(&element) {
+            output.assert_size(ElementSize {
+                width: if output.width.expand {
+                    Some(output.width.max)
+                } else {
+                    None
+                },
+                height: None,
+            });
+
+            if let Some(b) = output.breakable {
+                b.assert_break_count(0);
+                b.assert_extra_location_min_height(0.);
+            }
+        }
+    }
+
+    #[test]
+    fn test_row_expand() {
+        test_row(true);
+    }
+
+    #[test]
+    fn test_row_no_expand() {
+        test_row(false);
+    }
+
+    fn test_row(expand: bool) {
+        use assert_passes::*;
+
+        let gap = 1.;
+
+        let element = BuildElement(
+            |BuildElementCtx {
+                 width,
+                 first_height,
+                 mut pass,
+             },
+             callback| {
+                let less_first_height = first_height == 6.;
+
+                // This way we don't have to duplicate the logic for this in every child. They
+                // should all get the same preferred height.
+                if let build_element::Pass::Draw {
+                    preferred_height,
+                    breakable,
+                } = &mut pass
+                {
+                    if preferred_height.is_some() || expand {
+                        if let Some(breakable) = breakable {
+                            let (height, break_count) =
+                                if less_first_height { (6., 2) } else { (12., 1) };
+
+                            *preferred_height = Some(height);
+                            breakable.preferred_height_break_count = break_count;
+                        } else {
+                            *preferred_height = Some(24.);
+                        }
+                    }
+                }
+
+                let child_0 = AssertPasses::new(
+                    NoneElement,
+                    match pass {
+                        build_element::Pass::FirstLocationUsage { .. } => todo!(),
+                        build_element::Pass::Measure { full_height } => vec![Pass::Measure {
+                            width: WidthConstraint {
+                                max: width.max,
+                                expand: false,
+                            },
+                            first_height,
+                            full_height,
+                        }],
+                        build_element::Pass::Draw {
+                            ref breakable,
+                            preferred_height,
+                        } => vec![
+                            Pass::Measure {
+                                width: WidthConstraint {
+                                    max: width.max,
+                                    expand: false,
+                                },
+                                first_height: first_height,
+                                full_height: breakable.as_ref().map(|b| b.full_height),
+                            },
+                            Pass::Draw {
+                                width: WidthConstraint {
+                                    max: width.max,
+                                    expand: false,
+                                },
+                                first_height: first_height,
+                                preferred_height,
+
+                                page: 0,
+                                layer: 0,
+                                pos: (12., 14.),
+
+                                breakable: breakable.as_ref().map(|b| BreakableDraw {
+                                    full_height: b.full_height,
+                                    preferred_height_break_count: b.preferred_height_break_count,
+                                    breaks: Vec::new(),
+                                }),
+                            },
+                        ],
+                    },
+                );
+
+                let child_1 = {
+                    let width = WidthConstraint {
+                        max: 6.,
+                        expand: width.expand,
+                    };
+
+                    AssertPasses::new(
+                        Rectangle {
+                            size: (5., 5.),
+                            fill: None,
+                            outline: None,
+                        },
+                        match pass {
+                            build_element::Pass::FirstLocationUsage { .. } => todo!(),
+                            build_element::Pass::Measure { full_height } => vec![Pass::Measure {
+                                width,
+                                first_height,
+                                full_height,
+                            }],
+                            build_element::Pass::Draw {
+                                ref breakable,
+                                preferred_height,
+                            } => {
+                                let mut r = Vec::new();
+
+                                if expand {
+                                    r.push(Pass::Measure {
+                                        width,
+                                        first_height,
+                                        full_height: breakable.as_ref().map(|b| b.full_height),
+                                    });
+                                }
+
+                                r.push(Pass::Draw {
+                                    width,
+                                    first_height,
+                                    preferred_height,
+
+                                    page: 0,
+                                    layer: 0,
+                                    pos: (12., 14.),
+
+                                    breakable: breakable.as_ref().map(|b| BreakableDraw {
+                                        full_height: b.full_height,
+                                        preferred_height_break_count: b
+                                            .preferred_height_break_count,
+                                        breaks: Vec::new(),
+                                    }),
+                                });
+
+                                r
+                            }
+                        },
+                    )
+                };
+
+                let child_1_width = if width.expand { 6. } else { 5. } + gap;
+
+                let child_2 = {
+                    let x = 12. + child_1_width;
+
+                    AssertPasses::new(
+                        FakeText {
+                            lines: 12,
+                            line_height: 2.,
+                            width: 500.,
+                        },
+                        match pass {
+                            build_element::Pass::FirstLocationUsage { .. } => todo!(),
+                            build_element::Pass::Measure { full_height } => vec![Pass::Measure {
+                                width: WidthConstraint {
+                                    max: 3.,
+                                    expand: true,
+                                },
+                                first_height,
+                                full_height,
+                            }],
+                            build_element::Pass::Draw {
+                                ref breakable,
+                                preferred_height,
+                            } => {
+                                let mut r = Vec::new();
+
+                                if expand {
+                                    r.push(Pass::Measure {
+                                        width: WidthConstraint {
+                                            max: 3.,
+                                            expand: true,
+                                        },
+                                        first_height,
+                                        full_height: breakable.as_ref().map(|b| b.full_height),
+                                    });
+                                }
+
+                                r.push(Pass::Draw {
+                                    width: WidthConstraint {
+                                        max: 3.,
+                                        expand: true,
+                                    },
+                                    first_height,
+                                    preferred_height,
+
+                                    page: 0,
+                                    layer: 0,
+                                    pos: (x, 14.),
+
+                                    breakable: breakable.as_ref().map(|b| BreakableDraw {
+                                        full_height: b.full_height,
+                                        preferred_height_break_count: b
+                                            .preferred_height_break_count,
+                                        breaks: if less_first_height {
+                                            vec![
+                                                Break {
+                                                    page: 1,
+                                                    layer: 0,
+                                                    pos: (x, 14.),
+                                                },
+                                                Break {
+                                                    page: 2,
+                                                    layer: 0,
+                                                    pos: (x, 14.),
+                                                },
+                                            ]
+                                        } else {
+                                            vec![Break {
+                                                page: 1,
+                                                layer: 0,
+                                                pos: (x, 14.),
+                                            }]
+                                        },
+                                    }),
+                                });
+
+                                r
+                            }
+                        },
+                    )
+                };
+
+                let child_2_width = 3. + gap;
+
+                let child_3 = {
+                    let x = 12. + child_1_width + child_2_width;
+                    let width = WidthConstraint {
+                        max: 13.,
+                        expand: width.expand,
+                    };
+
+                    AssertPasses::new(
+                        ForceBreak,
+                        match pass {
+                            build_element::Pass::FirstLocationUsage { .. } => todo!(),
+                            build_element::Pass::Measure { full_height } => vec![Pass::Measure {
+                                width,
+                                first_height,
+                                full_height,
+                            }],
+                            build_element::Pass::Draw {
+                                ref breakable,
+                                preferred_height,
+                            } => {
+                                let mut r = Vec::new();
+
+                                if expand {
+                                    r.push(Pass::Measure {
+                                        width,
+                                        first_height,
+                                        full_height: breakable.as_ref().map(|b| b.full_height),
+                                    });
+                                }
+
+                                r.push(Pass::Draw {
+                                    width,
+                                    first_height,
+                                    preferred_height,
+
+                                    page: 0,
+                                    layer: 0,
+                                    pos: (x, 14.),
+
+                                    breakable: breakable.as_ref().map(|b| BreakableDraw {
+                                        full_height: b.full_height,
+                                        preferred_height_break_count: b
+                                            .preferred_height_break_count,
+                                        breaks: vec![Break {
+                                            page: 1,
+                                            layer: 0,
+                                            pos: (x, 14.),
+                                        }],
+                                    }),
+                                });
+
+                                r
+                            }
+                        },
+                    )
+                };
+
+                let element = Row {
+                    gap,
+                    expand,
+                    content: |content| {
+                        content.add(&child_0, Flex::SelfSized);
+                        content.add(&child_1, Flex::Expand(1));
+                        content.add(&child_2, Flex::Fixed(3.));
+                        content.add(&child_3, Flex::Expand(2));
+                    },
+                };
+
+                callback.call(element)
+            },
+        );
+
+        for output in (ElementTestParams {
+            width: 24.,
+            first_height: 6.,
+            full_height: 12.,
+            pos: (12., 14.),
+            ..Default::default()
+        })
+        .run(&element)
+        {
+            let (height, breaks) = if output.breakable.is_none() {
+                (24., 0)
+            } else if output.first_height == 6. {
+                (6., 2)
+            } else {
+                (12., 1)
+            };
+
+            output.assert_size(ElementSize {
+                width: if output.width.expand {
+                    Some(20. + gap + 3.)
+                } else {
+                    Some(5. + gap + 3.)
+                },
+                height: Some(height),
+            });
+
+            if let Some(b) = output.breakable {
+                b.assert_break_count(breaks);
+
+                // TODO
+                b.assert_extra_location_min_height(0.);
+            }
+        }
+    }
+}

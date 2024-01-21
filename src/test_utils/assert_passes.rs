@@ -33,7 +33,7 @@ pub enum Pass {
     Draw {
         width: WidthConstraint,
         first_height: f64,
-        preferred_height: f64,
+        preferred_height: Option<f64>,
         page: usize,
         layer: usize,
         pos: (f64, f64),
@@ -57,6 +57,16 @@ impl<E: Element> AssertPasses<E> {
             passes,
             current: Cell::new(0),
         }
+    }
+}
+
+impl<E: Element> Drop for AssertPasses<E> {
+    fn drop(&mut self) {
+        // If this throws, make sure there isn't another error above, because this also gets dropped
+        // while unwinding the stack.
+        //
+        // TODO: Maybe we can check if an unwind is already in progress here?
+        assert_eq!(self.current.get(), self.passes.len());
     }
 }
 

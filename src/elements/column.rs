@@ -196,7 +196,7 @@ impl<'a, 'b, 'r> ColumnContent<'a, 'b, 'r> {
                     first_height: *height_available
                         - height.unwrap_or(0.)
                         - if height.is_some() { self.gap } else { 0. },
-                    preferred_height: 0.,
+                    preferred_height: None,
                     breakable: None,
                 };
 
@@ -296,27 +296,29 @@ mod tests {
                 AssertPasses::new(
                     NoneElement,
                     match build_ctx.pass {
-                        build_element::Pass::FirstLocationUsage => vec![Pass::FirstLocationUsage {
+                        build_element::Pass::FirstLocationUsage { full_height } => {
+                            vec![Pass::FirstLocationUsage {
+                                width: build_ctx.width,
+                                first_height: build_ctx.first_height,
+                                full_height,
+                            }]
+                        }
+                        build_element::Pass::Measure { full_height } => vec![Pass::Measure {
                             width: build_ctx.width,
                             first_height: build_ctx.first_height,
-                            full_height: build_ctx.full_height.unwrap(),
+                            full_height,
                         }],
-                        build_element::Pass::Measure => vec![Pass::Measure {
+                        build_element::Pass::Draw { ref breakable, .. } => vec![Pass::Draw {
                             width: build_ctx.width,
                             first_height: build_ctx.first_height,
-                            full_height: build_ctx.full_height,
-                        }],
-                        build_element::Pass::Draw => vec![Pass::Draw {
-                            width: build_ctx.width,
-                            first_height: build_ctx.first_height,
-                            preferred_height: 0.,
+                            preferred_height: None,
 
                             page: 0,
                             layer: 0,
                             pos: (3., 12.),
 
-                            breakable: build_ctx.full_height.map(|full_height| BreakableDraw {
-                                full_height,
+                            breakable: breakable.as_ref().map(|b| BreakableDraw {
+                                full_height: b.full_height,
                                 preferred_height_break_count: 0,
                                 breaks: Vec::new(),
                             }),
@@ -371,27 +373,29 @@ mod tests {
             let child_0 = AssertPasses::new(
                 NoneElement,
                 match build_ctx.pass {
-                    build_element::Pass::FirstLocationUsage => vec![Pass::FirstLocationUsage {
+                    build_element::Pass::FirstLocationUsage { full_height } => {
+                        vec![Pass::FirstLocationUsage {
+                            width: build_ctx.width,
+                            first_height: build_ctx.first_height,
+                            full_height,
+                        }]
+                    }
+                    build_element::Pass::Measure { full_height } => vec![Pass::Measure {
                         width: build_ctx.width,
                         first_height: build_ctx.first_height,
-                        full_height: build_ctx.full_height.unwrap(),
+                        full_height,
                     }],
-                    build_element::Pass::Measure => vec![Pass::Measure {
+                    build_element::Pass::Draw { ref breakable, .. } => vec![Pass::Draw {
                         width: build_ctx.width,
                         first_height: build_ctx.first_height,
-                        full_height: build_ctx.full_height,
-                    }],
-                    build_element::Pass::Draw => vec![Pass::Draw {
-                        width: build_ctx.width,
-                        first_height: build_ctx.first_height,
-                        preferred_height: 0.,
+                        preferred_height: None,
 
                         page: 0,
                         layer: 0,
                         pos: (3., 12.),
 
-                        breakable: build_ctx.full_height.map(|full_height| BreakableDraw {
-                            full_height,
+                        breakable: breakable.as_ref().map(|b| BreakableDraw {
+                            full_height: b.full_height,
                             preferred_height_break_count: 0,
                             breaks: Vec::new(),
                         }),
@@ -406,27 +410,29 @@ mod tests {
                     width: 5.,
                 },
                 match build_ctx.pass {
-                    build_element::Pass::FirstLocationUsage => vec![Pass::FirstLocationUsage {
+                    build_element::Pass::FirstLocationUsage { full_height } => {
+                        vec![Pass::FirstLocationUsage {
+                            width: build_ctx.width,
+                            first_height: build_ctx.first_height,
+                            full_height,
+                        }]
+                    }
+                    build_element::Pass::Measure { full_height } => vec![Pass::Measure {
                         width: build_ctx.width,
                         first_height: build_ctx.first_height,
-                        full_height: build_ctx.full_height.unwrap(),
+                        full_height,
                     }],
-                    build_element::Pass::Measure => vec![Pass::Measure {
+                    build_element::Pass::Draw { ref breakable, .. } => vec![Pass::Draw {
                         width: build_ctx.width,
                         first_height: build_ctx.first_height,
-                        full_height: build_ctx.full_height,
-                    }],
-                    build_element::Pass::Draw => vec![Pass::Draw {
-                        width: build_ctx.width,
-                        first_height: build_ctx.first_height,
-                        preferred_height: 0.,
+                        preferred_height: None,
 
                         page: 0,
                         layer: 0,
                         pos: (3., 12.),
 
-                        breakable: build_ctx.full_height.map(|full_height| BreakableDraw {
-                            full_height,
+                        breakable: breakable.as_ref().map(|b| BreakableDraw {
+                            full_height: b.full_height,
                             preferred_height_break_count: 0,
                             breaks: if less_first_height {
                                 vec![
@@ -454,7 +460,7 @@ mod tests {
             );
 
             let child_2 = {
-                let first_height = match (build_ctx.full_height.is_some(), less_first_height) {
+                let first_height = match (build_ctx.is_breakable(), less_first_height) {
                     (false, false) => 10. - 16. - 1.,
                     (false, true) => 4. - 16. - 1.,
                     (true, false) => 3.,
@@ -463,25 +469,19 @@ mod tests {
 
                 AssertPasses::new(
                     ForceBreak,
-                    vec![match build_ctx.pass {
-                        build_element::Pass::FirstLocationUsage => Pass::FirstLocationUsage {
-                            width: build_ctx.width,
-
-                            // if the pass is FirstLocationUsage full_height is always Some
-                            first_height,
-                            full_height: build_ctx.full_height.unwrap(),
-                        },
-                        build_element::Pass::Measure => Pass::Measure {
+                    match build_ctx.pass {
+                        build_element::Pass::FirstLocationUsage { .. } => vec![],
+                        build_element::Pass::Measure { full_height } => vec![Pass::Measure {
                             width: build_ctx.width,
                             first_height,
-                            full_height: build_ctx.full_height,
-                        },
-                        build_element::Pass::Draw => {
-                            if let Some(full_height) = build_ctx.full_height {
+                            full_height,
+                        }],
+                        build_element::Pass::Draw { ref breakable, .. } => {
+                            vec![if let Some(breakable) = breakable {
                                 Pass::Draw {
                                     width: build_ctx.width,
                                     first_height,
-                                    preferred_height: 0.,
+                                    preferred_height: None,
 
                                     page: if less_first_height { 2 } else { 1 },
                                     layer: 0,
@@ -492,7 +492,7 @@ mod tests {
                                     },
 
                                     breakable: Some(BreakableDraw {
-                                        full_height,
+                                        full_height: breakable.full_height,
                                         preferred_height_break_count: 0,
                                         breaks: if less_first_height {
                                             vec![Break {
@@ -513,7 +513,7 @@ mod tests {
                                 Pass::Draw {
                                     width: build_ctx.width,
                                     first_height,
-                                    preferred_height: 0.,
+                                    preferred_height: None,
 
                                     page: 0,
                                     layer: 0,
@@ -521,14 +521,14 @@ mod tests {
 
                                     breakable: None,
                                 }
-                            }
+                            }]
                         }
-                    }],
+                    },
                 )
             };
 
             let child_3 = {
-                let first_height = match (build_ctx.full_height.is_some(), less_first_height) {
+                let first_height = match (build_ctx.is_breakable(), less_first_height) {
                     (false, false) => 10. - 16. - 1.,
                     (false, true) => 4. - 16. - 1.,
                     (true, _) => 10.,
@@ -542,30 +542,26 @@ mod tests {
                             height: Some(1.5),
                         },
                     },
-                    vec![match build_ctx.pass {
-                        build_element::Pass::FirstLocationUsage => Pass::FirstLocationUsage {
+                    match build_ctx.pass {
+                        build_element::Pass::FirstLocationUsage { .. } => vec![],
+                        build_element::Pass::Measure { full_height } => vec![Pass::Measure {
                             width: build_ctx.width,
                             first_height,
-                            full_height: 10.,
-                        },
-                        build_element::Pass::Measure => Pass::Measure {
-                            width: build_ctx.width,
-                            first_height,
-                            full_height: build_ctx.full_height,
-                        },
-                        build_element::Pass::Draw => {
-                            if let Some(full_height) = build_ctx.full_height {
+                            full_height,
+                        }],
+                        build_element::Pass::Draw { ref breakable, .. } => {
+                            vec![if let Some(breakable) = breakable {
                                 let start_page = if less_first_height { 3 } else { 2 };
 
                                 Pass::Draw {
                                     width: build_ctx.width,
                                     first_height,
-                                    preferred_height: 0.,
+                                    preferred_height: None,
                                     page: start_page,
                                     layer: 0,
                                     pos: (3., 12.),
                                     breakable: Some(BreakableDraw {
-                                        full_height,
+                                        full_height: breakable.full_height,
                                         preferred_height_break_count: 0,
                                         breaks: vec![
                                             Break {
@@ -595,7 +591,7 @@ mod tests {
                                 Pass::Draw {
                                     width: build_ctx.width,
                                     first_height,
-                                    preferred_height: 0.,
+                                    preferred_height: None,
 
                                     page: 0,
                                     layer: 0,
@@ -603,14 +599,14 @@ mod tests {
 
                                     breakable: None,
                                 }
-                            }
+                            }]
                         }
-                    }],
+                    },
                 )
             };
 
             let child_4 = {
-                let first_height = match (build_ctx.full_height.is_some(), less_first_height) {
+                let first_height = match (build_ctx.is_breakable(), less_first_height) {
                     (false, false) => 10. - 16. - 1. - 1.5 - 1.,
                     (false, true) => 4. - 16. - 1. - 1.5 - 1.,
                     (true, _) => 10. - 1.5 - 1.,
@@ -618,30 +614,26 @@ mod tests {
 
                 AssertPasses::new(
                     NoneElement,
-                    vec![match build_ctx.pass {
-                        build_element::Pass::FirstLocationUsage => Pass::FirstLocationUsage {
+                    match build_ctx.pass {
+                        build_element::Pass::FirstLocationUsage { .. } => vec![],
+                        build_element::Pass::Measure { full_height } => vec![Pass::Measure {
                             width: build_ctx.width,
                             first_height,
-                            full_height: 10.,
-                        },
-                        build_element::Pass::Measure => Pass::Measure {
-                            width: build_ctx.width,
-                            first_height,
-                            full_height: build_ctx.full_height,
-                        },
-                        build_element::Pass::Draw => {
-                            if let Some(full_height) = build_ctx.full_height {
+                            full_height,
+                        }],
+                        build_element::Pass::Draw { ref breakable, .. } => {
+                            vec![if let Some(breakable) = breakable {
                                 let start_page = if less_first_height { 3 } else { 2 } + 6;
 
                                 Pass::Draw {
                                     width: build_ctx.width,
                                     first_height,
-                                    preferred_height: 0.,
+                                    preferred_height: None,
                                     page: start_page,
                                     layer: 0,
                                     pos: (3., 12. - 1.5 - 1.),
                                     breakable: Some(BreakableDraw {
-                                        full_height,
+                                        full_height: breakable.full_height,
                                         preferred_height_break_count: 0,
                                         breaks: vec![],
                                     }),
@@ -650,7 +642,7 @@ mod tests {
                                 Pass::Draw {
                                     width: build_ctx.width,
                                     first_height,
-                                    preferred_height: 0.,
+                                    preferred_height: None,
 
                                     page: 0,
                                     layer: 0,
@@ -658,9 +650,9 @@ mod tests {
 
                                     breakable: None,
                                 }
-                            }
+                            }]
                         }
-                    }],
+                    },
                 )
             };
 

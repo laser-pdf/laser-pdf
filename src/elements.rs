@@ -8,6 +8,7 @@ pub mod none;
 pub mod padding;
 pub mod rectangle;
 pub mod rich_text;
+pub mod row;
 pub mod svg;
 pub mod text;
 pub mod v_gap;

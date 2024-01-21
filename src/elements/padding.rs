@@ -53,7 +53,7 @@ impl<E: Element> Element for Padding<E> {
                 ..ctx.location
             },
 
-            preferred_height: self.height(ctx.preferred_height),
+            preferred_height: ctx.preferred_height.map(|p| self.height(p)),
 
             width,
             first_height: self.height(ctx.first_height),

@@ -7,6 +7,8 @@ pub mod utils;
 #[cfg(test)]
 pub mod test_utils;
 
+pub(crate) mod flex;
+
 use fonts::Font;
 use printpdf::{Mm, PdfDocumentReference, PdfLayerReference};
 use serde::{Deserialize, Serialize};
@@ -244,7 +246,7 @@ pub struct DrawCtx<'a, 'b> {
     pub width: WidthConstraint,
     pub first_height: f64,
 
-    pub preferred_height: f64,
+    pub preferred_height: Option<f64>,
 
     pub breakable: Option<BreakableDraw<'b>>,
 }
