@@ -203,11 +203,45 @@ impl Default for ElementTestParams {
     }
 }
 
+pub struct TestConfiguration<'a> {
+    pub use_first_height: bool,
+    pub breakable: bool,
+    pub expand_width: bool,
+    pub params: &'a ElementTestParams,
+}
+
+impl<'a> TestConfiguration<'a> {
+    pub fn run(&self, element: &impl Element) -> ElementTestOutput {
+        let width = WidthConstraint {
+            max: self.params.width,
+            expand: self.expand_width,
+        };
+
+        let first_height = if self.use_first_height {
+            self.params.first_height
+        } else {
+            self.params.full_height
+        };
+
+        let full_height = if self.breakable {
+            Some(self.params.full_height)
+        } else {
+            None
+        };
+
+        test_measure_draw_compatibility(
+            element,
+            width,
+            first_height,
+            full_height,
+            self.params.pos,
+            self.params.page_size,
+        )
+    }
+}
+
 impl ElementTestParams {
-    pub fn run<'a, E: Element>(
-        self,
-        element: &'a E,
-    ) -> impl Iterator<Item = ElementTestOutput> + 'a {
+    pub fn configurations(&self) -> impl Iterator<Item = TestConfiguration> {
         [
             (false, false, false),
             (false, false, true),
@@ -219,33 +253,21 @@ impl ElementTestParams {
             (true, true, true),
         ]
         .into_iter()
-        .map(move |(use_first_height, breakable, expand_width)| {
-            let width = WidthConstraint {
-                max: self.width,
-                expand: expand_width,
-            };
+        .map(
+            move |(use_first_height, breakable, expand_width)| TestConfiguration {
+                use_first_height,
+                breakable,
+                expand_width,
+                params: self,
+            },
+        )
+    }
 
-            let first_height = if use_first_height {
-                self.first_height
-            } else {
-                self.full_height
-            };
-
-            let full_height = if breakable {
-                Some(self.full_height)
-            } else {
-                None
-            };
-
-            test_measure_draw_compatibility(
-                element,
-                width,
-                first_height,
-                full_height,
-                self.pos,
-                self.page_size,
-            )
-        })
+    pub fn run<'a, E: Element>(
+        &'a self,
+        element: &'a E,
+    ) -> impl Iterator<Item = ElementTestOutput> + 'a {
+        self.configurations().map(|c| c.run(element))
     }
 }
 

@@ -336,7 +336,7 @@ mod tests {
                 content: |content| {
                     content.add(&none_0)?.add(&none_1)?.add(&none_2)?;
 
-                    Some(())
+                    None
                 },
             };
 

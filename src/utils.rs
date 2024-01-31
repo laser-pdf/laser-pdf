@@ -65,3 +65,11 @@ pub fn max_optional_size(a: Option<f64>, b: Option<f64>) -> Option<f64> {
         (Some(a), Some(b)) => Some(a.max(b)),
     }
 }
+
+pub fn add_optional_size(a: Option<f64>, b: Option<f64>) -> Option<f64> {
+    match (a, b) {
+        (None, None) => None,
+        (None, Some(x)) | (Some(x), None) => Some(x),
+        (Some(a), Some(b)) => Some(a + b),
+    }
+}
