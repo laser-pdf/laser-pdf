@@ -9,6 +9,15 @@ pub struct Rectangle {
 }
 
 impl Element for Rectangle {
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        let outline_thickness = outline_thickness(self);
+        if ctx.break_appropriate_for_min_height(self.size.1 + outline_thickness) {
+            FirstLocationUsage::WillSkip
+        } else {
+            FirstLocationUsage::WillUse
+        }
+    }
+
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let outline_thickness = outline_thickness(self);
         ctx.break_if_appropriate_for_min_height(self.size.1 + outline_thickness);

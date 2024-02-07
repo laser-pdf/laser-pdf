@@ -4,6 +4,7 @@ pub mod element_proxy;
 pub mod fake_image;
 pub mod fake_text;
 pub mod frantic_jumper;
+pub mod record_passes;
 
 pub use build_element::BuildElement;
 pub use element_proxy::ElementProxy;
@@ -125,7 +126,7 @@ pub fn measure_element<E: Element>(
     }
 }
 
-fn test_measure_draw_compatibility<E: Element>(
+pub fn test_measure_draw_compatibility<E: Element>(
     element: &E,
     width: WidthConstraint,
     first_height: f64,
@@ -303,6 +304,14 @@ pub struct ElementTestOutput {
 }
 
 impl ElementTestOutput {
+    pub fn assert_no_breaks(&self) -> &Self {
+        if let Some(b) = &self.breakable {
+            b.assert_break_count(0);
+        }
+
+        self
+    }
+
     pub fn assert_size(&self, size: ElementSize) -> &Self {
         assert_eq!(self.size, size);
         self
