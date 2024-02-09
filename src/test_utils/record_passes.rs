@@ -61,12 +61,22 @@ impl<E: Element> RecordPasses<E> {
     }
 
     pub fn assert_draw(&self, pass: DrawPass) {
-        let passes = self.passes.borrow();
-        let mut draw_passes = passes.iter().filter(|p| matches!(p, Pass::Draw { .. }));
+        self.assert_draws(&[pass]);
+    }
 
-        let draw_pass = draw_passes.next().unwrap();
-        assert_eq!(draw_pass, &Pass::Draw(pass));
-        assert_eq!(draw_passes.next(), None);
+    pub fn assert_draws(&self, expected_draws: &[DrawPass]) {
+        let passes = self.passes.borrow();
+        let actual_draws: Vec<_> = passes
+            .iter()
+            .filter_map(|p| if let Pass::Draw(d) = p { Some(d) } else { None })
+            .collect();
+
+        assert!(
+            expected_draws.iter().eq(actual_draws.iter().map(|d| *d)),
+            "assertion `actual_draws == expected_draws` failed\nactual_draws: {:#?}\nexpected_draws: {:#?}",
+            actual_draws,
+            expected_draws,
+        );
     }
 
     pub fn assert_draw_count(&self, count: usize) {
