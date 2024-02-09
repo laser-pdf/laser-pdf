@@ -1,4 +1,7 @@
-use crate::{utils::max_optional_size, *};
+use crate::{
+    utils::{add_optional_size_with_gap, max_optional_size},
+    *,
+};
 
 pub struct RepeatAfterBreak<'a, T: Element, C: Element> {
     pub title: &'a T,
@@ -66,10 +69,8 @@ impl<'a, T: Element, C: Element> Element for RepeatAfterBreak<'a, T, C> {
         };
 
         self.size(
-            y_offset,
-            title_size.width,
+            title_size,
             content_size,
-            break_count,
             self.collapse(break_count, content_size),
         )
     }
@@ -191,13 +192,7 @@ impl<'a, T: Element, C: Element> Element for RepeatAfterBreak<'a, T, C> {
             });
         }
 
-        self.size(
-            y_offset,
-            title_size.width,
-            content_size,
-            last_location_idx,
-            collapse,
-        )
+        self.size(title_size, content_size, collapse)
     }
 }
 
@@ -212,24 +207,20 @@ impl<'a, T: Element, C: Element> RepeatAfterBreak<'a, T, C> {
 
     fn size(
         &self,
-        y_offset: f64,
-        title_width: Option<f64>,
+        title_size: ElementSize,
         content_size: ElementSize,
-        break_count: u32,
         collapse: bool,
     ) -> ElementSize {
         ElementSize {
             width: if collapse {
                 content_size.width
             } else {
-                max_optional_size(title_width, content_size.width)
+                max_optional_size(title_size.width, content_size.width)
             },
             height: if collapse {
                 None
-            } else if break_count == 0 {
-                Some(y_offset + content_size.height.unwrap_or(0.))
             } else {
-                content_size.height
+                add_optional_size_with_gap(title_size.height, content_size.height, self.gap)
             },
         }
     }
@@ -533,11 +524,7 @@ mod tests {
 
             output.assert_size(ElementSize {
                 width: Some(2.5),
-                height: if configuration.breakable {
-                    None
-                } else {
-                    Some(4.)
-                },
+                height: Some(3.),
             });
 
             if let Some(b) = output.breakable {
@@ -781,7 +768,7 @@ mod tests {
 
         output.assert_size(ElementSize {
             width: Some(2.5),
-            height: Some(11.),
+            height: Some(16.),
         });
         output.breakable.unwrap().assert_break_count(5);
     }

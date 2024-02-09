@@ -73,3 +73,11 @@ pub fn add_optional_size(a: Option<f64>, b: Option<f64>) -> Option<f64> {
         (Some(a), Some(b)) => Some(a + b),
     }
 }
+
+pub fn add_optional_size_with_gap(a: Option<f64>, b: Option<f64>, gap: f64) -> Option<f64> {
+    match (a, b) {
+        (None, None) => None,
+        (None, Some(x)) | (Some(x), None) => Some(x),
+        (Some(a), Some(b)) => Some(a + gap + b),
+    }
+}
