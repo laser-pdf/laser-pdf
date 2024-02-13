@@ -13,5 +13,6 @@ pub mod rich_text;
 pub mod row;
 pub mod svg;
 pub mod text;
+pub mod title_or_break;
 pub mod titled;
 pub mod v_gap;
