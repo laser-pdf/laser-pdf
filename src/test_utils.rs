@@ -26,6 +26,7 @@ pub struct DrawStats {
 }
 
 struct BreakableDrawConfig {
+    pos: (f64, f64),
     full_height: f64,
     preferred_height_break_count: u32,
 }
@@ -35,7 +36,7 @@ fn draw_element<E: Element>(
     width: WidthConstraint,
     first_height: f64,
     preferred_height: Option<f64>,
-    pos: (f64, f64),
+    first_pos: (f64, f64),
     page_size: (f64, f64),
     breakable: Option<BreakableDrawConfig>,
 ) -> DrawStats {
@@ -63,7 +64,10 @@ fn draw_element<E: Element>(
             .get_page(PdfPageIndex((location_idx + 1) as usize))
             .get_layer(PdfLayerIndex(0));
 
-        Location { layer, pos }
+        Location {
+            layer,
+            pos: breakable.as_ref().unwrap().pos,
+        }
     };
 
     let layer = pdf.document.get_page(page).get_layer(layer);
@@ -71,12 +75,15 @@ fn draw_element<E: Element>(
     let ctx = DrawCtx {
         pdf: &mut pdf,
         width,
-        location: Location { layer, pos },
+        location: Location {
+            layer,
+            pos: first_pos,
+        },
 
         first_height,
         preferred_height,
 
-        breakable: breakable.map(|b| BreakableDraw {
+        breakable: breakable.as_ref().map(|b| BreakableDraw {
             full_height: b.full_height,
             preferred_height_break_count: b.preferred_height_break_count,
             get_location: next_draw_pos,
@@ -126,6 +133,95 @@ pub fn measure_element<E: Element>(
     }
 }
 
+pub fn test_element<E: Element>(
+    element: &E,
+    width: WidthConstraint,
+    first_height: f64,
+    full_height: Option<f64>,
+    pos: (f64, f64),
+    page_size: (f64, f64),
+) -> ElementTestOutput {
+    let first_pos = (
+        pos.0,
+        full_height.map_or(pos.1, |h| pos.1 + h - first_height),
+    );
+
+    let measure = measure_element(element, width, first_height, full_height);
+    let draw = draw_element(
+        element,
+        width,
+        first_height,
+        None,
+        first_pos,
+        page_size,
+        full_height.map(|f| BreakableDrawConfig {
+            pos,
+            full_height: f,
+            preferred_height_break_count: 0,
+        }),
+    );
+    let restricted_draw = draw_element(
+        element,
+        width,
+        first_height,
+        measure.size.height,
+        first_pos,
+        page_size,
+        full_height.map(|f| BreakableDrawConfig {
+            pos,
+            full_height: f,
+            preferred_height_break_count: measure.break_count,
+        }),
+    );
+
+    assert_eq!(measure.break_count, draw.break_count);
+    assert_eq!(measure.break_count, restricted_draw.break_count);
+
+    assert_eq!(measure.size, draw.size);
+    assert_eq!(measure.size, restricted_draw.size);
+
+    ElementTestOutput {
+        width,
+        first_height,
+        pos,
+        page_size,
+        size: measure.size,
+        breakable: full_height.map(|full_height| {
+            let first_location_usage = element.first_location_usage(FirstLocationUsageCtx {
+                width,
+                first_height,
+                full_height,
+            });
+
+            match first_location_usage {
+                FirstLocationUsage::NoneHeight => {
+                    assert!(measure.size.height.is_none());
+                    assert_eq!(measure.break_count, 0);
+                }
+                FirstLocationUsage::WillUse => {
+                    assert!(measure.size.height.is_some() || measure.break_count >= 1);
+                }
+                FirstLocationUsage::WillSkip => {
+                    assert!(measure.break_count >= 1);
+
+                    let skipped_measure =
+                        measure_element(element, width, full_height, Some(full_height));
+
+                    assert_eq!(measure.break_count + 1, skipped_measure.break_count);
+                    assert_ne!(first_height, full_height);
+                }
+            }
+
+            ElementTestOutputBreakable {
+                full_height,
+                break_count: measure.break_count,
+                extra_location_min_height: measure.extra_location_min_height,
+                first_location_usage,
+            }
+        }),
+    }
+}
+
 pub fn test_measure_draw_compatibility<E: Element>(
     element: &E,
     width: WidthConstraint,
@@ -143,6 +239,7 @@ pub fn test_measure_draw_compatibility<E: Element>(
         pos,
         page_size,
         full_height.map(|f| BreakableDrawConfig {
+            pos,
             full_height: f,
             preferred_height_break_count: 0,
         }),
@@ -155,6 +252,7 @@ pub fn test_measure_draw_compatibility<E: Element>(
         pos,
         page_size,
         full_height.map(|f| BreakableDrawConfig {
+            pos,
             full_height: f,
             preferred_height_break_count: measure.break_count,
         }),
@@ -173,6 +271,7 @@ pub fn test_measure_draw_compatibility<E: Element>(
         page_size,
         size: measure.size,
         breakable: full_height.map(|f| ElementTestOutputBreakable {
+            first_location_usage: FirstLocationUsage::NoneHeight, // TODO
             full_height: f,
             break_count: measure.break_count,
             extra_location_min_height: measure.extra_location_min_height,
@@ -277,6 +376,8 @@ pub struct ElementTestOutputBreakable {
 
     pub break_count: u32,
     pub extra_location_min_height: f64,
+
+    pub first_location_usage: FirstLocationUsage,
 }
 
 impl ElementTestOutputBreakable {
@@ -287,6 +388,11 @@ impl ElementTestOutputBreakable {
 
     pub fn assert_extra_location_min_height(&self, extra_location_min_height: f64) -> &Self {
         assert_eq!(self.extra_location_min_height, extra_location_min_height);
+        self
+    }
+
+    pub fn assert_first_location_usage(&self, expected: FirstLocationUsage) -> &Self {
+        assert_eq!(self.first_location_usage, expected);
         self
     }
 }

@@ -12,6 +12,7 @@ pub mod rectangle;
 pub mod repeat_after_break;
 pub mod rich_text;
 pub mod row;
+pub mod stack;
 pub mod svg;
 pub mod text;
 pub mod title_or_break;
