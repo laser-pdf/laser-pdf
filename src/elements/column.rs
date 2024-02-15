@@ -130,7 +130,7 @@ impl<'a, 'b, 'r> ColumnContent<'a, 'b, 'r> {
                     let mut break_count = 0;
 
                     // We ignore this because we also don't pass on preferred height.
-                    let mut extra_location_min_height = 0.;
+                    let mut extra_location_min_height = None;
 
                     size = element.measure(MeasureCtx {
                         breakable: Some(BreakableMeasure {
@@ -281,7 +281,8 @@ mod tests {
             });
 
             if let Some(b) = output.breakable {
-                b.assert_break_count(0).assert_extra_location_min_height(0.);
+                b.assert_break_count(0)
+                    .assert_extra_location_min_height(None);
             }
         }
     }
@@ -358,7 +359,8 @@ mod tests {
             });
 
             if let Some(b) = output.breakable {
-                b.assert_break_count(0).assert_extra_location_min_height(0.);
+                b.assert_break_count(0)
+                    .assert_extra_location_min_height(None);
             }
         }
     }
@@ -693,7 +695,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 4. { 9 } else { 8 })
-                    .assert_extra_location_min_height(0.);
+                    .assert_extra_location_min_height(None);
             }
         }
     }

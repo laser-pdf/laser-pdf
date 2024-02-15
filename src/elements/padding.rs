@@ -19,7 +19,7 @@ impl<E: Element> Element for Padding<E> {
 
     fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         let mut break_count = 0;
-        let mut extra_location_min_height = 0.;
+        let mut extra_location_min_height = None;
 
         let size = self.element.measure(MeasureCtx {
             width: self.width(ctx.width),
@@ -33,6 +33,8 @@ impl<E: Element> Element for Padding<E> {
 
         if let Some(b) = ctx.breakable {
             *b.break_count = break_count;
+
+            // TODO: Subtract padding
             *b.extra_location_min_height = extra_location_min_height;
         }
 
@@ -167,7 +169,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 30.1 { 5 } else { 4 })
-                    .assert_extra_location_min_height(0.);
+                    .assert_extra_location_min_height(None);
             }
         }
     }

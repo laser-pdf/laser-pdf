@@ -211,7 +211,7 @@ pub struct BreakableMeasure<'a> {
     /// location via `preferred_break_count` and `preferred_height`. The flex needs to be able to
     /// predict the height of the last page so that there isn't a single element that is higher than
     /// the other ones.
-    pub extra_location_min_height: &'a mut f64,
+    pub extra_location_min_height: &'a mut Option<f64>,
 }
 
 pub struct MeasureCtx<'a> {

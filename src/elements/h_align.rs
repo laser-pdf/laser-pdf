@@ -41,7 +41,7 @@ impl<E: Element> Element for HAlign<E> {
 
         let size = if width.expand {
             let mut break_count = 0;
-            let mut extra_location_min_height = 0.;
+            let mut extra_location_min_height = None;
 
             let element_size = self.1.measure(MeasureCtx {
                 width: WidthConstraint {
@@ -131,7 +131,8 @@ mod tests {
             });
 
             if let Some(b) = output.breakable {
-                b.assert_break_count(0).assert_extra_location_min_height(0.);
+                b.assert_break_count(0)
+                    .assert_extra_location_min_height(None);
             }
         }
     }
@@ -191,7 +192,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 1. { 5 } else { 4 })
-                    .assert_extra_location_min_height(0.);
+                    .assert_extra_location_min_height(None);
             }
         }
     }
@@ -251,7 +252,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 1. { 1 } else { 0 })
-                    .assert_extra_location_min_height(0.);
+                    .assert_extra_location_min_height(None);
             }
         }
     }
@@ -290,7 +291,8 @@ mod tests {
             });
 
             if let Some(b) = output.breakable {
-                b.assert_break_count(0).assert_extra_location_min_height(0.);
+                b.assert_break_count(0)
+                    .assert_extra_location_min_height(None);
             }
         }
     }
@@ -343,7 +345,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 1. { 1 } else { 0 })
-                    .assert_extra_location_min_height(0.);
+                    .assert_extra_location_min_height(None);
             }
         }
     }
@@ -393,7 +395,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 1. { 1 } else { 0 })
-                    .assert_extra_location_min_height(0.);
+                    .assert_extra_location_min_height(None);
             }
         }
     }
@@ -445,7 +447,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if output.first_height == 1. { 1 } else { 0 })
-                    .assert_extra_location_min_height(0.);
+                    .assert_extra_location_min_height(None);
             }
         }
     }

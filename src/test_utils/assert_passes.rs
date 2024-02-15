@@ -97,7 +97,7 @@ impl<E: Element> Element for AssertPasses<E> {
 
         if let Some(ref b) = ctx.breakable {
             assert_eq!(*b.break_count, 0);
-            assert_eq!(*b.extra_location_min_height, 0.);
+            assert_eq!(*b.extra_location_min_height, None);
         }
 
         assert_eq!(

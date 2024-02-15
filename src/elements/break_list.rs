@@ -258,7 +258,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(0);
-                b.assert_extra_location_min_height(0.);
+                b.assert_extra_location_min_height(None);
             }
         }
     }
@@ -333,7 +333,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(0);
-                b.assert_extra_location_min_height(0.);
+                b.assert_extra_location_min_height(None);
             }
         }
     }
@@ -532,7 +532,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(if configuration.use_first_height { 2 } else { 1 });
-                b.assert_extra_location_min_height(0.);
+                b.assert_extra_location_min_height(None);
             }
         }
     }

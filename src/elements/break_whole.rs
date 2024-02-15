@@ -113,7 +113,7 @@ impl<'a, E: Element> BreakWhole<'a, E> {
         }
 
         let mut break_count = 0;
-        let mut extra_location_min_height = 0.;
+        let mut extra_location_min_height = None;
 
         let size = self.0.measure(MeasureCtx {
             width,

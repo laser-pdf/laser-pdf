@@ -67,7 +67,7 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
         let mut max_height = None;
 
         let mut break_count = 0;
-        let mut extra_location_min_height = 0.;
+        let mut extra_location_min_height = None;
 
         (self.content)(&mut RowContent {
             width: ctx.width,
@@ -220,10 +220,11 @@ fn add_height(
     breakable: Option<&mut BreakableMeasure>,
     size: ElementSize,
     break_count: u32,
-    extra_location_min_height: f64,
+    extra_location_min_height: Option<f64>,
 ) {
     if let Some(b) = breakable {
-        *b.extra_location_min_height = extra_location_min_height.max(*b.extra_location_min_height);
+        *b.extra_location_min_height =
+            max_optional_size(extra_location_min_height, *b.extra_location_min_height);
 
         match break_count.cmp(b.break_count) {
             std::cmp::Ordering::Less => (),
@@ -253,7 +254,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                 }
                 Flex::SelfSized => {
                     let mut break_count = 0;
-                    let mut extra_location_min_height = 0.;
+                    let mut extra_location_min_height = None;
 
                     let size = element.measure(MeasureCtx {
                         width: WidthConstraint {
@@ -289,7 +290,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
 
                     if let Some(max_height) = max_height {
                         let mut break_count = 0;
-                        let mut extra_location_min_height = 0.;
+                        let mut extra_location_min_height = None;
 
                         let size = element.measure(MeasureCtx {
                             width: WidthConstraint {
@@ -327,7 +328,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                     let element_width = layout.expand_width(fraction);
 
                     let mut break_count = 0;
-                    let mut extra_location_min_height = 0.;
+                    let mut extra_location_min_height = None;
 
                     let size = element.measure(MeasureCtx {
                         width: WidthConstraint {
@@ -510,7 +511,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(0);
-                b.assert_extra_location_min_height(0.);
+                b.assert_extra_location_min_height(None);
             }
         }
 
@@ -532,7 +533,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(0);
-                b.assert_extra_location_min_height(0.);
+                b.assert_extra_location_min_height(None);
             }
         }
     }
@@ -870,7 +871,7 @@ mod tests {
                 b.assert_break_count(breaks);
 
                 // TODO
-                b.assert_extra_location_min_height(0.);
+                b.assert_extra_location_min_height(None);
             }
         }
     }

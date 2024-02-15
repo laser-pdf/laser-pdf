@@ -101,7 +101,7 @@ fn draw_element<E: Element>(
 
 pub struct MeasureStats {
     break_count: u32,
-    extra_location_min_height: f64,
+    extra_location_min_height: Option<f64>,
     size: ElementSize,
 }
 
@@ -112,7 +112,7 @@ pub fn measure_element<E: Element>(
     full_height: Option<f64>,
 ) -> MeasureStats {
     let mut break_count = 0;
-    let mut extra_location_min_height = 0.;
+    let mut extra_location_min_height = None;
 
     let ctx = MeasureCtx {
         width,
@@ -375,7 +375,7 @@ pub struct ElementTestOutputBreakable {
     pub full_height: f64,
 
     pub break_count: u32,
-    pub extra_location_min_height: f64,
+    pub extra_location_min_height: Option<f64>,
 
     pub first_location_usage: FirstLocationUsage,
 }
@@ -386,7 +386,10 @@ impl ElementTestOutputBreakable {
         self
     }
 
-    pub fn assert_extra_location_min_height(&self, extra_location_min_height: f64) -> &Self {
+    pub fn assert_extra_location_min_height(
+        &self,
+        extra_location_min_height: Option<f64>,
+    ) -> &Self {
         assert_eq!(self.extra_location_min_height, extra_location_min_height);
         self
     }

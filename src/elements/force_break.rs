@@ -41,7 +41,7 @@ mod tests {
 
             if let Some(b) = output.breakable {
                 b.assert_break_count(1);
-                b.assert_extra_location_min_height(0.);
+                b.assert_extra_location_min_height(None);
             }
         }
     }

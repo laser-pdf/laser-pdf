@@ -94,7 +94,7 @@ impl<'pdf, 'a, 'r> StackContent<'pdf, 'a, 'r> {
                 size: &mut ref mut size,
             } => {
                 let mut break_count = 0;
-                let mut extra_location_min_height = 0.;
+                let mut extra_location_min_height = None;
 
                 let element_size = element.measure(MeasureCtx {
                     breakable: ctx.breakable.as_mut().map(|b| BreakableMeasure {
@@ -330,7 +330,7 @@ mod tests {
             .breakable
             .unwrap()
             .assert_break_count(2)
-            .assert_extra_location_min_height(0.)
+            .assert_extra_location_min_height(None)
             .assert_first_location_usage(FirstLocationUsage::WillUse);
     }
 }
