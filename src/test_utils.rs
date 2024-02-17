@@ -143,7 +143,7 @@ pub fn test_element<E: Element>(
 ) -> ElementTestOutput {
     let first_pos = (
         pos.0,
-        full_height.map_or(pos.1, |h| pos.1 + h - first_height),
+        full_height.map_or(pos.1, |h| pos.1 - (h - first_height)),
     );
 
     let measure = measure_element(element, width, first_height, full_height);
@@ -160,6 +160,10 @@ pub fn test_element<E: Element>(
             preferred_height_break_count: 0,
         }),
     );
+
+    assert_eq!(measure.break_count, draw.break_count);
+    assert_eq!(measure.size, draw.size);
+
     let restricted_draw = draw_element(
         element,
         width,
@@ -174,10 +178,7 @@ pub fn test_element<E: Element>(
         }),
     );
 
-    assert_eq!(measure.break_count, draw.break_count);
     assert_eq!(measure.break_count, restricted_draw.break_count);
-
-    assert_eq!(measure.size, draw.size);
     assert_eq!(measure.size, restricted_draw.size);
 
     ElementTestOutput {
@@ -207,7 +208,7 @@ pub fn test_element<E: Element>(
                     let skipped_measure =
                         measure_element(element, width, full_height, Some(full_height));
 
-                    assert_eq!(measure.break_count + 1, skipped_measure.break_count);
+                    assert_eq!(measure.break_count, skipped_measure.break_count + 1);
                     assert_ne!(first_height, full_height);
                 }
             }

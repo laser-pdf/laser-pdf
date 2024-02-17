@@ -100,40 +100,6 @@ pub struct LineStyle {
     pub cap_style: LineCapStyle,
 }
 
-// #[derive(Clone, Serialize, Deserialize)]
-// #[serde(try_from = "String", into = "String")]
-// pub struct SerdeImage {
-//     pub path: String,
-//     pub image: Image,
-// }
-
-// impl Into<String> for SerdeImage {
-//     fn into(self) -> String {
-//         self.path
-//     }
-// }
-
-// impl TryFrom<String> for SerdeImage {
-//     type Error = std::io::Error;
-
-//     fn try_from(value: String) -> Result<Self, Self::Error> {
-//         let path: &std::path::Path = value.as_ref();
-//         let image = if path.extension().map_or(false, |e| e == "svg") {
-//             Image::Svg(
-//                 usvg::Tree::from_file(path, &Default::default())
-//                     .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
-//             )
-//         } else {
-//             Image::Pixel(
-//                 printpdf::image::open(path)
-//                     .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?,
-//             )
-//         };
-
-//         Ok(SerdeImage { path: value, image })
-//     }
-// }
-
 pub struct Pdf {
     pub document: PdfDocumentReference,
     pub page_size: (f64, f64),
@@ -148,6 +114,20 @@ pub struct Pdf {
 pub struct Location {
     pub layer: PdfLayerReference,
     pub pos: (f64, f64),
+}
+
+impl Location {
+    pub fn next_layer(&self, pdf: &mut Pdf) -> PdfLayerReference {
+        let page = pdf.document.get_page(self.layer.page);
+
+        let idx = self.layer.layer.0 + 1;
+
+        if idx == page.layers_len() {
+            page.add_layer(format!("Layer {}", idx))
+        } else {
+            page.get_layer(printpdf::indices::PdfLayerIndex(idx))
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

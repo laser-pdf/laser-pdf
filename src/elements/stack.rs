@@ -261,7 +261,7 @@ mod tests {
                         preferred_height,
                         page: 0,
                         layer: 0,
-                        pos: (2., 18.),
+                        pos: (2., 2.),
                         breakable: None,
                     };
 
