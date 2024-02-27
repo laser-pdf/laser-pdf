@@ -314,11 +314,16 @@ mod tests {
 
         let output = test_element(
             &element,
-            width,
-            first_height,
-            Some(full_height),
-            pos,
-            (1., 1.),
+            TestElementParams {
+                width,
+                first_height,
+                breakable: Some(TestElementParamsBreakable {
+                    full_height,
+                    ..Default::default()
+                }),
+                pos,
+                ..Default::default()
+            },
         );
 
         output.assert_size(ElementSize {

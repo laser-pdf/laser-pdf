@@ -60,6 +60,10 @@ impl<E: Element> RecordPasses<E> {
         }
     }
 
+    pub fn into_passes(self) -> Vec<Pass> {
+        self.passes.into_inner()
+    }
+
     pub fn assert_draw(&self, pass: DrawPass) {
         self.assert_draws(&[pass]);
     }
