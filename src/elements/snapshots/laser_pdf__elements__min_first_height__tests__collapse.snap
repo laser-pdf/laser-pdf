@@ -1,0 +1,39 @@
+---
+source: src/elements/min_first_height.rs
+expression: content.into_passes()
+---
+[
+    FirstLocationUsage {
+        width: WidthConstraint {
+            max: 12.0,
+            expand: false,
+        },
+        first_height: 15.0,
+        full_height: 15.0,
+    },
+    Draw(
+        DrawPass {
+            width: WidthConstraint {
+                max: 12.0,
+                expand: false,
+            },
+            first_height: 9.0,
+            preferred_height: Some(
+                4.0,
+            ),
+            page: 0,
+            layer: 0,
+            pos: (
+                7.0,
+                14.0,
+            ),
+            breakable: Some(
+                BreakableDraw {
+                    full_height: 15.0,
+                    preferred_height_break_count: 3,
+                    breaks: [],
+                },
+            ),
+        },
+    ),
+]
