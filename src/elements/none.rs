@@ -3,6 +3,10 @@ use crate::*;
 pub struct NoneElement;
 
 impl Element for NoneElement {
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        FirstLocationUsage::NoneHeight
+    }
+
     fn measure(&self, _ctx: MeasureCtx) -> ElementSize {
         ElementSize {
             width: None,
