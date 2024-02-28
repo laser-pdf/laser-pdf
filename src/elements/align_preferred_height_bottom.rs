@@ -112,23 +112,23 @@ impl<'a, E: Element> AlignPreferredHeightBottom<'a, E> {
         });
 
         let breaks;
-        let centered_height;
+        let location_height;
 
         if let (Some(height), Some(_)) = (size.height, full_height) {
             if preferred_breaks == 0 && height > first_height {
                 breaks = 1;
-                centered_height = 0.;
+                location_height = 0.;
             } else {
                 breaks = preferred_breaks;
-                centered_height = preferred_height;
+                location_height = preferred_height;
             }
         } else {
             breaks = 0;
-            centered_height = preferred_height;
+            location_height = preferred_height;
         };
 
         let y_offset = if let Some(height) = size.height {
-            (centered_height - height).max(0.)
+            (location_height - height).max(0.)
         } else {
             0.
         };

@@ -113,7 +113,7 @@ impl<'a, E: Element> AlignLocationBottom<'a, E> {
         });
 
         let breaks;
-        let centered_height;
+        let location_height;
 
         if let (Some(height), Some(full_height)) = (size.height, full_height) {
             breaks = if preferred_breaks == 0 && height > first_height {
@@ -122,18 +122,18 @@ impl<'a, E: Element> AlignLocationBottom<'a, E> {
                 preferred_breaks
             };
 
-            centered_height = if breaks > 0 {
+            location_height = if breaks > 0 {
                 full_height
             } else {
                 first_height
             };
         } else {
             breaks = 0;
-            centered_height = first_height;
+            location_height = first_height;
         };
 
         let y_offset = if let Some(height) = size.height {
-            centered_height - height
+            location_height - height
         } else {
             0.
         };
