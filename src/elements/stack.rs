@@ -201,53 +201,45 @@ mod tests {
         let full_height = 20.;
         let pos = (2., 10.);
 
-        let element = BuildElement(|ctx, callback| {
-            let a = RecordPasses::new(FakeText {
-                lines: 3,
-                line_height: 5.,
-                width: 2.5,
-            });
+        let output = test_element(
+            TestElementParams {
+                width,
+                first_height,
+                breakable: Some(TestElementParamsBreakable {
+                    full_height,
+                    ..Default::default()
+                }),
+                pos,
+                ..Default::default()
+            },
+            |assert, callback| {
+                let a = RecordPasses::new(FakeText {
+                    lines: 3,
+                    line_height: 5.,
+                    width: 2.5,
+                });
 
-            let b = RecordPasses::new(FakeText {
-                lines: 40,
-                line_height: 1.,
-                width: 2.,
-            });
+                let b = RecordPasses::new(FakeText {
+                    lines: 40,
+                    line_height: 1.,
+                    width: 2.,
+                });
 
-            let c = RecordPasses::new(FakeText {
-                lines: 3,
-                line_height: 3.9,
-                width: 2.9,
-            });
+                let c = RecordPasses::new(FakeText {
+                    lines: 3,
+                    line_height: 3.9,
+                    width: 2.9,
+                });
 
-            let element = Stack(|content| {
-                content.add(&a);
-                content.add(&b);
-                content.add(&c);
-            });
+                let element = Stack(|content| {
+                    content.add(&a);
+                    content.add(&b);
+                    content.add(&c);
+                });
 
-            let ret = callback.call(element);
+                let ret = callback.call(element);
 
-            match ctx.pass {
-                build_element::Pass::FirstLocationUsage { .. } => {
-                    a.assert_first_location_usage_count(1);
-                    b.assert_first_location_usage_count(1);
-                    c.assert_first_location_usage_count(1);
-                }
-                build_element::Pass::Measure { .. } => {
-                    a.assert_first_location_usage_count(0);
-                    b.assert_first_location_usage_count(0);
-                    c.assert_first_location_usage_count(0);
-                    a.assert_measure_count(1);
-                    b.assert_measure_count(1);
-                    c.assert_measure_count(1);
-                }
-                build_element::Pass::Draw {
-                    preferred_height,
-                    breakable,
-                } => {
-                    let breakable = breakable.unwrap();
-
+                if assert {
                     a.assert_first_location_usage_count(0);
                     b.assert_first_location_usage_count(0);
                     c.assert_first_location_usage_count(0);
@@ -258,7 +250,7 @@ mod tests {
                     let draw_pass = DrawPass {
                         width,
                         first_height,
-                        preferred_height,
+                        preferred_height: None,
                         page: 0,
                         layer: 0,
                         pos: (2., 2.),
@@ -268,7 +260,7 @@ mod tests {
                     a.assert_draw(DrawPass {
                         breakable: Some(BreakableDraw {
                             full_height,
-                            preferred_height_break_count: breakable.preferred_height_break_count,
+                            preferred_height_break_count: 0,
                             breaks: vec![Break {
                                 page: 1,
                                 layer: 0,
@@ -281,7 +273,7 @@ mod tests {
                     b.assert_draw(DrawPass {
                         breakable: Some(BreakableDraw {
                             full_height,
-                            preferred_height_break_count: breakable.preferred_height_break_count,
+                            preferred_height_break_count: 0,
                             breaks: vec![
                                 Break {
                                     page: 1,
@@ -301,28 +293,14 @@ mod tests {
                     c.assert_draw(DrawPass {
                         breakable: Some(BreakableDraw {
                             full_height,
-                            preferred_height_break_count: breakable.preferred_height_break_count,
+                            preferred_height_break_count: 0,
                             breaks: vec![],
                         }),
                         ..draw_pass
                     });
                 }
-            }
 
-            ret
-        });
-
-        let output = test_element(
-            &element,
-            TestElementParams {
-                width,
-                first_height,
-                breakable: Some(TestElementParamsBreakable {
-                    full_height,
-                    ..Default::default()
-                }),
-                pos,
-                ..Default::default()
+                ret
             },
         );
 

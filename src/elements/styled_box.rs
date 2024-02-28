@@ -341,34 +341,34 @@ mod tests {
         let first_height = 30.;
         let pos = (2., 10.);
 
-        let element = BuildElement(|ctx, callback| {
-            let content = RecordPasses::new(FakeText {
-                lines: 3,
-                line_height: 5.,
-                width: 3.,
-            });
+        let output = test_element(
+            TestElementParams {
+                width,
+                first_height,
+                breakable: None,
+                pos,
+                ..Default::default()
+            },
+            |assert, callback| {
+                let content = RecordPasses::new(FakeText {
+                    lines: 3,
+                    line_height: 5.,
+                    width: 3.,
+                });
 
-            let element = StyledBox {
-                padding_left: 1.,
-                padding_right: 2.,
-                padding_top: 3.,
-                padding_bottom: 4.,
+                let element = StyledBox {
+                    padding_left: 1.,
+                    padding_right: 2.,
+                    padding_top: 3.,
+                    padding_bottom: 4.,
 
-                ..StyledBox::new(&content)
-            };
+                    ..StyledBox::new(&content)
+                };
 
-            let ret = callback.call(element);
+                let ret = callback.call(element);
 
-            content.assert_first_location_usage_count(0);
-
-            match ctx.pass {
-                build_element::Pass::FirstLocationUsage { .. } => unreachable!(),
-                build_element::Pass::Measure { .. } => {
-                    content.assert_measure_count(1);
-                }
-                build_element::Pass::Draw {
-                    preferred_height, ..
-                } => {
+                if assert {
+                    content.assert_first_location_usage_count(0);
                     content.assert_measure_count(0);
                     content.assert_draw(DrawPass {
                         width: WidthConstraint {
@@ -376,26 +376,15 @@ mod tests {
                             expand: false,
                         },
                         first_height: 23.,
-                        preferred_height: preferred_height.map(|_| 15.),
+                        preferred_height: None,
                         page: 0,
                         layer: 1,
                         pos: (3., 7.),
                         breakable: None,
                     });
                 }
-            }
 
-            ret
-        });
-
-        let output = test_element(
-            &element,
-            TestElementParams {
-                width,
-                first_height,
-                breakable: None,
-                pos,
-                ..Default::default()
+                ret
             },
         );
 
@@ -415,67 +404,7 @@ mod tests {
         let full_height = 18.;
         let pos = (2., 18.);
 
-        let element = BuildElement(|ctx, callback| {
-            let content = RecordPasses::new(FakeText {
-                lines: 3,
-                line_height: 5.,
-                width: 3.,
-            });
-
-            let element = StyledBox {
-                padding_left: 1.,
-                padding_right: 2.,
-                padding_top: 3.,
-                padding_bottom: 4.,
-
-                ..StyledBox::new(&content)
-            };
-
-            let ret = callback.call(element);
-
-            content.assert_first_location_usage_count(1);
-
-            match ctx.pass {
-                build_element::Pass::FirstLocationUsage { .. } => {
-                    content.assert_measure_count(0);
-                    content.assert_draw_count(0);
-                }
-                build_element::Pass::Measure { .. } => {
-                    content.assert_measure_count(1);
-                    content.assert_draw_count(0);
-                }
-                build_element::Pass::Draw {
-                    preferred_height, ..
-                } => {
-                    content.assert_measure_count(0);
-                    content.assert_draw(DrawPass {
-                        width: WidthConstraint {
-                            max: 4.,
-                            expand: false,
-                        },
-                        first_height: 11.,
-                        preferred_height: preferred_height.map(|_| 5.),
-                        page: 1,
-                        layer: 1,
-                        pos: (3., 15.),
-                        breakable: Some(BreakableDraw {
-                            full_height: 11.,
-                            preferred_height_break_count: preferred_height.map(|_| 1).unwrap_or(0),
-                            breaks: vec![Break {
-                                page: 2,
-                                layer: 1,
-                                pos: (3., 15.),
-                            }],
-                        }),
-                    });
-                }
-            }
-
-            ret
-        });
-
         let output = test_element(
-            &element,
             TestElementParams {
                 width,
                 first_height,
@@ -485,6 +414,51 @@ mod tests {
                 }),
                 pos,
                 ..Default::default()
+            },
+            |assert, callback| {
+                let content = RecordPasses::new(FakeText {
+                    lines: 3,
+                    line_height: 5.,
+                    width: 3.,
+                });
+
+                let element = StyledBox {
+                    padding_left: 1.,
+                    padding_right: 2.,
+                    padding_top: 3.,
+                    padding_bottom: 4.,
+
+                    ..StyledBox::new(&content)
+                };
+
+                let ret = callback.call(element);
+
+                if assert {
+                    content.assert_first_location_usage_count(1);
+                    content.assert_measure_count(0);
+                    content.assert_draw(DrawPass {
+                        width: WidthConstraint {
+                            max: 4.,
+                            expand: false,
+                        },
+                        first_height: 11.,
+                        preferred_height: None,
+                        page: 1,
+                        layer: 1,
+                        pos: (3., 15.),
+                        breakable: Some(BreakableDraw {
+                            full_height: 11.,
+                            preferred_height_break_count: 0,
+                            breaks: vec![Break {
+                                page: 2,
+                                layer: 1,
+                                pos: (3., 15.),
+                            }],
+                        }),
+                    });
+                }
+
+                ret
             },
         );
 

@@ -149,43 +149,33 @@ mod tests {
 
     #[test]
     fn test_unbreakable() {
-        let width = WidthConstraint {
-            max: 12.,
-            expand: true,
-        };
-        let first_height = 21.;
-        let pos = (11., 29.0);
-
-        let element = BuildElement(|ctx, callback| {
-            let content = RecordPasses::new(FakeText {
-                lines: 3,
-                line_height: 5.,
-                width: 3.,
-            });
-
-            let element = AlignPreferredHeightBottom(&content);
-
-            let ret = callback.call(element);
-
-            if let build_element::Pass::Draw {
-                preferred_height: None,
-                ..
-            } = ctx.pass
-            {
-                assert_debug_snapshot!(content.into_passes());
-            }
-
-            ret
-        });
-
         let output = test_element(
-            &element,
             TestElementParams {
-                width,
-                first_height,
+                width: WidthConstraint {
+                    max: 12.,
+                    expand: true,
+                },
+                first_height: 21.,
                 breakable: None,
-                pos,
+                pos: (11., 29.0),
                 ..Default::default()
+            },
+            |assert, callback| {
+                let content = RecordPasses::new(FakeText {
+                    lines: 3,
+                    line_height: 5.,
+                    width: 3.,
+                });
+
+                let element = AlignPreferredHeightBottom(&content);
+
+                let ret = callback.call(element);
+
+                if assert {
+                    assert_debug_snapshot!(content.into_passes());
+                }
+
+                ret
             },
         );
 
@@ -194,46 +184,34 @@ mod tests {
 
     #[test]
     fn test_unbreakable_preferred_height() {
-        let width = WidthConstraint {
-            max: 12.,
-            expand: true,
-        };
-        let first_height = 21.;
-        let pos = (11., 29.0);
-
-        let element = BuildElement(|ctx, callback| {
-            let content = RecordPasses::new(FakeText {
-                lines: 3,
-                line_height: 5.,
-                width: 3.,
-            });
-
-            let element = AlignPreferredHeightBottom(&content);
-
-            let ret = callback.call(element);
-
-            if let build_element::Pass::Draw {
-                preferred_height: Some(preferred_height),
-                ..
-            } = ctx.pass
-            {
-                if preferred_height == 17. {
-                    assert_debug_snapshot!(content.into_passes());
-                }
-            }
-
-            ret
-        });
-
         let output = test_element(
-            &element,
             TestElementParams {
-                width,
-                first_height,
+                width: WidthConstraint {
+                    max: 12.,
+                    expand: true,
+                },
+                first_height: 21.,
                 breakable: None,
-                pos,
+                pos: (11., 29.0),
                 preferred_height: Some(17.),
                 ..Default::default()
+            },
+            |assert, callback| {
+                let content = RecordPasses::new(FakeText {
+                    lines: 3,
+                    line_height: 5.,
+                    width: 3.,
+                });
+
+                let element = AlignPreferredHeightBottom(&content);
+
+                let ret = callback.call(element);
+
+                if assert {
+                    assert_debug_snapshot!(content.into_passes());
+                }
+
+                ret
             },
         );
 
@@ -242,47 +220,36 @@ mod tests {
 
     #[test]
     fn test_breakable() {
-        let width = WidthConstraint {
-            max: 12.,
-            expand: true,
-        };
-        let first_height = 21.;
-        let full_height = 25.;
-        let pos = (11., 29.0);
-
-        let element = BuildElement(|ctx, callback| {
-            let content = RecordPasses::new(FakeText {
-                lines: 3,
-                line_height: 5.,
-                width: 3.,
-            });
-
-            let element = AlignPreferredHeightBottom(&content);
-
-            let ret = callback.call(element);
-
-            if let build_element::Pass::Draw {
-                preferred_height: None,
-                ..
-            } = ctx.pass
-            {
-                assert_debug_snapshot!(content.into_passes());
-            }
-
-            ret
-        });
-
         let output = test_element(
-            &element,
             TestElementParams {
-                width,
-                first_height,
+                width: WidthConstraint {
+                    max: 12.,
+                    expand: true,
+                },
+                first_height: 21.,
                 breakable: Some(TestElementParamsBreakable {
-                    full_height,
+                    full_height: 25.,
                     ..Default::default()
                 }),
-                pos,
+                pos: (11., 29.0),
                 ..Default::default()
+            },
+            |assert, callback| {
+                let content = RecordPasses::new(FakeText {
+                    lines: 3,
+                    line_height: 5.,
+                    width: 3.,
+                });
+
+                let element = AlignPreferredHeightBottom(&content);
+
+                let ret = callback.call(element);
+
+                if assert {
+                    assert_debug_snapshot!(content.into_passes());
+                }
+
+                ret
             },
         );
 
@@ -291,47 +258,36 @@ mod tests {
 
     #[test]
     fn test_pre_break() {
-        let width = WidthConstraint {
-            max: 12.,
-            expand: true,
-        };
-        let first_height = 21.;
-        let full_height = 26.;
-        let pos = (11., 29.0);
-
-        let element = BuildElement(|ctx, callback| {
-            let content = RecordPasses::new(FakeText {
-                lines: 5,
-                line_height: 5.,
-                width: 3.,
-            });
-
-            let element = AlignPreferredHeightBottom(&content);
-
-            let ret = callback.call(element);
-
-            if let build_element::Pass::Draw {
-                preferred_height: None,
-                ..
-            } = ctx.pass
-            {
-                assert_debug_snapshot!(content.into_passes());
-            }
-
-            ret
-        });
-
         let output = test_element(
-            &element,
             TestElementParams {
-                width,
-                first_height,
+                width: WidthConstraint {
+                    max: 12.,
+                    expand: true,
+                },
+                first_height: 21.,
                 breakable: Some(TestElementParamsBreakable {
-                    full_height,
+                    full_height: 26.,
                     ..Default::default()
                 }),
-                pos,
+                pos: (11., 29.0),
                 ..Default::default()
+            },
+            |assert, callback| {
+                let content = RecordPasses::new(FakeText {
+                    lines: 5,
+                    line_height: 5.,
+                    width: 3.,
+                });
+
+                let element = AlignPreferredHeightBottom(&content);
+
+                let ret = callback.call(element);
+
+                if assert {
+                    assert_debug_snapshot!(content.into_passes());
+                }
+
+                ret
             },
         );
 
@@ -348,32 +304,7 @@ mod tests {
         let full_height = 26.;
         let pos = (11., 29.0);
 
-        let element = BuildElement(|ctx, callback| {
-            let content = RecordPasses::new(FakeText {
-                lines: 5,
-                line_height: 5.,
-                width: 3.,
-            });
-
-            let element = AlignPreferredHeightBottom(&content);
-
-            let ret = callback.call(element);
-
-            if let build_element::Pass::Draw {
-                preferred_height: Some(preferred_height),
-                ..
-            } = ctx.pass
-            {
-                if preferred_height == 20. {
-                    assert_debug_snapshot!(content.into_passes());
-                }
-            }
-
-            ret
-        });
-
         let output = test_element(
-            &element,
             TestElementParams {
                 width,
                 first_height,
@@ -385,6 +316,23 @@ mod tests {
                 preferred_height: Some(20.),
                 ..Default::default()
             },
+            |assert, callback| {
+                let content = RecordPasses::new(FakeText {
+                    lines: 5,
+                    line_height: 5.,
+                    width: 3.,
+                });
+
+                let element = AlignPreferredHeightBottom(&content);
+
+                let ret = callback.call(element);
+
+                if assert {
+                    assert_debug_snapshot!(content.into_passes());
+                }
+
+                ret
+            },
         );
 
         assert_debug_snapshot!(output);
@@ -392,48 +340,37 @@ mod tests {
 
     #[test]
     fn test_preferred_breaks() {
-        let width = WidthConstraint {
-            max: 12.,
-            expand: true,
-        };
-        let first_height = 21.;
-        let full_height = 26.;
-        let pos = (11., 29.0);
-
-        let element = BuildElement(|ctx, callback| {
-            let content = RecordPasses::new(FakeText {
-                lines: 5,
-                line_height: 5.,
-                width: 3.,
-            });
-
-            let element = AlignPreferredHeightBottom(&content);
-
-            let ret = callback.call(element);
-
-            if let build_element::Pass::Draw {
-                preferred_height: None,
-                ..
-            } = ctx.pass
-            {
-                assert_debug_snapshot!(content.into_passes());
-            }
-
-            ret
-        });
-
         let output = test_element(
-            &element,
             TestElementParams {
-                width,
-                first_height,
+                width: WidthConstraint {
+                    max: 12.,
+                    expand: true,
+                },
+                first_height: 21.,
                 breakable: Some(TestElementParamsBreakable {
-                    full_height,
+                    full_height: 26.,
                     preferred_height_break_count: 4,
                 }),
-                pos,
+                pos: (11., 29.0),
                 preferred_height: None,
                 ..Default::default()
+            },
+            |assert, callback| {
+                let content = RecordPasses::new(FakeText {
+                    lines: 5,
+                    line_height: 5.,
+                    width: 3.,
+                });
+
+                let element = AlignPreferredHeightBottom(&content);
+
+                let ret = callback.call(element);
+
+                if assert {
+                    assert_debug_snapshot!(content.into_passes());
+                }
+
+                ret
             },
         );
 
@@ -442,50 +379,37 @@ mod tests {
 
     #[test]
     fn test_preferred_height() {
-        let width = WidthConstraint {
-            max: 12.,
-            expand: true,
-        };
-        let first_height = 21.;
-        let full_height = 23.;
-        let pos = (11., 29.0);
-
-        let element = BuildElement(|ctx, callback| {
-            let content = RecordPasses::new(FakeText {
-                lines: 4,
-                line_height: 5.,
-                width: 3.,
-            });
-
-            let element = AlignPreferredHeightBottom(&content);
-
-            let ret = callback.call(element);
-
-            if let build_element::Pass::Draw {
-                preferred_height: Some(preferred_height),
-                ..
-            } = ctx.pass
-            {
-                if preferred_height == 21.5 {
-                    assert_debug_snapshot!(content.into_passes());
-                }
-            }
-
-            ret
-        });
-
         let output = test_element(
-            &element,
             TestElementParams {
-                width,
-                first_height,
+                width: WidthConstraint {
+                    max: 12.,
+                    expand: true,
+                },
+                first_height: 21.,
                 breakable: Some(TestElementParamsBreakable {
-                    full_height,
+                    full_height: 23.,
                     preferred_height_break_count: 3,
                 }),
-                pos,
+                pos: (11., 29.0),
                 preferred_height: Some(21.5),
                 ..Default::default()
+            },
+            |assert, callback| {
+                let content = RecordPasses::new(FakeText {
+                    lines: 4,
+                    line_height: 5.,
+                    width: 3.,
+                });
+
+                let element = AlignPreferredHeightBottom(&content);
+
+                let ret = callback.call(element);
+
+                if assert {
+                    assert_debug_snapshot!(content.into_passes());
+                }
+
+                ret
             },
         );
 
