@@ -1,0 +1,23 @@
+---
+source: src/elements/align_preferred_height_bottom.rs
+expression: output
+---
+ElementTestOutput {
+    size: ElementSize {
+        width: Some(
+            12.0,
+        ),
+        height: Some(
+            25.0,
+        ),
+    },
+    breakable: Some(
+        ElementTestOutputBreakable {
+            break_count: 1,
+            extra_location_min_height: Some(
+                25.0,
+            ),
+            first_location_usage: WillSkip,
+        },
+    ),
+}
