@@ -12,6 +12,7 @@ pub mod line;
 pub mod min_first_height;
 pub mod none;
 pub mod padding;
+pub mod page;
 pub mod rectangle;
 pub mod repeat_after_break;
 pub mod rich_text;

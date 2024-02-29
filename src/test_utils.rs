@@ -159,6 +159,8 @@ pub fn test_element(
         .map(|b| b.preferred_height_break_count)
         .unwrap_or(0);
 
+    // TODO: If an element sets an extra_location_min_height it should probably have to actually use
+    // up to preferred_breaks.
     if (draw.break_count, draw.size.height) != (measure.break_count, measure.size.height) {
         assert!(preferred_break_count >= measure.break_count);
 

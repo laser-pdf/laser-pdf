@@ -1,0 +1,21 @@
+---
+source: src/elements/page.rs
+expression: output
+---
+ElementTestOutput {
+    size: ElementSize {
+        width: Some(
+            10.0,
+        ),
+        height: Some(
+            20.0,
+        ),
+    },
+    breakable: Some(
+        ElementTestOutputBreakable {
+            break_count: 2,
+            extra_location_min_height: None,
+            first_location_usage: WillSkip,
+        },
+    ),
+}
