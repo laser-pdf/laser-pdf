@@ -7,7 +7,7 @@ use super::svg::Svg;
 const INCH_TO_MM: f64 = 25.4;
 
 pub struct ImageElement<'a> {
-    image: &'a Image,
+    pub image: &'a Image,
 }
 
 impl<'a> Element for ImageElement<'a> {

@@ -1,14 +1,15 @@
 use crate::*;
 
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub enum HorizontalAlignment {
     Left,
     Center,
     Right,
 }
 
-pub struct HAlign<E: Element>(pub HorizontalAlignment, pub E);
+pub struct HAlign<'a, E: Element>(pub HorizontalAlignment, pub &'a E);
 
-impl<E: Element> Element for HAlign<E> {
+impl<'a, E: Element> Element for HAlign<'a, E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         self.1.first_location_usage(FirstLocationUsageCtx {
             width: WidthConstraint {
@@ -124,7 +125,7 @@ mod tests {
 
     #[test]
     fn test_h_align_none() {
-        for output in ElementTestParams::default().run(&HAlign(Center, NoneElement)) {
+        for output in ElementTestParams::default().run(&HAlign(Center, &NoneElement)) {
             output.assert_size(ElementSize {
                 width: None,
                 height: None,
@@ -168,7 +169,7 @@ mod tests {
                 },
                 ..ElementProxy::new(content)
             };
-            callback.call(HAlign(Center, proxy))
+            callback.call(HAlign(Center, &proxy))
         });
 
         for output in (ElementTestParams {
@@ -228,7 +229,7 @@ mod tests {
                 },
                 ..ElementProxy::new(content)
             };
-            callback.call(HAlign(Center, proxy))
+            callback.call(HAlign(Center, &proxy))
         });
 
         for output in (ElementTestParams {
@@ -283,7 +284,7 @@ mod tests {
             width: 4.,
             ..Default::default()
         })
-        .run(&HAlign(Center, Overdraw))
+        .run(&HAlign(Center, &Overdraw))
         {
             output.assert_size(ElementSize {
                 width: Some(4.),
@@ -327,7 +328,7 @@ mod tests {
                 },
                 ..ElementProxy::new(content)
             };
-            callback.call(HAlign(Right, proxy))
+            callback.call(HAlign(Right, &proxy))
         });
 
         for output in (ElementTestParams {
@@ -377,7 +378,7 @@ mod tests {
                 },
                 ..ElementProxy::new(content)
             };
-            callback.call(HAlign(Right, proxy))
+            callback.call(HAlign(Right, &proxy))
         });
 
         for output in (ElementTestParams {
@@ -429,7 +430,7 @@ mod tests {
                 },
                 ..ElementProxy::new(content)
             };
-            callback.call(HAlign(Left, HAlign(Right, proxy)))
+            callback.call(HAlign(Left, &HAlign(Right, &proxy)))
         });
 
         for output in (ElementTestParams {

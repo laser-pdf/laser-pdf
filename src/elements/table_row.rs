@@ -237,6 +237,7 @@ enum Pass<'a, 'b, 'c> {
     },
 }
 
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub enum Flex {
     Expand(u8),
     Fixed(f64),

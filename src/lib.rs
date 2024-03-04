@@ -1,6 +1,7 @@
 pub mod elements;
 pub mod fonts;
 pub mod image;
+pub mod serde_elements;
 pub mod text;
 pub mod utils;
 
@@ -267,4 +268,77 @@ pub trait Element {
     fn measure(&self, ctx: MeasureCtx) -> ElementSize;
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize;
+}
+
+pub trait CompositeElementCallback {
+    fn call(self, element: &impl Element);
+}
+
+pub trait CompositeElement {
+    fn element(&self, callback: impl CompositeElementCallback);
+}
+
+impl<C: CompositeElement> Element for C {
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        struct Callback<'a> {
+            ctx: FirstLocationUsageCtx,
+            ret: &'a mut FirstLocationUsage,
+        }
+
+        impl<'a> CompositeElementCallback for Callback<'a> {
+            fn call(self, element: &impl Element) {
+                *self.ret = element.first_location_usage(self.ctx);
+            }
+        }
+
+        let mut ret = FirstLocationUsage::NoneHeight;
+
+        self.element(Callback { ctx, ret: &mut ret });
+
+        ret
+    }
+
+    fn measure(&self, ctx: MeasureCtx) -> ElementSize {
+        struct Callback<'a> {
+            ctx: MeasureCtx<'a>,
+            ret: &'a mut ElementSize,
+        }
+
+        impl<'a> CompositeElementCallback for Callback<'a> {
+            fn call(self, element: &impl Element) {
+                *self.ret = element.measure(self.ctx);
+            }
+        }
+
+        let mut ret = ElementSize {
+            width: None,
+            height: None,
+        };
+
+        self.element(Callback { ctx, ret: &mut ret });
+
+        ret
+    }
+
+    fn draw(&self, ctx: DrawCtx) -> ElementSize {
+        struct Callback<'pdf, 'a, 'r> {
+            ctx: DrawCtx<'pdf, 'a>,
+            ret: &'r mut ElementSize,
+        }
+
+        impl<'pdf, 'a, 'r> CompositeElementCallback for Callback<'pdf, 'a, 'r> {
+            fn call(self, element: &impl Element) {
+                *self.ret = element.draw(self.ctx);
+            }
+        }
+
+        let mut ret = ElementSize {
+            width: None,
+            height: None,
+        };
+
+        self.element(Callback { ctx, ret: &mut ret });
+
+        ret
+    }
 }

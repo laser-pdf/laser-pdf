@@ -1,14 +1,14 @@
 use crate::*;
 
-pub struct Padding<E: Element> {
+pub struct Padding<'a, E: Element> {
     pub left: f64,
     pub right: f64,
     pub top: f64,
     pub bottom: f64,
-    pub element: E,
+    pub element: &'a E,
 }
 
-impl<E: Element> Element for Padding<E> {
+impl<'a, E: Element> Element for Padding<'a, E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         self.element.first_location_usage(FirstLocationUsageCtx {
             width: self.width(ctx.width),
@@ -86,7 +86,7 @@ impl<E: Element> Element for Padding<E> {
     }
 }
 
-impl<E: Element> Padding<E> {
+impl<'a, E: Element> Padding<'a, E> {
     fn width(&self, constraint: WidthConstraint) -> WidthConstraint {
         WidthConstraint {
             max: constraint.max - self.left - self.right,
@@ -144,7 +144,7 @@ mod tests {
                 right: 13.,
                 top: 14.,
                 bottom: 15.,
-                element: proxy,
+                element: &proxy,
             })
         });
 

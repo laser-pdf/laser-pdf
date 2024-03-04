@@ -3,7 +3,7 @@ use printpdf::Point;
 use crate::{utils::*, *};
 
 pub struct Line {
-    style: LineStyle,
+    pub style: LineStyle,
 }
 
 impl Element for Line {
