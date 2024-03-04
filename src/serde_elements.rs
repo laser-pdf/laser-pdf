@@ -8,8 +8,8 @@ use elements::*;
 pub type Font = Rc<TruetypeFont<Vec<u8>>>;
 
 pub struct SerdeElement<'a, E, F: Index<&'a str, Output = Font>> {
-    element: &'a E,
-    fonts: &'a F,
+    pub element: &'a E,
+    pub fonts: &'a F,
 }
 
 macro_rules! element_value {
