@@ -12,19 +12,20 @@ pub struct SerdeElement<'a, E, F: Index<&'a str, Output = Font>> {
     pub fonts: &'a F,
 }
 
-macro_rules! element_value {
-    ($enum_name:ident => {$($type:ident $(<$($rest:ident),*>)*),*,}) => {
+#[macro_export]
+macro_rules! define_serde_element_value {
+    ($enum_name:ident {$($type:ident $(<$($rest:ident),*>)*),*,}) => {
         #[derive(Clone, serde::Deserialize)]
         pub enum $enum_name {
             $($type ($type $(<$($rest)*>)*)),*
         }
 
-        impl<'a, F: Index<&'a str, Output = Font>> $crate::CompositeElement for
-            SerdeElement<'a, $enum_name, F>
+        impl<'a, F: std::ops::Index<&'a str, Output = $crate::serde_elements::Font>> $crate::CompositeElement for
+            $crate::serde_elements::SerdeElement<'a, $enum_name, F>
         {
             fn element(&self, callback: impl $crate::CompositeElementCallback) {
                 match self.element {
-                    $($enum_name::$type(ref val) => callback.call(&SerdeElement {
+                    $($enum_name::$type(ref val) => callback.call(&$crate::serde_elements::SerdeElement {
                         element: val,
                         fonts: self.fonts,
                     })),*
@@ -34,7 +35,7 @@ macro_rules! element_value {
     };
 }
 
-element_value!(ElementValue => {
+define_serde_element_value!(ElementValue {
     None,
     Text,
     RichText,
