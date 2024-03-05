@@ -2,14 +2,30 @@ pub mod elements;
 
 use std::{ops::Index, rc::Rc};
 
-use crate::fonts::truetype::TruetypeFont;
+use crate::{fonts::truetype::TruetypeFont, CompositeElement, CompositeElementCallback};
 use elements::*;
 
 pub type Font = Rc<TruetypeFont<Vec<u8>>>;
 
-pub struct SerdeElement<'a, E, F: Index<&'a str, Output = Font>> {
+pub trait SerdeElement {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    );
+}
+
+pub struct SerdeElementElement<'a, E: SerdeElement, F: for<'b> Index<&'b str, Output = Font>> {
     pub element: &'a E,
     pub fonts: &'a F,
+}
+
+impl<'a, E: SerdeElement, F: for<'b> Index<&'b str, Output = Font>> CompositeElement
+    for SerdeElementElement<'a, E, F>
+{
+    fn element(&self, callback: impl CompositeElementCallback) {
+        self.element.element(self.fonts, callback);
+    }
 }
 
 #[macro_export]
@@ -20,15 +36,15 @@ macro_rules! define_serde_element_value {
             $($type ($type $(<$($rest)*>)*)),*
         }
 
-        impl<'a, F: std::ops::Index<&'a str, Output = $crate::serde_elements::Font>> $crate::CompositeElement for
-            $crate::serde_elements::SerdeElement<'a, $enum_name, F>
-        {
-            fn element(&self, callback: impl $crate::CompositeElementCallback) {
-                match self.element {
-                    $($enum_name::$type(ref val) => callback.call(&$crate::serde_elements::SerdeElement {
-                        element: val,
-                        fonts: self.fonts,
-                    })),*
+        impl $crate::serde_elements::SerdeElement for $enum_name {
+            fn element(
+                &self,
+                fonts: &impl for<'a> core::ops::Index<&'a str, Output = $crate::serde_elements::Font>,
+                callback: impl $crate::CompositeElementCallback,
+            ) {
+                match self {
+                    $($enum_name::$type(ref val) => $crate::serde_elements::SerdeElement
+                        ::element(val, fonts, callback)),*
                 }
             }
         }

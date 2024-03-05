@@ -5,13 +5,18 @@ use crate::{
     *,
 };
 
-use super::{Font, SerdeElement};
+use super::{Font, SerdeElement, SerdeElementElement};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct None;
 
-impl<'a, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, None, F> {
-    fn element(&self, _: impl CompositeElementCallback) {}
+impl SerdeElement for None {
+    fn element(
+        &self,
+        _: &impl for<'a> Index<&'a str, Output = Font>,
+        _: impl CompositeElementCallback,
+    ) {
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -27,18 +32,22 @@ pub struct Text {
     pub align: TextAlign,
 }
 
-impl<'a, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, Text, F> {
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl SerdeElement for Text {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::text::Text {
-            text: &self.element.text,
-            font: &*self.fonts[&self.element.font],
-            size: self.element.size,
-            color: self.element.color,
-            underline: self.element.underline,
-            extra_character_spacing: self.element.extra_character_spacing,
-            extra_word_spacing: self.element.extra_word_spacing,
-            extra_line_height: self.element.extra_line_height,
-            align: self.element.align,
+            text: &self.text,
+            font: &*fonts[&self.font],
+            size: self.size,
+            color: self.color,
+            underline: self.underline,
+            extra_character_spacing: self.extra_character_spacing,
+            extra_word_spacing: self.extra_word_spacing,
+            extra_line_height: self.extra_line_height,
+            align: self.align,
         });
     }
 }
@@ -55,18 +64,22 @@ pub struct RichText {
     pub bold_italic: String,
 }
 
-impl<'a, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, RichText, F> {
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl SerdeElement for RichText {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::rich_text::RichText {
-            spans: &self.element.spans,
-            size: self.element.size,
-            small_size: self.element.small_size,
-            extra_line_height: self.element.extra_line_height,
+            spans: &self.spans,
+            size: self.size,
+            small_size: self.small_size,
+            extra_line_height: self.extra_line_height,
             fonts: FontSet {
-                regular: &*self.fonts[&self.element.regular],
-                bold: &*self.fonts[&self.element.bold],
-                italic: &*self.fonts[&self.element.italic],
-                bold_italic: &*self.fonts[&self.element.bold_italic],
+                regular: &*fonts[&self.regular],
+                bold: &*fonts[&self.bold],
+                italic: &*fonts[&self.italic],
+                bold_italic: &*fonts[&self.bold_italic],
             },
         });
     }
@@ -77,9 +90,13 @@ pub struct VGap {
     pub gap: f64,
 }
 
-impl<'a, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, VGap, F> {
-    fn element(&self, callback: impl CompositeElementCallback) {
-        callback.call(&elements::v_gap::VGap(self.element.gap));
+impl SerdeElement for VGap {
+    fn element(
+        &self,
+        _: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::v_gap::VGap(self.gap));
     }
 }
 
@@ -89,16 +106,17 @@ pub struct HAlign<E> {
     pub element: Box<E>,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, HAlign<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for HAlign<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::h_align::HAlign(
-            self.element.alignment,
-            &SerdeElement {
-                element: &*self.element.element,
-                fonts: self.fonts,
+            self.alignment,
+            &SerdeElementElement {
+                element: &*self.element,
+                fonts,
             },
         ));
     }
@@ -113,19 +131,20 @@ pub struct Padding<E> {
     pub element: Box<E>,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, Padding<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for Padding<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::padding::Padding {
-            left: self.element.left,
-            right: self.element.right,
-            top: self.element.top,
-            bottom: self.element.bottom,
-            element: &SerdeElement {
-                element: &*self.element.element,
-                fonts: self.fonts,
+            left: self.left,
+            right: self.right,
+            top: self.top,
+            bottom: self.bottom,
+            element: &SerdeElementElement {
+                element: &*self.element,
+                fonts,
             },
         });
     }
@@ -143,23 +162,24 @@ pub struct StyledBox<E> {
     pub outline: Option<LineStyle>,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, StyledBox<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for StyledBox<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::styled_box::StyledBox {
-            element: &SerdeElement {
-                element: &*self.element.element,
-                fonts: self.fonts,
+            element: &SerdeElementElement {
+                element: &*self.element,
+                fonts,
             },
-            padding_left: self.element.padding_left,
-            padding_right: self.element.padding_right,
-            padding_top: self.element.padding_top,
-            padding_bottom: self.element.padding_bottom,
-            border_radius: self.element.border_radius,
-            fill: self.element.fill,
-            outline: self.element.outline,
+            padding_left: self.padding_left,
+            padding_right: self.padding_right,
+            padding_top: self.padding_top,
+            padding_bottom: self.padding_bottom,
+            border_radius: self.border_radius,
+            fill: self.fill,
+            outline: self.outline,
         });
     }
 }
@@ -169,11 +189,13 @@ pub struct Line {
     pub style: LineStyle,
 }
 
-impl<'a, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, Line, F> {
-    fn element(&self, callback: impl CompositeElementCallback) {
-        callback.call(&elements::line::Line {
-            style: self.element.style,
-        });
+impl SerdeElement for Line {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::line::Line { style: self.style });
     }
 }
 
@@ -183,11 +205,13 @@ pub struct Image {
     pub image: crate::image::Image,
 }
 
-impl<'a, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, Image, F> {
-    fn element(&self, callback: impl CompositeElementCallback) {
-        callback.call(&elements::image::ImageElement {
-            image: &self.element.image,
-        });
+impl SerdeElement for Image {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::image::ImageElement { image: &self.image });
     }
 }
 
@@ -198,12 +222,16 @@ pub struct Rectangle {
     pub outline: Option<(f64, u32)>,
 }
 
-impl<'a, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, Rectangle, F> {
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl SerdeElement for Rectangle {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::rectangle::Rectangle {
-            size: self.element.size,
-            fill: self.element.fill,
-            outline: self.element.outline,
+            size: self.size,
+            fill: self.fill,
+            outline: self.outline,
         });
     }
 }
@@ -215,12 +243,16 @@ pub struct Circle {
     pub outline: Option<(f64, u32)>,
 }
 
-impl<'a, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, Circle, F> {
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl SerdeElement for Circle {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::circle::Circle {
-            radius: self.element.radius,
-            fill: self.element.fill,
-            outline: self.element.outline,
+            radius: self.radius,
+            fill: self.fill,
+            outline: self.outline,
         });
     }
 }
@@ -231,23 +263,21 @@ pub struct Column<E> {
     pub gap: f64,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, Column<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for Column<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::column::Column {
             content: |mut content| {
-                for element in &self.element.content {
-                    content = content.add(&SerdeElement {
-                        element,
-                        fonts: self.fonts,
-                    })?;
+                for element in &self.content {
+                    content = content.add(&SerdeElementElement { element, fonts })?;
                 }
 
                 Option::None
             },
-            gap: self.element.gap,
+            gap: self.gap,
         });
     }
 }
@@ -265,25 +295,20 @@ pub struct Row<E> {
     pub expand: bool,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, Row<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for Row<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::row::Row {
             content: |content| {
-                for RowElement { element, flex } in &self.element.content {
-                    content.add(
-                        &SerdeElement {
-                            element,
-                            fonts: self.fonts,
-                        },
-                        *flex,
-                    );
+                for RowElement { element, flex } in &self.content {
+                    content.add(&SerdeElementElement { element, fonts }, *flex);
                 }
             },
-            gap: self.element.gap,
-            expand: self.element.expand,
+            gap: self.gap,
+            expand: self.expand,
         });
     }
 }
@@ -294,23 +319,21 @@ pub struct BreakList<E> {
     pub gap: f64,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, BreakList<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for BreakList<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::break_list::BreakList {
             content: |mut content| {
-                for element in &self.element.content {
-                    content = content.add(&SerdeElement {
-                        element,
-                        fonts: self.fonts,
-                    })?;
+                for element in &self.content {
+                    content = content.add(&SerdeElementElement { element, fonts })?;
                 }
 
                 Option::None
             },
-            gap: self.element.gap,
+            gap: self.gap,
         });
     }
 }
@@ -320,17 +343,15 @@ pub struct Stack<E> {
     pub content: Vec<E>,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, Stack<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for Stack<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::stack::Stack(|content| {
-            for element in &self.element.content {
-                content.add(&SerdeElement {
-                    element,
-                    fonts: self.fonts,
-                });
+            for element in &self.content {
+                content.add(&SerdeElementElement { element, fonts });
             }
         }));
     }
@@ -349,25 +370,20 @@ pub struct TableRow<E> {
     pub expand: bool,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, TableRow<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for TableRow<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::table_row::TableRow {
             content: |content| {
-                for TableRowElement { element, flex } in &self.element.content {
-                    content.add(
-                        &SerdeElement {
-                            element,
-                            fonts: self.fonts,
-                        },
-                        *flex,
-                    );
+                for TableRowElement { element, flex } in &self.content {
+                    content.add(&SerdeElementElement { element, fonts }, *flex);
                 }
             },
-            line_style: self.element.line_style,
-            expand: self.element.expand,
+            line_style: self.line_style,
+            expand: self.expand,
         });
     }
 }
@@ -380,22 +396,23 @@ pub struct Titled<E> {
     pub collapse_on_empty_content: bool,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, Titled<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for Titled<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::titled::Titled {
-            title: &SerdeElement {
-                element: &*self.element.title,
-                fonts: self.fonts,
+            title: &SerdeElementElement {
+                element: &*self.title,
+                fonts,
             },
-            content: &SerdeElement {
-                element: &*self.element.content,
-                fonts: self.fonts,
+            content: &SerdeElementElement {
+                element: &*self.content,
+                fonts,
             },
-            gap: self.element.gap,
-            collapse_on_empty_content: self.element.collapse_on_empty_content,
+            gap: self.gap,
+            collapse_on_empty_content: self.collapse_on_empty_content,
         });
     }
 }
@@ -408,23 +425,23 @@ pub struct TitleOrBreak<E> {
     pub collapse_on_empty_content: bool,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement
-    for SerdeElement<'a, TitleOrBreak<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for TitleOrBreak<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::title_or_break::TitleOrBreak {
-            title: &SerdeElement {
-                element: &*self.element.title,
-                fonts: self.fonts,
+            title: &SerdeElementElement {
+                element: &*self.title,
+                fonts,
             },
-            content: &SerdeElement {
-                element: &*self.element.content,
-                fonts: self.fonts,
+            content: &SerdeElementElement {
+                element: &*self.content,
+                fonts,
             },
-            gap: self.element.gap,
-            collapse_on_empty_content: self.element.collapse_on_empty_content,
+            gap: self.gap,
+            collapse_on_empty_content: self.collapse_on_empty_content,
         });
     }
 }
@@ -437,23 +454,23 @@ pub struct RepeatAfterBreak<E> {
     pub collapse_on_empty_content: bool,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement
-    for SerdeElement<'a, RepeatAfterBreak<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for RepeatAfterBreak<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::repeat_after_break::RepeatAfterBreak {
-            title: &SerdeElement {
-                element: &*self.element.title,
-                fonts: self.fonts,
+            title: &SerdeElementElement {
+                element: &*self.title,
+                fonts,
             },
-            content: &SerdeElement {
-                element: &*self.element.content,
-                fonts: self.fonts,
+            content: &SerdeElementElement {
+                element: &*self.content,
+                fonts,
             },
-            gap: self.element.gap,
-            collapse_on_empty_content: self.element.collapse_on_empty_content,
+            gap: self.gap,
+            collapse_on_empty_content: self.collapse_on_empty_content,
         });
     }
 }
@@ -461,8 +478,12 @@ where
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ForceBreak;
 
-impl<'a, F: Index<&'a str, Output = Font>> CompositeElement for SerdeElement<'a, ForceBreak, F> {
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl SerdeElement for ForceBreak {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::force_break::ForceBreak);
     }
 }
@@ -472,15 +493,15 @@ pub struct BreakWhole<E> {
     pub element: Box<E>,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement
-    for SerdeElement<'a, BreakWhole<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
-        callback.call(&elements::break_whole::BreakWhole(&SerdeElement {
-            element: &*self.element.element,
-            fonts: self.fonts,
+impl<E: SerdeElement> SerdeElement for BreakWhole<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::break_whole::BreakWhole(&SerdeElementElement {
+            element: &*self.element,
+            fonts,
         }));
     }
 }
@@ -491,18 +512,18 @@ pub struct MinFirstHeight<E> {
     pub min_first_height: f64,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement
-    for SerdeElement<'a, MinFirstHeight<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for MinFirstHeight<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::min_first_height::MinFirstHeight {
-            element: &SerdeElement {
-                element: &*self.element.element,
-                fonts: self.fonts,
+            element: &SerdeElementElement {
+                element: &*self.element,
+                fonts,
             },
-            min_first_height: self.element.min_first_height,
+            min_first_height: self.min_first_height,
         });
     }
 }
@@ -512,16 +533,16 @@ pub struct AlignLocationBottom<E> {
     pub element: Box<E>,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement
-    for SerdeElement<'a, AlignLocationBottom<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for AlignLocationBottom<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(&elements::align_location_bottom::AlignLocationBottom(
-            &SerdeElement {
-                element: &*self.element.element,
-                fonts: self.fonts,
+            &SerdeElementElement {
+                element: &*self.element,
+                fonts,
             },
         ));
     }
@@ -532,17 +553,19 @@ pub struct AlignPreferredHeightBottom<E> {
     pub element: Box<E>,
 }
 
-impl<'a, E, F: Index<&'a str, Output = Font>> CompositeElement
-    for SerdeElement<'a, AlignPreferredHeightBottom<E>, F>
-where
-    SerdeElement<'a, E, F>: Element,
-{
-    fn element(&self, callback: impl CompositeElementCallback) {
+impl<E: SerdeElement> SerdeElement for AlignPreferredHeightBottom<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
         callback.call(
-            &elements::align_preferred_height_bottom::AlignPreferredHeightBottom(&SerdeElement {
-                element: &*self.element.element,
-                fonts: self.fonts,
-            }),
+            &elements::align_preferred_height_bottom::AlignPreferredHeightBottom(
+                &SerdeElementElement {
+                    element: &*self.element,
+                    fonts,
+                },
+            ),
         );
     }
 }
