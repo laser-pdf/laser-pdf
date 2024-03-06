@@ -192,7 +192,7 @@ pub struct Line {
 impl SerdeElement for Line {
     fn element(
         &self,
-        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        _: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::line::Line { style: self.style });
@@ -208,7 +208,7 @@ pub struct Image {
 impl SerdeElement for Image {
     fn element(
         &self,
-        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        _: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::image::ImageElement { image: &self.image });
@@ -225,7 +225,7 @@ pub struct Rectangle {
 impl SerdeElement for Rectangle {
     fn element(
         &self,
-        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        _: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::rectangle::Rectangle {
@@ -246,7 +246,7 @@ pub struct Circle {
 impl SerdeElement for Circle {
     fn element(
         &self,
-        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        _: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::circle::Circle {
