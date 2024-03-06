@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 pub const EMPTY_FIELD: &str = "—";
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct FontSet<'a, F: Font> {
     pub regular: &'a F,
     pub bold: &'a F,
@@ -341,4 +341,90 @@ impl<C: CompositeElement> Element for C {
 
         ret
     }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+pub trait BuildElement<'a, F: 'static> {
+    type R: Element + 'a;
+
+    fn call(self, fonts: &'a F) -> Self::R;
+}
+
+impl<'a, F: 'static, R: Element + 'a, O: FnOnce(&'a F) -> R> BuildElement<'a, F> for O {
+    type R = R;
+
+    #[inline]
+    fn call(self, fonts: &'a F) -> Self::R {
+        self(fonts)
+    }
+}
+
+pub fn build_pdf<F: 'static>(
+    name: &str,
+    page_size: (f64, f64),
+    build_fonts: impl FnOnce(&PdfDocumentReference) -> F,
+    build_element: impl for<'a> BuildElement<'a, F>,
+) -> printpdf::PdfDocumentReference {
+    use printpdf::{
+        indices::{PdfLayerIndex, PdfPageIndex},
+        PdfDocument,
+    };
+
+    let (doc, page, layer) = PdfDocument::new(name, Mm(page_size.0), Mm(page_size.1), "Layer 0");
+    let mut page_idx = 0;
+
+    let mut pdf = Pdf {
+        document: doc,
+        page_size,
+    };
+
+    let get_location = &mut |pdf: &mut Pdf, location_idx| {
+        while page_idx <= location_idx {
+            pdf.document
+                .add_page(Mm(page_size.0), Mm(page_size.1), "Layer 0");
+            page_idx += 1;
+        }
+
+        let layer = pdf
+            .document
+            .get_page(PdfPageIndex((location_idx + 1) as usize))
+            .get_layer(PdfLayerIndex(0));
+
+        Location {
+            layer,
+            pos: (0., page_size.1),
+        }
+    };
+
+    let layer = pdf.document.get_page(page).get_layer(layer);
+
+    let fonts = build_fonts(&pdf.document);
+
+    let element = build_element.call(&fonts);
+
+    let ctx = DrawCtx {
+        pdf: &mut pdf,
+        width: WidthConstraint {
+            max: page_size.0,
+            expand: true,
+        },
+        location: Location {
+            layer,
+            pos: (0., page_size.1),
+        },
+
+        first_height: page_size.1,
+        preferred_height: None,
+
+        breakable: Some(BreakableDraw {
+            full_height: page_size.1,
+            preferred_height_break_count: 0,
+            get_location,
+        }),
+    };
+
+    element.draw(ctx);
+
+    pdf.document
 }
