@@ -7,6 +7,10 @@ use crate::{
 
 use super::{Font, SerdeElement, SerdeElementElement};
 
+const fn default_false() -> bool {
+    false
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct None;
 
@@ -393,6 +397,8 @@ pub struct Titled<E> {
     pub title: Box<E>,
     pub content: Box<E>,
     pub gap: f64,
+
+    #[serde(default = "default_false")]
     pub collapse_on_empty_content: bool,
 }
 
@@ -422,6 +428,8 @@ pub struct TitleOrBreak<E> {
     pub title: Box<E>,
     pub content: Box<E>,
     pub gap: f64,
+
+    #[serde(default = "default_false")]
     pub collapse_on_empty_content: bool,
 }
 
@@ -451,6 +459,8 @@ pub struct RepeatAfterBreak<E> {
     pub title: Box<E>,
     pub content: Box<E>,
     pub gap: f64,
+
+    #[serde(default = "default_false")]
     pub collapse_on_empty_content: bool,
 }
 
