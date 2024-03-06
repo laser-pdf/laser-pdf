@@ -481,7 +481,7 @@ pub struct ForceBreak;
 impl SerdeElement for ForceBreak {
     fn element(
         &self,
-        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        _: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::force_break::ForceBreak);

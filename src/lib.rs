@@ -16,13 +16,21 @@ use serde::{Deserialize, Serialize};
 
 pub const EMPTY_FIELD: &str = "—";
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug)]
 pub struct FontSet<'a, F: Font> {
     pub regular: &'a F,
     pub bold: &'a F,
     pub italic: &'a F,
     pub bold_italic: &'a F,
 }
+
+impl<'a, F: Font> Clone for FontSet<'a, F> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<'a, F: Font> Copy for FontSet<'a, F> {}
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum VAlign {
