@@ -132,6 +132,8 @@ pub struct Padding<E> {
     pub right: f64,
     pub top: f64,
     pub bottom: f64,
+
+    #[serde(alias = "elem")]
     pub element: Box<E>,
 }
 
@@ -156,6 +158,7 @@ impl<E: SerdeElement> SerdeElement for Padding<E> {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StyledBox<E> {
+    #[serde(alias = "elem")]
     pub element: Box<E>,
     pub padding_left: f64,
     pub padding_right: f64,
