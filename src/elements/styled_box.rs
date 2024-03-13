@@ -107,7 +107,6 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
             });
 
             let element_first_height;
-            let box_first_height;
             let location_offset;
             let location;
 
@@ -115,12 +114,10 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
                 location = (breakable.get_location)(ctx.pdf, 0);
                 location_offset = 1;
                 element_first_height = full_height;
-                box_first_height = breakable.full_height;
             } else {
                 location = ctx.location;
                 location_offset = 0;
                 element_first_height = first_height;
-                box_first_height = ctx.first_height;
             }
 
             let mut break_count = 0;
@@ -155,9 +152,17 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
 
             if let Some(width) = size.width {
                 if break_count > 0 || size.height.is_some() {
-                    let width = width + common.left + common.right;
-
-                    self.draw_box(&location, (width, box_first_height));
+                    self.draw_box(
+                        &location,
+                        (
+                            width,
+                            if break_count == 0 {
+                                size.height.unwrap()
+                            } else {
+                                element_first_height
+                            },
+                        ),
+                    );
 
                     for i in 0..break_count - if size.height.is_none() { 1 } else { 0 } {
                         let location = (breakable.get_location)(ctx.pdf, i + location_offset);
@@ -168,7 +173,7 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
                                 if i == break_count - 1 {
                                     size.height.unwrap()
                                 } else {
-                                    breakable.full_height
+                                    full_height
                                 },
                             ),
                         );
