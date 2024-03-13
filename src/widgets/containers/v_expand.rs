@@ -20,8 +20,6 @@ impl<W: Element> Element for VExpand<T> {
             .unwrap_or(0.)
             .max(widget_size[1]);
 
-        dbg!(ctx.location.preferred_height, preferred_height);
-
         let [width, height] = element.draw(
             width,
             Some(DrawCtx {

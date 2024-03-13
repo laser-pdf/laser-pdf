@@ -118,8 +118,6 @@ impl<'a, T: Element, C: Element> Element for RepeatAfterBreak<'a, T, C> {
                 location_offset = 0;
             }
 
-            dbg!(location_offset);
-
             content_size = self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location: Location {
