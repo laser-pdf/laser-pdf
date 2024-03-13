@@ -120,7 +120,7 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
                 location = ctx.location;
                 location_offset = 0;
                 element_first_height = first_height;
-                box_first_height = breakable.full_height;
+                box_first_height = ctx.first_height;
             }
 
             let mut break_count = 0;
@@ -161,23 +161,43 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
 
                     for i in 0..break_count - if size.height.is_none() { 1 } else { 0 } {
                         let location = (breakable.get_location)(ctx.pdf, i + location_offset);
-                        self.draw_box(&location, (width, breakable.full_height));
+                        self.draw_box(
+                            &location,
+                            (
+                                width,
+                                if i == break_count - 1 {
+                                    size.height.unwrap()
+                                } else {
+                                    breakable.full_height
+                                },
+                            ),
+                        );
                     }
                 }
             }
 
             size
         } else {
-            let location = common.location(ctx.pdf, ctx.location);
+            let location = common.location(ctx.pdf, ctx.location.clone());
 
-            self.element.draw(DrawCtx {
+            let size = self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location,
                 preferred_height: ctx.preferred_height.map(|p| common.height(p)),
                 width: common.width,
-                first_height: common.height(ctx.first_height),
+                first_height,
                 breakable: None,
-            })
+            });
+
+            if let ElementSize {
+                width: Some(width),
+                height: Some(height),
+            } = size
+            {
+                self.draw_box(&ctx.location, (width, height));
+            }
+
+            size
         };
 
         common.size(size)
