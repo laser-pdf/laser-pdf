@@ -56,7 +56,7 @@ impl<'a, F: Font> Text<'a, F> {
 
         FontMetrics {
             ascent: pt_to_mm(ascent * self.size / units_per_em),
-            line_height: pt_to_mm(line_height * self.size / units_per_em),
+            line_height: pt_to_mm(line_height * self.size / units_per_em) + self.extra_line_height,
         }
     }
 
