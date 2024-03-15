@@ -159,25 +159,31 @@ pub fn test_element(
         .map(|b| b.preferred_height_break_count)
         .unwrap_or(0);
 
-    // TODO: If an element sets an extra_location_min_height it should probably have to actually use
-    // up to preferred_breaks.
-    if (draw.break_count, draw.size.height) != (measure.break_count, measure.size.height) {
-        assert!(preferred_break_count >= measure.break_count);
-
-        // Must either expand or not, but not something in the middle. But if necessary we can also
-        // relax this requirement.
+    if measure.extra_location_min_height.is_some() && preferred_break_count > measure.break_count {
         assert_eq!(draw.break_count, preferred_break_count);
-
-        let min_height = if preferred_break_count == measure.break_count {
-            measure.size.height
-        } else {
-            measure.extra_location_min_height
-        };
-
+        assert!(draw.size.height >= measure.extra_location_min_height);
         assert!(
-            draw.size.height == min_height
-                || draw.size.height == max_optional_size(min_height, preferred_height)
+            draw.size.height
+                <= max_optional_size(measure.extra_location_min_height, preferred_height)
         );
+    } else {
+        let preferred = (preferred_break_count, preferred_height);
+        let measured = (measure.break_count, measure.size.height);
+        let drawn = (draw.break_count, draw.size.height);
+
+        type Thing = (u32, Option<f64>);
+
+        fn max(a: Thing, b: Thing) -> Thing {
+            // Beware of wild NaNs, they bite!
+            if a > b {
+                a
+            } else {
+                b
+            }
+        }
+
+        assert!(drawn >= measured);
+        assert!(drawn <= max(preferred, measured));
     }
 
     let restricted_draw = draw_element(
