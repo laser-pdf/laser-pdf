@@ -1,6 +1,9 @@
 use crate::{utils::max_optional_size, *};
 
-pub struct Stack<C: Fn(&mut StackContent)>(pub C);
+pub struct Stack<C: Fn(&mut StackContent)> {
+    pub content: C,
+    pub expand: bool,
+}
 
 impl<C: Fn(&mut StackContent)> Element for Stack<C> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
@@ -8,7 +11,7 @@ impl<C: Fn(&mut StackContent)> Element for Stack<C> {
 
         let mut content = StackContent(Pass::FirstLocationUsage { ctx, ret: &mut ret });
 
-        self.0(&mut content);
+        (self.content)(&mut content);
 
         ret
     }
@@ -24,16 +27,61 @@ impl<C: Fn(&mut StackContent)> Element for Stack<C> {
             size: &mut size,
         });
 
-        self.0(&mut content);
+        (self.content)(&mut content);
 
         size
     }
 
-    fn draw(&self, ctx: DrawCtx) -> ElementSize {
+    fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         let mut size = ElementSize {
             width: None,
             height: None,
         };
+
+        if self.expand {
+            let mut break_count = 0;
+            let mut extra_location_min_height = None;
+            let mut size = ElementSize {
+                width: None,
+                height: None,
+            };
+
+            let mut content = StackContent(Pass::Measure {
+                ctx: MeasureCtx {
+                    width: ctx.width,
+                    first_height: ctx.first_height,
+                    breakable: ctx.breakable.as_ref().map(|b| BreakableMeasure {
+                        full_height: b.full_height,
+                        break_count: &mut break_count,
+                        extra_location_min_height: &mut extra_location_min_height,
+                    }),
+                },
+                size: &mut size,
+            });
+
+            (self.content)(&mut content);
+
+            if let Some(ref mut breakable) = ctx.breakable {
+                match break_count.cmp(&breakable.preferred_height_break_count) {
+                    std::cmp::Ordering::Less => (),
+                    std::cmp::Ordering::Equal => {
+                        ctx.preferred_height = max_optional_size(ctx.preferred_height, size.height);
+                    }
+                    std::cmp::Ordering::Greater => {
+                        breakable.preferred_height_break_count = break_count;
+                        ctx.preferred_height = size.height;
+                    }
+                }
+            } else {
+                ctx.preferred_height = max_optional_size(ctx.preferred_height, size.height);
+            }
+        } else {
+            ctx.preferred_height = None;
+
+            if let Some(ref mut breakable) = ctx.breakable {
+                breakable.preferred_height_break_count = 0;
+            }
+        }
 
         let mut content = StackContent(Pass::Draw {
             ctx,
@@ -41,7 +89,7 @@ impl<C: Fn(&mut StackContent)> Element for Stack<C> {
             max_break_count: 0,
         });
 
-        self.0(&mut content);
+        (self.content)(&mut content);
 
         size
     }
@@ -231,11 +279,14 @@ mod tests {
                     width: 2.9,
                 });
 
-                let element = Stack(|content| {
-                    content.add(&a);
-                    content.add(&b);
-                    content.add(&c);
-                });
+                let element = Stack {
+                    content: |content| {
+                        content.add(&a);
+                        content.add(&b);
+                        content.add(&c);
+                    },
+                    expand: false,
+                };
 
                 let ret = callback.call(element);
 
