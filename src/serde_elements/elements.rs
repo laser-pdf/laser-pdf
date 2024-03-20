@@ -378,6 +378,8 @@ pub struct TableRowElement<E> {
 pub struct TableRow<E> {
     pub content: Vec<TableRowElement<E>>,
     pub line_style: LineStyle,
+
+    #[serde(alias = "y_expand")]
     pub expand: bool,
 }
 
