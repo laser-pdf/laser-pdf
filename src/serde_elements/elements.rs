@@ -348,6 +348,7 @@ impl<E: SerdeElement> SerdeElement for BreakList<E> {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Stack<E> {
     pub content: Vec<E>,
+    pub expand: bool,
 }
 
 impl<E: SerdeElement> SerdeElement for Stack<E> {
@@ -356,11 +357,14 @@ impl<E: SerdeElement> SerdeElement for Stack<E> {
         fonts: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
-        callback.call(&elements::stack::Stack(|content| {
-            for element in &self.content {
-                content.add(&SerdeElementElement { element, fonts });
-            }
-        }));
+        callback.call(&elements::stack::Stack {
+            content: |content| {
+                for element in &self.content {
+                    content.add(&SerdeElementElement { element, fonts });
+                }
+            },
+            expand: self.expand,
+        });
     }
 }
 
