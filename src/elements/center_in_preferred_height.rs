@@ -22,20 +22,13 @@ impl<'a, E: Element> Element for CenterInPreferredHeight<'a, E> {
             ctx.breakable.as_ref().map(|b| b.full_height),
         );
 
-        let height = if layout.pre_break {
+        if layout.pre_break {
             let breakable = ctx.breakable.as_mut().unwrap();
 
             *breakable.break_count = 1;
-
-            Some(breakable.full_height)
-        } else {
-            layout.size.height.map(|_| ctx.first_height)
-        };
-
-        ElementSize {
-            width: layout.size.width,
-            height,
         }
+
+        layout.size
     }
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
@@ -46,23 +39,48 @@ impl<'a, E: Element> Element for CenterInPreferredHeight<'a, E> {
         );
 
         let height_available;
-        let height;
         let mut location;
+        let center_height;
 
-        if layout.pre_break {
+        dbg!(
+            ctx.first_height,
+            ctx.breakable.as_ref().map(|x| x.full_height)
+        );
+
+        if layout.size.height.is_none() {
+            return layout.size;
+        } else if dbg!(layout.pre_break) {
             let breakable = ctx.breakable.unwrap();
 
             location = (breakable.get_location)(ctx.pdf, 0);
             height_available = breakable.full_height;
 
-            height = Some(breakable.full_height);
+            center_height = if breakable.preferred_height_break_count == 1 {
+                ctx.preferred_height.unwrap_or(0.)
+            } else {
+                breakable.full_height
+            };
         } else {
             location = ctx.location;
             height_available = ctx.first_height;
-            height = layout.size.height.map(|_| ctx.first_height);
+            center_height = if ctx
+                .breakable
+                .map(|b| b.preferred_height_break_count == 0)
+                .unwrap_or(true)
+            {
+                ctx.preferred_height.unwrap_or(0.)
+            } else {
+                ctx.first_height
+            };
         }
 
-        location.pos.1 -= layout.y_offset;
+        let y_offset = if let Some(height) = layout.size.height {
+            (center_height - height).max(0.) / 2.
+        } else {
+            0.
+        };
+
+        location.pos.1 -= y_offset;
 
         self.0.draw(DrawCtx {
             pdf: ctx.pdf,
@@ -75,7 +93,7 @@ impl<'a, E: Element> Element for CenterInPreferredHeight<'a, E> {
 
         ElementSize {
             width: layout.size.width,
-            height,
+            height: Some(center_height),
         }
     }
 }
@@ -83,7 +101,6 @@ impl<'a, E: Element> Element for CenterInPreferredHeight<'a, E> {
 #[derive(Debug)]
 struct Layout {
     pre_break: bool,
-    y_offset: f64,
     size: ElementSize,
 }
 
@@ -103,28 +120,14 @@ impl<'a, E: Element> CenterInPreferredHeight<'a, E> {
         });
 
         let pre_break;
-        let location_height;
 
         if let (Some(height), Some(full_height)) = (size.height, full_height) {
-            pre_break = height > first_height;
-
-            location_height = if pre_break { full_height } else { first_height };
+            pre_break = height > first_height && full_height > first_height;
         } else {
             pre_break = false;
-            location_height = first_height;
         };
 
-        let y_offset = if let Some(height) = size.height {
-            (location_height - height).max(0.) / 2.
-        } else {
-            0.
-        };
-
-        Layout {
-            pre_break,
-            y_offset,
-            size,
-        }
+        Layout { pre_break, size }
     }
 }
 
@@ -143,6 +146,7 @@ mod tests {
                     expand: true,
                 },
                 first_height: 21.,
+                preferred_height: Some(20.),
                 breakable: None,
                 pos: (11., 29.0),
                 ..Default::default()
@@ -178,8 +182,10 @@ mod tests {
                     expand: true,
                 },
                 first_height: 21.,
+                preferred_height: Some(19.),
                 breakable: Some(TestElementParamsBreakable {
                     full_height: 25.,
+                    preferred_height_break_count: 0,
                     ..Default::default()
                 }),
                 pos: (11., 29.0),
@@ -216,8 +222,10 @@ mod tests {
                     expand: true,
                 },
                 first_height: 21.,
+                preferred_height: Some(25.),
                 breakable: Some(TestElementParamsBreakable {
                     full_height: 26.,
+                    preferred_height_break_count: 1,
                     ..Default::default()
                 }),
                 pos: (11., 29.0),

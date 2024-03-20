@@ -8,7 +8,7 @@ ElementTestOutput {
             12.0,
         ),
         height: Some(
-            21.0,
+            20.0,
         ),
     },
     breakable: None,
