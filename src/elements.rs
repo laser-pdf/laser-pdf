@@ -5,6 +5,7 @@ pub mod break_whole;
 pub mod center_in_preferred_height;
 pub mod circle;
 pub mod column;
+pub mod debug;
 pub mod force_break;
 pub mod h_align;
 pub mod image;

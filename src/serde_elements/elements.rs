@@ -24,6 +24,22 @@ impl SerdeElement for None {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct Debug<E>(pub Box<E>);
+
+impl<E: SerdeElement> SerdeElement for Debug<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::debug::Debug(&SerdeElementElement {
+            element: &*self.0,
+            fonts,
+        }));
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Text {
     pub text: String,
     pub font: String,

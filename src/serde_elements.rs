@@ -53,6 +53,7 @@ macro_rules! define_serde_element_value {
 
 define_serde_element_value!(ElementValue {
     None,
+    Debug<ElementValue>,
     Text,
     RichText,
     VGap,
