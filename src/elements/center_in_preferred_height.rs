@@ -42,14 +42,9 @@ impl<'a, E: Element> Element for CenterInPreferredHeight<'a, E> {
         let mut location;
         let center_height;
 
-        dbg!(
-            ctx.first_height,
-            ctx.breakable.as_ref().map(|x| x.full_height)
-        );
-
         if layout.size.height.is_none() {
             return layout.size;
-        } else if dbg!(layout.pre_break) {
+        } else if layout.pre_break {
             let breakable = ctx.breakable.unwrap();
 
             location = (breakable.get_location)(ctx.pdf, 0);
