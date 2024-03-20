@@ -176,39 +176,45 @@ pub struct DecorationElements<'a> {
     height: f64,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum X {
+    Left(f64),
+    Right(f64),
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum Y {
+    Top(f64),
+    Bottom(f64),
+}
+
 impl<'a> DecorationElements<'a> {
-    pub fn add(&mut self, element: &impl Element, pos: (f64, f64), width: Option<f64>) {
+    pub fn add(&mut self, element: &impl Element, pos: (X, Y), width: Option<f64>) {
         element.draw(DrawCtx {
             pdf: self.pdf,
             location: Location {
                 layer: self.location.layer.clone(),
                 pos: (
-                    if pos.0.is_sign_positive() {
-                        self.location.pos.0 + pos.0
-                    } else {
-                        self.location.pos.0 + self.width + pos.0
+                    match pos.0 {
+                        X::Left(left) => self.location.pos.0 + left,
+                        X::Right(right) => self.location.pos.0 + self.width - right,
                     },
-                    if pos.1.is_sign_positive() {
-                        self.location.pos.1 - pos.1
-                    } else {
-                        self.location.pos.1 - self.height - pos.1
+                    match pos.1 {
+                        Y::Top(top) => self.location.pos.1 - top,
+                        Y::Bottom(bottom) => self.location.pos.1 - self.height + bottom,
                     },
                 ),
             },
             width: WidthConstraint {
-                max: width.unwrap_or_else(|| {
-                    if pos.0.is_sign_positive() {
-                        self.width - pos.0
-                    } else {
-                        -pos.0
-                    }
+                max: width.unwrap_or_else(|| match pos.0 {
+                    X::Left(left) => self.width - left,
+                    X::Right(right) => right,
                 }),
                 expand: width.is_some(),
             },
-            first_height: if pos.1.is_sign_positive() {
-                self.height - pos.1
-            } else {
-                -pos.1
+            first_height: match pos.1 {
+                Y::Top(top) => self.height - top,
+                Y::Bottom(bottom) => bottom,
             },
             preferred_height: None,
             breakable: None,
@@ -222,6 +228,8 @@ mod tests {
 
     use super::*;
     use crate::test_utils::{record_passes::RecordPasses, *};
+    use X::*;
+    use Y::*;
 
     #[test]
     fn test_unbreakable() {
@@ -262,8 +270,8 @@ mod tests {
                     border_top: 4.,
                     border_bottom: 5.,
                     decoration_elements: |content: &mut DecorationElements, _, _| {
-                        content.add(&top_left, (1., 2.), None);
-                        content.add(&bottom_right, (-2., -5.), Some(4.));
+                        content.add(&top_left, (Left(1.), Top(2.)), None);
+                        content.add(&bottom_right, (Right(2.), Bottom(5.)), Some(4.));
                     },
                 };
 
@@ -326,8 +334,8 @@ mod tests {
                     border_top: 4.,
                     border_bottom: 5.,
                     decoration_elements: |content: &mut DecorationElements, _, _| {
-                        content.add(&top_right, (-2.5, 2.), None);
-                        content.add(&bottom_left, (2., -5.), Some(4.));
+                        content.add(&top_right, (Right(2.5), Top(2.)), None);
+                        content.add(&bottom_left, (Left(2.), Bottom(5.)), Some(4.));
                     },
                 };
 
