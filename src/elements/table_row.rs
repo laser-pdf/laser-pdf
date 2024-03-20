@@ -164,7 +164,7 @@ impl<F: Fn(&mut RowContent)> Element for TableRow<F> {
                 first_height: ctx.first_height,
                 pass: Pass::DrawLines {
                     layout: &draw_layout,
-                    width,
+                    width: None,
                     height,
                     line_style: self.line_style,
                     pdf: ctx.pdf,
