@@ -1,0 +1,14 @@
+---
+source: src/elements/rotate.rs
+expression: content.into_passes()
+---
+[
+    Measure {
+        width: WidthConstraint {
+            max: 500.0,
+            expand: false,
+        },
+        first_height: 16.0,
+        full_height: None,
+    },
+]

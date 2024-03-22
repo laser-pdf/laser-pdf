@@ -17,6 +17,7 @@ pub mod page;
 pub mod rectangle;
 pub mod repeat_after_break;
 pub mod rich_text;
+pub mod rotate;
 pub mod row;
 pub mod stack;
 pub mod styled_box;
