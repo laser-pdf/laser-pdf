@@ -77,4 +77,5 @@ define_serde_element_value!(ElementValue {
     MinFirstHeight<ElementValue>,
     AlignLocationBottom<ElementValue>,
     AlignPreferredHeightBottom<ElementValue>,
+    ExpandToPreferredHeight<ElementValue>,
 });

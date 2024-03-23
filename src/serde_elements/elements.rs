@@ -604,3 +604,23 @@ impl<E: SerdeElement> SerdeElement for AlignPreferredHeightBottom<E> {
         );
     }
 }
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ExpandToPreferredHeight<E> {
+    pub element: Box<E>,
+}
+
+impl<E: SerdeElement> SerdeElement for ExpandToPreferredHeight<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(
+            &elements::expand_to_preferred_height::ExpandToPreferredHeight(&SerdeElementElement {
+                element: &*self.element,
+                fonts,
+            }),
+        );
+    }
+}
