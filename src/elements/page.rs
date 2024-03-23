@@ -87,10 +87,14 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for P
 
         let mut break_count = 0;
 
+        // We put the primary content one layer up so the decoration elements can be used for things
+        // like watermarks.
+        let primary_layer = location.next_layer(ctx.pdf);
+
         self.primary.draw(DrawCtx {
             pdf: ctx.pdf,
             location: Location {
-                layer: location.layer.clone(),
+                layer: primary_layer,
                 pos: (
                     location.pos.0 + self.border_left,
                     location.pos.1 - self.border_top,
@@ -106,6 +110,8 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for P
                         break_count = break_count.max(location_idx + 1);
                         let mut location =
                             (breakable.get_location)(pdf, location_idx + location_offset);
+
+                        location.layer = location.next_layer(pdf);
                         location.pos.0 += self.border_left;
                         location.pos.1 -= self.border_top;
 
