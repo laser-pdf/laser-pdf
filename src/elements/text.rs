@@ -219,6 +219,19 @@ impl<'a, F: Font> Text<'a, F> {
 }
 
 impl<'a, F: Font> Element for Text<'a, F> {
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        let FontMetrics {
+            ascent: _,
+            line_height,
+        } = self.compute_font_metrics();
+
+        if line_height > ctx.first_height {
+            FirstLocationUsage::WillSkip
+        } else {
+            FirstLocationUsage::WillUse
+        }
+    }
+
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let FontMetrics { line_height, .. } = self.compute_font_metrics();
 
