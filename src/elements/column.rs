@@ -3,6 +3,7 @@ use crate::*;
 pub struct Column<C: Fn(ColumnContent) -> Option<()>> {
     pub content: C,
     pub gap: f64,
+    pub collapse: bool,
 }
 
 impl<C: Fn(ColumnContent) -> Option<()>> Element for Column<C> {
@@ -14,23 +15,46 @@ impl<C: Fn(ColumnContent) -> Option<()>> Element for Column<C> {
             gap: self.gap,
         });
 
+        if !self.collapse && ret == FirstLocationUsage::NoneHeight {
+            ret = FirstLocationUsage::WillUse;
+        }
+
         ret
     }
 
-    fn measure(&self, ctx: MeasureCtx) -> ElementSize {
+    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let mut width = None;
         let mut height = None;
+        let mut break_count = 0;
 
         (self.content)(ColumnContent {
             pass: Pass::Measure {
                 width_constraint: ctx.width,
-                breakable: ctx.breakable,
+                breakable: ctx.breakable.as_mut().map(|b| BreakableMeasure {
+                    break_count: &mut break_count,
+                    extra_location_min_height: b.extra_location_min_height,
+                    ..*b
+                }),
                 height_available: ctx.first_height,
                 width: &mut width,
                 height: &mut height,
             },
             gap: self.gap,
         });
+
+        if let Some(breakable) = ctx.breakable {
+            *breakable.break_count = break_count;
+        }
+
+        if !self.collapse {
+            if height.is_none() && break_count == 0 {
+                height = Some(0.);
+            }
+
+            if width.is_none() {
+                width = Some(0.);
+            }
+        }
 
         ElementSize { width, height }
     }
@@ -38,12 +62,13 @@ impl<C: Fn(ColumnContent) -> Option<()>> Element for Column<C> {
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let mut width = None;
         let mut height = None;
+        let mut location_offset = 0;
 
         (self.content)(ColumnContent {
             pass: Pass::Draw {
                 pdf: ctx.pdf,
                 location: ctx.location,
-                location_offset: 0,
+                location_offset: &mut location_offset,
                 width_constraint: ctx.width,
                 breakable: ctx.breakable,
                 height_available: ctx.first_height,
@@ -52,6 +77,16 @@ impl<C: Fn(ColumnContent) -> Option<()>> Element for Column<C> {
             },
             gap: self.gap,
         });
+
+        if !self.collapse {
+            if height.is_none() && location_offset == 0 {
+                height = Some(0.);
+            }
+
+            if width.is_none() {
+                width = Some(0.);
+            }
+        }
 
         ElementSize { width, height }
     }
@@ -79,7 +114,7 @@ enum Pass<'a, 'b, 'r> {
     Draw {
         pdf: &'a mut Pdf,
         location: Location,
-        location_offset: u32,
+        location_offset: &'r mut u32,
         width_constraint: WidthConstraint,
         breakable: Option<BreakableDraw<'b>>,
 
@@ -172,7 +207,7 @@ impl<'a, 'b, 'r> ColumnContent<'a, 'b, 'r> {
             Pass::Draw {
                 pdf: &mut ref mut pdf,
                 ref mut location,
-                ref mut location_offset,
+                location_offset: &mut ref mut location_offset,
                 width_constraint,
                 ref mut breakable,
                 ref mut height_available,
@@ -271,6 +306,7 @@ mod tests {
     fn test_column_empty() {
         let element = Column {
             gap: 100.,
+            collapse: true,
             content: |_| Some(()),
         };
 
@@ -334,6 +370,7 @@ mod tests {
 
             let element = Column {
                 gap: 1.,
+                collapse: true,
                 content: |content| {
                     content.add(&none_0)?.add(&none_1)?.add(&none_2)?;
 
@@ -660,6 +697,7 @@ mod tests {
 
             let element = Column {
                 gap: 1.,
+                collapse: false,
                 content: |content| {
                     content
                         .add(&child_0)?

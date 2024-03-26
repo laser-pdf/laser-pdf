@@ -4,9 +4,12 @@ use crate::{
     *,
 };
 
+use super::none::NoneElement;
+
 pub struct Row<F: Fn(&mut RowContent)> {
     pub gap: f64,
     pub expand: bool,
+    pub collapse: bool,
     pub content: F,
 }
 
@@ -50,6 +53,16 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
                 breakable: ctx.breakable.as_mut(),
             },
         });
+
+        if !self.collapse {
+            if width.is_none() {
+                width = Some(0.);
+            }
+
+            if max_height.is_none() {
+                max_height = Some(0.);
+            }
+        }
 
         ElementSize {
             width: if ctx.width.expand {
@@ -157,6 +170,16 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
             },
         });
 
+        if !self.collapse {
+            if width.is_none() {
+                width = Some(0.);
+            }
+
+            if max_height.is_none() {
+                max_height = Some(0.);
+            }
+        }
+
         ElementSize {
             width: if ctx.width.expand {
                 Some(ctx.width.max)
@@ -243,6 +266,10 @@ fn add_height(
 }
 
 impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
+    pub fn flex_gap(&mut self, gap: u8) {
+        self.add(&NoneElement, Flex::Expand(gap));
+    }
+
     pub fn add<E: Element>(&mut self, element: &E, flex: Flex) {
         match self.pass {
             Pass::MeasureNonExpanded {
@@ -497,6 +524,7 @@ mod tests {
         let element = Row {
             gap: 12.,
             expand: true,
+            collapse: true,
             content: |_content| {},
         };
 
@@ -519,6 +547,7 @@ mod tests {
         let element = Row {
             gap: 12.,
             expand: false,
+            collapse: true,
             content: |_content| {},
         };
 
@@ -830,6 +859,7 @@ mod tests {
                 let element = Row {
                     gap,
                     expand,
+                    collapse: false,
                     content: |content| {
                         content.add(&child_0, Flex::SelfSized);
                         content.add(&child_1, Flex::Expand(1));

@@ -284,6 +284,9 @@ impl SerdeElement for Circle {
 pub struct Column<E> {
     pub content: Vec<E>,
     pub gap: f64,
+
+    #[serde(default = "default_false")]
+    pub collapse: bool,
 }
 
 impl<E: SerdeElement> SerdeElement for Column<E> {
@@ -301,6 +304,7 @@ impl<E: SerdeElement> SerdeElement for Column<E> {
                 Option::None
             },
             gap: self.gap,
+            collapse: self.collapse,
         });
     }
 }
@@ -316,6 +320,7 @@ pub struct Row<E> {
     pub content: Vec<RowElement<E>>,
     pub gap: f64,
     pub expand: bool,
+    pub collapse: bool,
 }
 
 impl<E: SerdeElement> SerdeElement for Row<E> {
@@ -332,6 +337,7 @@ impl<E: SerdeElement> SerdeElement for Row<E> {
             },
             gap: self.gap,
             expand: self.expand,
+            collapse: self.collapse,
         });
     }
 }
