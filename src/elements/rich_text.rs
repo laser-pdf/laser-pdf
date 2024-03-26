@@ -267,6 +267,17 @@ impl<'a, F: Font> RichText<'a, F> {
 }
 
 impl<'a, F: Font> Element for RichText<'a, F> {
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        let (_, line_height) = self.pieces_trimmed(ctx.width.max);
+        let line_height = line_height + self.extra_line_height;
+
+        if ctx.first_height < line_height {
+            FirstLocationUsage::WillSkip
+        } else {
+            FirstLocationUsage::WillUse
+        }
+    }
+
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let mut max_width = ctx.width.constrain(0.);
 
