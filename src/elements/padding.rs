@@ -8,6 +8,18 @@ pub struct Padding<'a, E: Element> {
     pub element: &'a E,
 }
 
+impl<'a, E: Element> Padding<'a, E> {
+    pub fn top(top: f64, element: &'a E) -> Self {
+        Padding {
+            left: 0.,
+            right: 0.,
+            top,
+            bottom: 0.,
+            element,
+        }
+    }
+}
+
 impl<'a, E: Element> Element for Padding<'a, E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         self.element.first_location_usage(FirstLocationUsageCtx {
