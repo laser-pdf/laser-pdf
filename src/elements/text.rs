@@ -244,7 +244,9 @@ impl<'a, F: Font> Element for Text<'a, F> {
 
         // For left alignment we don't need to pre-layout because the
         // x offset is always zero.
-        let width = if ctx.width.expand || self.align == TextAlign::Left {
+        let width = if ctx.width.expand {
+            ctx.width.max
+        } else if self.align == TextAlign::Left {
             0.
         } else {
             self.layout_lines(lines.clone(), line_height, None).0
