@@ -6,6 +6,19 @@ pub struct Line {
     pub style: LineStyle,
 }
 
+impl Line {
+    pub fn new(thickness: f64) -> Self {
+        Line {
+            style: LineStyle {
+                thickness,
+                color: 0x00_00_00_FF,
+                dash_pattern: None,
+                cap_style: LineCapStyle::Butt,
+            },
+        }
+    }
+}
+
 impl Element for Line {
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         ctx.break_if_appropriate_for_min_height(self.style.thickness);
