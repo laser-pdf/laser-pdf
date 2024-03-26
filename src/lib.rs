@@ -10,6 +10,7 @@ pub mod test_utils;
 
 pub(crate) mod flex;
 
+use elements::padding::Padding;
 use fonts::Font;
 use printpdf::{Mm, PdfDocumentReference, PdfLayerReference};
 use serde::{Deserialize, Serialize};
@@ -276,6 +277,32 @@ pub trait Element {
     fn measure(&self, ctx: MeasureCtx) -> ElementSize;
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize;
+
+    fn with_padding_top(&self, padding: f64) -> Padding<Self>
+    where
+        Self: Sized,
+    {
+        Padding {
+            left: 0.,
+            right: 0.,
+            top: padding,
+            bottom: 0.,
+            element: self,
+        }
+    }
+
+    fn with_vertical_padding(&self, padding: f64) -> Padding<Self>
+    where
+        Self: Sized,
+    {
+        Padding {
+            left: 0.,
+            right: 0.,
+            top: padding,
+            bottom: padding,
+            element: self,
+        }
+    }
 }
 
 pub trait CompositeElementCallback {
