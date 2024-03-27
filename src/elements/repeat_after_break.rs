@@ -11,6 +11,37 @@ pub struct RepeatAfterBreak<'a, T: Element, C: Element> {
 }
 
 impl<'a, T: Element, C: Element> Element for RepeatAfterBreak<'a, T, C> {
+    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+        let title_size = self.title.measure(MeasureCtx {
+            width: ctx.width,
+            first_height: ctx.full_height,
+            breakable: None,
+        });
+
+        let collapse = self.collapse_on_empty_content || title_size.height.is_none();
+
+        if !collapse && ctx.first_height == ctx.full_height {
+            return FirstLocationUsage::WillUse;
+        }
+
+        let y_offset = self.y_offset(title_size);
+        let first_location_usage = self.content.first_location_usage(FirstLocationUsageCtx {
+            width: ctx.width,
+            first_height: ctx.first_height - y_offset,
+            full_height: ctx.full_height,
+        });
+
+        if collapse && first_location_usage == FirstLocationUsage::NoneHeight {
+            FirstLocationUsage::NoneHeight
+        } else if ctx.first_height < ctx.full_height
+            && (y_offset > ctx.first_height || first_location_usage == FirstLocationUsage::WillSkip)
+        {
+            FirstLocationUsage::WillSkip
+        } else {
+            FirstLocationUsage::WillUse
+        }
+    }
+
     fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         let title_size = self.title.measure(MeasureCtx {
             width: ctx.width,
