@@ -9,7 +9,9 @@ impl<'a, E: Element> Element for MinFirstHeight<'a, E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         use FirstLocationUsage::*;
 
-        if self.pre_break(ctx.first_height, ctx.full_height) {
+        let layout = self.layout(ctx.width, ctx.first_height, ctx.full_height);
+
+        if layout.pre_break {
             match self.element.first_location_usage(FirstLocationUsageCtx {
                 width: ctx.width,
                 first_height: ctx.full_height,
@@ -19,19 +21,27 @@ impl<'a, E: Element> Element for MinFirstHeight<'a, E> {
                 _ => WillSkip,
             }
         } else {
-            self.element.first_location_usage(ctx)
+            match layout.measured {
+                Some(measure_output) if measure_output.break_count == 0 => {
+                    if measure_output.size.height.is_none() {
+                        NoneHeight
+                    } else {
+                        WillUse
+                    }
+                }
+                _ => self.element.first_location_usage(ctx),
+            }
         }
     }
 
     fn measure(&self, ctx: MeasureCtx) -> ElementSize {
-        let location_offset;
-        let mut size;
-        let mut break_count = 0;
-
         if let Some(breakable) = ctx.breakable {
+            let location_offset;
             let first_height;
 
-            if self.pre_break(ctx.first_height, breakable.full_height) {
+            let layout = self.layout(ctx.width, ctx.first_height, breakable.full_height);
+
+            if layout.pre_break {
                 first_height = breakable.full_height;
                 location_offset = 1;
             } else {
@@ -39,53 +49,39 @@ impl<'a, E: Element> Element for MinFirstHeight<'a, E> {
                 location_offset = 0;
             }
 
-            size = self.element.measure(MeasureCtx {
-                width: ctx.width,
-                first_height,
-                breakable: Some(BreakableMeasure {
-                    full_height: breakable.full_height,
-                    break_count: &mut break_count,
-                    extra_location_min_height: breakable.extra_location_min_height,
-                }),
-            });
+            let size = if let Some(measure_output) = layout.measured {
+                *breakable.break_count = measure_output.break_count;
+                *breakable.extra_location_min_height = measure_output.extra_location_min_height;
+                measure_output.size
+            } else {
+                self.element.measure(MeasureCtx {
+                    width: ctx.width,
+                    first_height,
+                    breakable: Some(BreakableMeasure {
+                        full_height: breakable.full_height,
+                        break_count: breakable.break_count,
+                        extra_location_min_height: breakable.extra_location_min_height,
+                    }),
+                })
+            };
 
-            // collapse
-            if size.height.is_none() && break_count == 0 {
-                return size;
-            }
-
-            *breakable.break_count = break_count + location_offset;
+            *breakable.break_count += location_offset;
+            size
         } else {
-            location_offset = 0;
-            size = self.element.measure(ctx);
+            self.element.measure(ctx)
         }
-
-        if let Some(ref mut height) = size.height {
-            if location_offset == 0 && break_count == 0 {
-                *height = height.max(self.min_first_height);
-            }
-        }
-
-        size
     }
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
-        let location_offset;
-        let mut size;
-        let mut break_count = 0;
-
         if let Some(breakable) = ctx.breakable {
             let location;
             let first_height;
             let preferred_height;
+            let location_offset;
 
-            if self.pre_break(ctx.first_height, breakable.full_height)
-                // needed for collapse:
-                && self.element.first_location_usage(FirstLocationUsageCtx {
-                    width: ctx.width,
-                    first_height: breakable.full_height,
-                    full_height: breakable.full_height,
-                }) != FirstLocationUsage::NoneHeight
+            if self
+                .layout(ctx.width, ctx.first_height, breakable.full_height)
+                .pre_break
             {
                 location = (breakable.get_location)(ctx.pdf, 0);
                 location_offset = 1;
@@ -102,7 +98,7 @@ impl<'a, E: Element> Element for MinFirstHeight<'a, E> {
                 preferred_height = ctx.preferred_height;
             }
 
-            size = self.element.draw(DrawCtx {
+            self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location,
                 width: ctx.width,
@@ -115,29 +111,61 @@ impl<'a, E: Element> Element for MinFirstHeight<'a, E> {
                         .saturating_sub(location_offset),
 
                     get_location: &mut |pdf, location_idx| {
-                        break_count = break_count.max(location_idx + 1);
                         (breakable.get_location)(pdf, location_idx + location_offset)
                     },
                 }),
-            });
+            })
         } else {
-            location_offset = 0;
-            size = self.element.draw(ctx);
+            self.element.draw(ctx)
         }
-
-        if let Some(ref mut height) = size.height {
-            if location_offset == 0 && break_count == 0 {
-                *height = height.max(self.min_first_height);
-            }
-        }
-
-        size
     }
 }
 
+struct MeasureOutput {
+    size: ElementSize,
+    break_count: u32,
+    extra_location_min_height: Option<f64>,
+}
+
+struct Layout {
+    pre_break: bool,
+    measured: Option<MeasureOutput>,
+}
+
 impl<'a, E: Element> MinFirstHeight<'a, E> {
-    fn pre_break(&self, first_height: f64, full_height: f64) -> bool {
-        first_height < full_height && first_height < self.min_first_height
+    #[inline(always)]
+    fn layout(&self, width: WidthConstraint, first_height: f64, full_height: f64) -> Layout {
+        let mut measured = None;
+        let pre_break = first_height < full_height && first_height < self.min_first_height && {
+            let mut break_count = 0;
+            let mut extra_location_min_height = None;
+
+            let size = self.element.measure(MeasureCtx {
+                width,
+                first_height,
+                breakable: Some(BreakableMeasure {
+                    full_height,
+                    break_count: &mut break_count,
+                    extra_location_min_height: &mut extra_location_min_height,
+                }),
+            });
+
+            if break_count > 0 {
+                true
+            } else {
+                measured = Some(MeasureOutput {
+                    size,
+                    break_count,
+                    extra_location_min_height,
+                });
+                false
+            }
+        };
+
+        Layout {
+            pre_break,
+            measured,
+        }
     }
 }
 
