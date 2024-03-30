@@ -98,7 +98,11 @@ impl<'a, F: Font> Text<'a, F> {
                     let new_location = (breakable.do_break)(
                         ctx.pdf,
                         draw_rect,
-                        Some(line_count as f64 * line_height),
+                        if line_count == 0 {
+                            None
+                        } else {
+                            Some(line_count as f64 * line_height)
+                        },
                     );
                     draw_rect += 1;
                     x = new_location.pos.0;
