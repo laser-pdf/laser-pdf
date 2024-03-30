@@ -89,7 +89,7 @@ impl<'a, E: Element> Element for Rotate<'a, E> {
                 if ctx.first_height < breakable.full_height
                     && size.width > Some(ctx.first_height) =>
             {
-                location = (breakable.get_location)(ctx.pdf, 0);
+                location = (breakable.do_break)(ctx.pdf, 0, None);
             }
             _ => location = ctx.location,
         }

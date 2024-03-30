@@ -1,5 +1,7 @@
 use crate::{utils::max_optional_size, *};
 
+use self::utils::add_optional_size_with_gap;
+
 pub struct BreakList<C: Fn(BreakListContent) -> Option<()>> {
     pub gap: f64,
     pub content: C,
@@ -159,14 +161,11 @@ impl<'a, 'b, 'c> BreakListContent<'a, 'b, 'c> {
                 false
             };
 
-        if break_needed {
-            *self.x_offset = None;
-            *self.y_offset = None;
-        }
-
         match self.pass {
             Pass::Measure { ref mut breakable } => {
                 if break_needed {
+                    *self.x_offset = None;
+                    *self.y_offset = None;
                     let breakable = breakable.as_deref_mut().unwrap();
                     *breakable.break_count += 1;
                     self.height_available = breakable.full_height;
@@ -180,7 +179,12 @@ impl<'a, 'b, 'c> BreakListContent<'a, 'b, 'c> {
                 if break_needed {
                     let &mut (&mut ref mut breakable, ref mut location_idx) =
                         breakable.as_mut().unwrap();
-                    *location = (breakable.get_location)(pdf, *location_idx);
+                    *location = (breakable.do_break)(
+                        pdf,
+                        *location_idx,
+                        add_optional_size_with_gap(*self.y_offset, *self.line_height, self.gap),
+                    );
+                    *self.x_offset = None;
                     *self.y_offset = None;
                     self.height_available = breakable.full_height;
                     *location_idx += 1;

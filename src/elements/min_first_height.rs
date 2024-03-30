@@ -83,7 +83,7 @@ impl<'a, E: Element> Element for MinFirstHeight<'a, E> {
                 .layout(ctx.width, ctx.first_height, breakable.full_height)
                 .pre_break
             {
-                location = (breakable.get_location)(ctx.pdf, 0);
+                location = (breakable.do_break)(ctx.pdf, 0, None);
                 location_offset = 1;
                 first_height = breakable.full_height;
                 preferred_height = if breakable.preferred_height_break_count == 0 {
@@ -110,8 +110,8 @@ impl<'a, E: Element> Element for MinFirstHeight<'a, E> {
                         .preferred_height_break_count
                         .saturating_sub(location_offset),
 
-                    get_location: &mut |pdf, location_idx| {
-                        (breakable.get_location)(pdf, location_idx + location_offset)
+                    do_break: &mut |pdf, location_idx, height| {
+                        (breakable.do_break)(pdf, location_idx + location_offset, height)
                     },
                 }),
             })

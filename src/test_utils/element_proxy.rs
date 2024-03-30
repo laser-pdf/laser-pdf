@@ -32,8 +32,8 @@ impl<'a, E: Element> Element for ElementProxy<'a, E> {
         if let Some(breakable) = ctx.breakable {
             self.element.draw(DrawCtx {
                 breakable: Some(BreakableDraw {
-                    get_location: &mut |pdf, location_idx| {
-                        let location = (breakable.get_location)(pdf, location_idx);
+                    do_break: &mut |pdf, location_idx, height| {
+                        let location = (breakable.do_break)(pdf, location_idx, height);
 
                         (self.after_break)(location_idx, &location, ctx.width, ctx.first_height);
 

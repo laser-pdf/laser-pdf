@@ -141,7 +141,7 @@ impl<'a, T: Element, C: Element> Element for RepeatAfterBreak<'a, T, C> {
                 })
             {
                 first_height = full_height;
-                location = (breakable.get_location)(ctx.pdf, 0);
+                location = (breakable.do_break)(ctx.pdf, 0, None);
                 location_offset = 1;
             } else {
                 first_height = ctx.first_height - y_offset;
@@ -162,17 +162,17 @@ impl<'a, T: Element, C: Element> Element for RepeatAfterBreak<'a, T, C> {
                     full_height,
                     preferred_height_break_count: 0,
 
-                    get_location: &mut |pdf, location_idx| {
-                        let mut new_location =
-                            (breakable.get_location)(pdf, location_idx + location_offset);
+                    do_break: &mut |pdf, location_idx, height| {
+                        let mut new_location = (breakable.do_break)(
+                            pdf,
+                            location_idx + location_offset,
+                            add_optional_size_with_gap(height, title_size.height, self.gap),
+                        );
 
                         if last_location_idx <= location_idx {
-                            for i in last_location_idx + 1..=location_idx + 1 {
-                                let location = if i == 0 {
-                                    location.clone()
-                                } else {
-                                    (breakable.get_location)(pdf, i + location_offset - 1)
-                                };
+                            for i in last_location_idx + 1..=location_idx {
+                                let location =
+                                    (breakable.do_break)(pdf, i + location_offset - 1, None);
 
                                 self.title.draw(DrawCtx {
                                     pdf,
@@ -183,6 +183,15 @@ impl<'a, T: Element, C: Element> Element for RepeatAfterBreak<'a, T, C> {
                                     breakable: None,
                                 });
                             }
+
+                            self.title.draw(DrawCtx {
+                                pdf,
+                                location: new_location.clone(),
+                                width: ctx.width,
+                                first_height: title_first_height,
+                                preferred_height: None,
+                                breakable: None,
+                            });
 
                             last_location_idx = location_idx + 1;
                         }

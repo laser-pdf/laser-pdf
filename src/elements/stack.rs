@@ -187,9 +187,17 @@ impl<'pdf, 'a, 'r> StackContent<'pdf, 'a, 'r> {
                             (
                                 b.full_height,
                                 b.preferred_height_break_count,
-                                |pdf: &mut Pdf, location_idx: u32| {
+                                |pdf: &mut Pdf, location_idx: u32, _| {
                                     break_count = break_count.max(location_idx + 1);
-                                    (b.get_location)(pdf, location_idx)
+                                    (b.do_break)(
+                                        pdf,
+                                        location_idx,
+                                        Some(if location_idx == 0 {
+                                            ctx.first_height
+                                        } else {
+                                            b.full_height
+                                        }),
+                                    )
                                 },
                             )
                         })
@@ -203,7 +211,7 @@ impl<'pdf, 'a, 'r> StackContent<'pdf, 'a, 'r> {
                                 BreakableDraw {
                                     full_height,
                                     preferred_height_break_count,
-                                    get_location,
+                                    do_break: get_location,
                                 }
                             },
                         ),

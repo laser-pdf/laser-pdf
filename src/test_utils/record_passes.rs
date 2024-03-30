@@ -149,8 +149,8 @@ impl<E: Element> Element for RecordPasses<E> {
 
             result = self.element.draw(DrawCtx {
                 breakable: Some(crate::BreakableDraw {
-                    get_location: &mut |pdf, location_idx| {
-                        let location = (breakable.get_location)(pdf, location_idx);
+                    do_break: &mut |pdf, location_idx, height| {
+                        let location = (breakable.do_break)(pdf, location_idx, height);
 
                         breaks.push(Break {
                             page: location.layer.page.0,

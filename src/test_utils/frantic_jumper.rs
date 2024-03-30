@@ -27,7 +27,15 @@ impl Element for FranticJumper {
             ];
 
             for &jump in &self.jumps {
-                let location = (b.get_location)(ctx.pdf, jump);
+                let location = (b.do_break)(
+                    ctx.pdf,
+                    jump,
+                    if jump == 0 {
+                        Some(0.) // TODO: Maybe a parameter for this would make sense
+                    } else {
+                        self.size.height
+                    },
+                );
 
                 if let Some(prev) = &previous[jump as usize] {
                     assert_eq!(prev.pos, location.pos);

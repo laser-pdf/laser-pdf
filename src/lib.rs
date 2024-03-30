@@ -156,14 +156,19 @@ impl WidthConstraint {
     }
 }
 
+pub type Pos = (f64, f64);
+pub type Size = (f64, f64);
+
 /// This returns a new [Location] because some collection elements need to keep multiple
 /// [Location]s at once (e.g. for page breaking inside of a horizontal list)
 ///
-/// The second parameter is which drawing rectangle the break is occurring from. This number
+/// The second parameter is which location the break is occurring from. This number
 /// must be counted up for sequential page breaks. This allows the same page break to be
 /// performed twice in a row. A new `draw_rect_id` will be returned from the call to
 /// `next_location`, so if you store the current draw pos, you can just pass the one from there.
-pub type GetLocation<'a> = &'a mut dyn FnMut(&mut Pdf, u32) -> Location;
+///
+/// The third parameter is the height of the location.
+pub type Break<'a> = &'a mut dyn FnMut(&mut Pdf, u32, Option<f64>) -> Location;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum FirstLocationUsage {
@@ -226,7 +231,7 @@ impl<'a> MeasureCtx<'a> {
 pub struct BreakableDraw<'a> {
     pub full_height: f64,
     pub preferred_height_break_count: u32,
-    pub get_location: GetLocation<'a>,
+    pub do_break: Break<'a>,
 }
 
 pub struct DrawCtx<'a, 'b> {
@@ -245,7 +250,9 @@ impl<'a, 'b> DrawCtx<'a, 'b> {
     pub fn break_if_appropriate_for_min_height(&mut self, height: f64) -> bool {
         if let Some(ref mut breakable) = self.breakable {
             if height > self.first_height && breakable.full_height > self.first_height {
-                self.location = (breakable.get_location)(self.pdf, 0);
+                // TODO: Make sure this is correct. Maybe this function needs to be renamed to make
+                // clear what this actually does.
+                self.location = (breakable.do_break)(self.pdf, 0, None);
                 return true;
             }
         }
@@ -263,6 +270,12 @@ pub struct ElementSize {
     /// means the element is completely hidden. This can be used to trigger collapsing of gaps even
     /// hiding certain parent containers, like titled, in turn.
     pub height: Option<f64>,
+}
+
+impl ElementSize {
+    pub fn new(width: Option<f64>, height: Option<f64>) -> Self {
+        ElementSize { width, height }
+    }
 }
 
 /// Rules:
@@ -414,7 +427,7 @@ pub fn build_pdf<F: 'static>(
         page_size,
     };
 
-    let get_location = &mut |pdf: &mut Pdf, location_idx| {
+    let do_break = &mut |pdf: &mut Pdf, location_idx, size| {
         while page_idx <= location_idx {
             pdf.document
                 .add_page(Mm(page_size.0), Mm(page_size.1), "Layer 0");
@@ -455,7 +468,7 @@ pub fn build_pdf<F: 'static>(
         breakable: Some(BreakableDraw {
             full_height: page_size.1,
             preferred_height_break_count: 0,
-            get_location,
+            do_break,
         }),
     };
 

@@ -76,7 +76,7 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for P
 
         match breakable {
             Some(ref mut breakable) if ctx.first_height < breakable.full_height => {
-                location = (breakable.get_location)(ctx.pdf, 0);
+                location = (breakable.do_break)(ctx.pdf, 0, None);
                 location_offset = 1;
             }
             _ => {
@@ -106,10 +106,13 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for P
             breakable: breakable
                 .as_mut()
                 .map(|breakable| {
-                    |pdf: &mut Pdf, location_idx: u32| {
+                    |pdf: &mut Pdf, location_idx: u32, _| {
                         break_count = break_count.max(location_idx + 1);
-                        let mut location =
-                            (breakable.get_location)(pdf, location_idx + location_offset);
+                        let mut location = (breakable.do_break)(
+                            pdf,
+                            location_idx + location_offset,
+                            Some(breakable.full_height),
+                        );
 
                         location.layer = location.next_layer(pdf);
                         location.pos.0 += self.border_left;
@@ -122,7 +125,7 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for P
                 .map(|get_location| BreakableDraw {
                     full_height: primary_height,
                     preferred_height_break_count: 0,
-                    get_location,
+                    do_break: get_location,
                 }),
         });
 
@@ -131,7 +134,11 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for P
                 let location = if i == 0 {
                     location.clone()
                 } else {
-                    (breakable.get_location)(ctx.pdf, i + location_offset - 1)
+                    (breakable.do_break)(
+                        ctx.pdf,
+                        i + location_offset - 1,
+                        Some(breakable.full_height),
+                    )
                 };
 
                 (self.decoration_elements)(

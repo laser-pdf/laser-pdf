@@ -47,7 +47,7 @@ impl<'a, E: Element> Element for CenterInPreferredHeight<'a, E> {
         } else if layout.pre_break {
             let breakable = ctx.breakable.unwrap();
 
-            location = (breakable.get_location)(ctx.pdf, 0);
+            location = (breakable.do_break)(ctx.pdf, 0, None);
             height_available = breakable.full_height;
 
             center_height = if breakable.preferred_height_break_count == 1 {

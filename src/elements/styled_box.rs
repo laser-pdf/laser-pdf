@@ -49,37 +49,19 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
         let size = if let Some(breakable) = ctx.breakable {
             let full_height = common.height(breakable.full_height);
 
-            let first_location_usage = self.element.first_location_usage(FirstLocationUsageCtx {
-                width: common.width,
-                first_height,
-                full_height,
-            });
-
-            let element_first_height;
-
-            if first_location_usage == FirstLocationUsage::WillSkip {
-                *breakable.break_count = 1;
-                element_first_height = full_height;
-            } else {
-                element_first_height = first_height;
-            }
-
-            let mut break_count = 0;
-            let mut extra_location_min_height = None;
-
             let size = self.element.measure(MeasureCtx {
                 width: common.width,
-                first_height: element_first_height,
+                first_height,
                 breakable: Some(BreakableMeasure {
                     full_height,
-                    break_count: &mut break_count,
-                    extra_location_min_height: &mut extra_location_min_height,
+                    break_count: breakable.break_count,
+                    extra_location_min_height: breakable.extra_location_min_height,
                 }),
             });
 
-            *breakable.break_count += break_count;
-            *breakable.extra_location_min_height =
-                extra_location_min_height.map(|x| x + self.padding_top + self.padding_bottom);
+            *breakable.extra_location_min_height = breakable
+                .extra_location_min_height
+                .map(|x| x + self.padding_top + self.padding_bottom);
 
             size
         } else {
@@ -100,90 +82,76 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
         let size = if let Some(breakable) = ctx.breakable {
             let full_height = common.height(breakable.full_height);
 
-            let first_location_usage = self.element.first_location_usage(FirstLocationUsageCtx {
-                width: common.width,
-                first_height,
-                full_height,
-            });
-
-            let element_first_height;
-            let location_offset;
-            let location;
-
-            if first_location_usage == FirstLocationUsage::WillSkip {
-                location = (breakable.get_location)(ctx.pdf, 0);
-                location_offset = 1;
-                element_first_height = full_height;
-            } else {
-                location = ctx.location;
-                location_offset = 0;
-                element_first_height = first_height;
-            }
-
             let mut break_count = 0;
 
-            let element_location = common.location(ctx.pdf, location.clone());
+            let width = if ctx.width.expand {
+                Some(ctx.width.max - common.left - common.right)
+            } else {
+                let mut break_count = 0;
+                let mut extra_location_min_height = None;
+
+                self.element
+                    .measure(MeasureCtx {
+                        width: common.width,
+                        first_height,
+                        breakable: Some(BreakableMeasure {
+                            full_height,
+                            break_count: &mut break_count,
+                            extra_location_min_height: &mut extra_location_min_height,
+                        }),
+                    })
+                    .width
+            };
+
+            let element_location = common.location(ctx.pdf, &ctx.location);
+            let mut last_location = ctx.location;
             let size = self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location: element_location,
                 width: common.width,
-                first_height: element_first_height,
-                preferred_height: if location_offset == 1
-                    && breakable.preferred_height_break_count == 0
-                {
-                    None
-                } else {
-                    ctx.preferred_height.map(|p| common.height(p))
-                },
+                first_height,
+                preferred_height: ctx.preferred_height.map(|p| common.height(p)),
                 breakable: Some(BreakableDraw {
                     full_height,
-                    preferred_height_break_count: breakable
-                        .preferred_height_break_count
-                        .saturating_sub(location_offset),
-                    get_location: &mut |pdf, location_idx| {
-                        break_count = break_count.max(location_idx + 1);
-                        let location =
-                            (breakable.get_location)(pdf, location_idx + location_offset);
+                    preferred_height_break_count: breakable.preferred_height_break_count,
+                    do_break: &mut |pdf, location_idx, height| {
+                        let location = (breakable.do_break)(
+                            pdf,
+                            location_idx,
+                            height.map(|h| h + common.top + common.bottom),
+                        );
 
-                        common.location(pdf, location)
+                        match (width, height) {
+                            (Some(width), Some(height)) if location_idx >= break_count => {
+                                let mut location = None;
+
+                                let location = if location_idx == break_count {
+                                    &last_location
+                                } else {
+                                    location.insert((breakable.do_break)(pdf, location_idx, None))
+                                };
+
+                                self.draw_box(location, (width, height));
+                            }
+                            _ => (),
+                        }
+
+                        break_count = break_count.max(location_idx + 1);
+
+                        let ret = common.location(pdf, &location);
+                        last_location = location;
+                        ret
                     },
                 }),
             });
 
-            if let Some(width) = size.width {
-                if break_count > 0 || size.height.is_some() {
-                    self.draw_box(
-                        &location,
-                        (
-                            width,
-                            if break_count == 0 {
-                                size.height.unwrap()
-                            } else {
-                                element_first_height
-                            },
-                        ),
-                    );
-
-                    for i in 0..break_count - if size.height.is_none() { 1 } else { 0 } {
-                        let location = (breakable.get_location)(ctx.pdf, i + location_offset);
-                        self.draw_box(
-                            &location,
-                            (
-                                width,
-                                if i == break_count - 1 {
-                                    size.height.unwrap()
-                                } else {
-                                    full_height
-                                },
-                            ),
-                        );
-                    }
-                }
+            if let (Some(width), Some(height)) = (width, size.height) {
+                self.draw_box(&last_location, (width, height));
             }
 
             size
         } else {
-            let location = common.location(ctx.pdf, ctx.location.clone());
+            let location = common.location(ctx.pdf, &ctx.location);
 
             let size = self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
@@ -219,7 +187,7 @@ struct Common {
 }
 
 impl Common {
-    fn location(&self, pdf: &mut Pdf, location: Location) -> Location {
+    fn location(&self, pdf: &mut Pdf, location: &Location) -> Location {
         Location {
             pos: (location.pos.0 + self.left, location.pos.1 - self.top),
             layer: location.next_layer(pdf),
@@ -459,26 +427,34 @@ mod tests {
                 let ret = callback.call(element);
 
                 if assert {
-                    content.assert_first_location_usage_count(1);
-                    content.assert_measure_count(0);
+                    content.assert_first_location_usage_count(0);
+                    content.assert_measure_count(1);
                     content.assert_draw(DrawPass {
                         width: WidthConstraint {
                             max: 4.,
                             expand: false,
                         },
-                        first_height: 11.,
+                        first_height: 2.,
                         preferred_height: None,
-                        page: 1,
+                        page: 0,
                         layer: 1,
-                        pos: (3., 15.),
+                        pos: (3., 6.),
                         breakable: Some(BreakableDraw {
                             full_height: 11.,
                             preferred_height_break_count: 0,
-                            breaks: vec![Break {
-                                page: 2,
-                                layer: 1,
-                                pos: (3., 15.),
-                            }],
+                            breaks: vec![
+                                // we don't actually pre-break anymore
+                                Break {
+                                    page: 1,
+                                    layer: 1,
+                                    pos: (3., 15.),
+                                },
+                                Break {
+                                    page: 2,
+                                    layer: 1,
+                                    pos: (3., 15.),
+                                },
+                            ],
                         }),
                     });
                 }

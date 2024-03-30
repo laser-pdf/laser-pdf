@@ -337,7 +337,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
 
         if height_available < line_height {
             if let Some(ref mut breakable) = ctx.breakable {
-                let new_location = (breakable.get_location)(ctx.pdf, draw_rect);
+                let new_location = (breakable.do_break)(ctx.pdf, draw_rect, None);
                 draw_rect = 1;
                 x = new_location.pos.0;
                 y = new_location.pos.1;
@@ -358,7 +358,11 @@ impl<'a, F: Font> Element for RichText<'a, F> {
             if frag.new_line {
                 match ctx.breakable {
                     Some(ref mut breakable) if height_available < 2. * line_height => {
-                        let new_location = (breakable.get_location)(ctx.pdf, draw_rect);
+                        let new_location = (breakable.do_break)(
+                            ctx.pdf,
+                            draw_rect,
+                            Some(line_count as f64 * line_height),
+                        );
                         draw_rect += 1;
 
                         x = new_location.pos.0;

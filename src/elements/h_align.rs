@@ -85,8 +85,8 @@ impl<'a, E: Element> Element for HAlign<'a, E> {
                     breakable: Some(BreakableDraw {
                         full_height: breakable.full_height,
                         preferred_height_break_count: breakable.preferred_height_break_count,
-                        get_location: &mut |pdf, location_id| {
-                            let mut location = (breakable.get_location)(pdf, location_id);
+                        do_break: &mut |pdf, location_id, height| {
+                            let mut location = (breakable.do_break)(pdf, location_id, height);
 
                             location.pos.0 += x_offset;
 

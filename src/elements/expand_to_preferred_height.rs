@@ -28,10 +28,10 @@ impl<'a, E: Element> Element for ExpandToPreferredHeight<'a, E> {
             size = self.0.draw(DrawCtx {
                 pdf: ctx.pdf,
                 breakable: Some(BreakableDraw {
-                    get_location: &mut |pdf, location_idx| {
+                    do_break: &mut |pdf, location_idx, height| {
                         break_count = break_count.max(location_idx + 1);
 
-                        (breakable.get_location)(pdf, location_idx)
+                        (breakable.do_break)(pdf, location_idx, height)
                     },
                     ..breakable
                 }),
@@ -41,7 +41,13 @@ impl<'a, E: Element> Element for ExpandToPreferredHeight<'a, E> {
 
             match break_count.cmp(&preferred_breaks) {
                 std::cmp::Ordering::Less => {
-                    (breakable.get_location)(ctx.pdf, preferred_breaks - 1);
+                    for i in break_count..preferred_breaks {
+                        (breakable.do_break)(
+                            ctx.pdf,
+                            preferred_breaks - 1,
+                            Some(breakable.full_height),
+                        );
+                    }
 
                     height = preferred_height;
                 }
@@ -63,10 +69,7 @@ impl<'a, E: Element> Element for ExpandToPreferredHeight<'a, E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        elements::none::NoneElement,
-        test_utils::{record_passes::RecordPasses, *},
-    };
+    use crate::test_utils::{record_passes::RecordPasses, *};
     use insta::*;
 
     #[test]

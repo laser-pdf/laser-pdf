@@ -274,7 +274,7 @@ fn draw_element<E: Element>(
 
     let mut breaks = vec![];
 
-    let next_draw_pos = &mut |pdf: &mut Pdf, location_idx| {
+    let next_draw_pos = &mut |pdf: &mut Pdf, location_idx, _height| {
         breaks.push(location_idx);
 
         while page_idx <= location_idx {
@@ -310,7 +310,7 @@ fn draw_element<E: Element>(
         breakable: breakable.as_ref().map(|b| BreakableDraw {
             full_height: b.full_height,
             preferred_height_break_count: b.preferred_height_break_count,
-            get_location: next_draw_pos,
+            do_break: next_draw_pos,
         }),
     };
 

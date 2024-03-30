@@ -406,10 +406,18 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                             (
                                 b.full_height,
                                 b.preferred_height_break_count,
-                                |pdf: &mut Pdf, location_idx: u32| {
+                                |pdf: &mut Pdf, location_idx: u32, _| {
                                     element_break_count = element_break_count.max(location_idx + 1);
 
-                                    let mut new_location = (b.get_location)(pdf, location_idx);
+                                    let mut new_location = (b.do_break)(
+                                        pdf,
+                                        location_idx,
+                                        Some(if location_idx == 0 {
+                                            self.first_height
+                                        } else {
+                                            b.full_height
+                                        }),
+                                    );
                                     new_location.pos.0 += x_offset;
                                     new_location
                                 },
@@ -425,7 +433,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                                 BreakableDraw {
                                     full_height,
                                     preferred_height_break_count,
-                                    get_location,
+                                    do_break: get_location,
                                 }
                             },
                         ),
@@ -513,7 +521,15 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                             draw_line(location, self.first_height);
 
                             for i in 0..break_count {
-                                let location = (breakable.get_location)(pdf, i);
+                                let location = (breakable.do_break)(
+                                    pdf,
+                                    i,
+                                    Some(if i == 0 {
+                                        self.first_height
+                                    } else {
+                                        breakable.full_height
+                                    }),
+                                );
                                 draw_line(
                                     &location,
                                     if i == break_count - 1 {

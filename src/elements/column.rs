@@ -1,5 +1,7 @@
 use crate::*;
 
+use self::utils::add_optional_size_with_gap;
+
 pub struct Column<C: Fn(ColumnContent) -> Option<()>> {
     pub content: C,
     pub gap: f64,
@@ -242,11 +244,20 @@ impl<'a, 'b, 'r> ColumnContent<'a, 'b, 'r> {
                         breakable: Some(BreakableDraw {
                             full_height: b.full_height,
                             preferred_height_break_count: 0,
-                            get_location: &mut |pdf, location_idx| {
+                            do_break: &mut |pdf, location_idx, location_height| {
                                 *height_available = b.full_height;
 
-                                let new_location =
-                                    (b.get_location)(pdf, location_idx + *location_offset);
+                                let location_height = if location_idx == 0 {
+                                    add_optional_size_with_gap(location_height, *height, self.gap)
+                                } else {
+                                    location_height
+                                };
+
+                                let new_location = (b.do_break)(
+                                    pdf,
+                                    location_idx + *location_offset,
+                                    location_height,
+                                );
 
                                 if location_idx + 1 > break_count {
                                     break_count = location_idx + 1;

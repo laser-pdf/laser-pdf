@@ -62,7 +62,7 @@ impl<'a, E: Element> Element for AlignPreferredHeightBottom<'a, E> {
         if layout.breaks > 0 {
             let breakable = ctx.breakable.unwrap();
 
-            location = (breakable.get_location)(ctx.pdf, layout.breaks - 1);
+            location = (breakable.do_break)(ctx.pdf, layout.breaks - 1, None);
             height_available = breakable.full_height;
         } else {
             location = ctx.location;

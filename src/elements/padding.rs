@@ -79,8 +79,12 @@ impl<'a, E: Element> Element for Padding<'a, E> {
                 breakable: Some(BreakableDraw {
                     full_height: self.height(breakable.full_height),
                     preferred_height_break_count: breakable.preferred_height_break_count,
-                    get_location: &mut |pdf, location_idx| {
-                        let mut location = (breakable.get_location)(pdf, location_idx);
+                    do_break: &mut |pdf, location_idx, height| {
+                        let mut location = (breakable.do_break)(
+                            pdf,
+                            location_idx,
+                            height.map(|h| h + self.top + self.bottom),
+                        );
 
                         location.pos.0 += self.left;
                         location.pos.1 -= self.top;

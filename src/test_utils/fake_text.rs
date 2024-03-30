@@ -9,26 +9,40 @@ pub struct FakeText {
     pub width: f64,
 }
 
+struct Layout {
+    first_lines: u32,
+    full_height_lines: u32,
+    lines: u32,
+    breaks: u32,
+}
+
 impl FakeText {
-    fn lines_and_breaks(&self, first_height: f64, full_height: f64) -> (u32, u32) {
+    fn lines_and_breaks(&self, first_height: f64, full_height: f64) -> Layout {
         let first_lines = (first_height / self.line_height).floor() as u32;
 
         if self.lines <= first_lines {
-            (self.lines, 0)
+            Layout {
+                first_lines: self.lines,
+                full_height_lines: 0,
+                lines: self.lines,
+                breaks: 0,
+            }
         } else {
             let remaining_lines = self.lines - first_lines;
             let lines_per_page = ((full_height / self.line_height).floor() as u32).max(1);
             let full_pages = remaining_lines / lines_per_page;
             let last_page_lines = remaining_lines % lines_per_page;
 
-            (
-                if last_page_lines == 0 {
+            Layout {
+                first_lines,
+                full_height_lines: lines_per_page,
+                lines: if last_page_lines == 0 {
                     lines_per_page
                 } else {
                     last_page_lines
                 },
-                full_pages + if last_page_lines == 0 { 0 } else { 1 },
-            )
+                breaks: full_pages + if last_page_lines == 0 { 0 } else { 1 },
+            }
         }
     }
 }
@@ -44,10 +58,10 @@ impl Element for FakeText {
 
     fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         let lines = if let Some(breakable) = ctx.breakable {
-            let (lines, breaks) = self.lines_and_breaks(ctx.first_height, breakable.full_height);
+            let layout = self.lines_and_breaks(ctx.first_height, breakable.full_height);
 
-            *breakable.break_count = breaks;
-            lines
+            *breakable.break_count = layout.breaks;
+            layout.lines
         } else {
             self.lines
         };
@@ -60,13 +74,21 @@ impl Element for FakeText {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let lines = if let Some(breakable) = ctx.breakable {
-            let (lines, breaks) = self.lines_and_breaks(ctx.first_height, breakable.full_height);
+            let layout = self.lines_and_breaks(ctx.first_height, breakable.full_height);
 
-            for i in 0..breaks {
-                (breakable.get_location)(ctx.pdf, i);
+            for i in 0..layout.breaks {
+                (breakable.do_break)(
+                    ctx.pdf,
+                    i,
+                    Some(if i == 0 {
+                        self.line_height * layout.first_lines as f64
+                    } else {
+                        self.line_height * layout.full_height_lines as f64
+                    }),
+                );
             }
 
-            lines
+            layout.lines
         } else {
             self.lines
         };

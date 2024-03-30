@@ -60,7 +60,7 @@ impl<'a, E: Element> Element for BreakWhole<'a, E> {
                 pre_break: true, ..
             } = layout
             {
-                let location = (breakable.get_location)(ctx.pdf, 0);
+                let location = (breakable.do_break)(ctx.pdf, 0, None);
 
                 self.0.draw(DrawCtx {
                     pdf: ctx.pdf,
@@ -71,8 +71,8 @@ impl<'a, E: Element> Element for BreakWhole<'a, E> {
                     breakable: Some(BreakableDraw {
                         full_height: breakable.full_height,
                         preferred_height_break_count: 0,
-                        get_location: &mut |pdf, location_idx| {
-                            (breakable.get_location)(pdf, location_idx + 1)
+                        do_break: &mut |pdf, location_idx, height| {
+                            (breakable.do_break)(pdf, location_idx + 1, height)
                         },
                     }),
                 })

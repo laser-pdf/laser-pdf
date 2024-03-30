@@ -24,9 +24,10 @@ impl<'a, E: Element> Element for Debug<'a, E> {
             size = self.0.draw(DrawCtx {
                 pdf: ctx.pdf,
                 breakable: Some(BreakableDraw {
-                    get_location: &mut |pdf, location_idx| {
+                    do_break: &mut |pdf, location_idx, height| {
+                        // TODO: draw box here
                         break_count = break_count.max(location_idx + 1);
-                        (breakable.get_location)(pdf, location_idx)
+                        (breakable.do_break)(pdf, location_idx, height)
                     },
                     ..breakable
                 }),
@@ -51,7 +52,15 @@ impl<'a, E: Element> Element for Debug<'a, E> {
                         breakable.full_height
                     };
 
-                    let location = (breakable.get_location)(ctx.pdf, i);
+                    let location = (breakable.do_break)(
+                        ctx.pdf,
+                        i,
+                        Some(if i == 0 {
+                            ctx.first_height
+                        } else {
+                            breakable.full_height
+                        }),
+                    );
 
                     draw_box(location, (width, height));
                 }

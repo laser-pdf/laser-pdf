@@ -113,7 +113,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
                 first_location_usage == FirstLocationUsage::WillSkip
             } {
                 first_height = breakable.full_height;
-                location = (breakable.get_location)(ctx.pdf, 0);
+                location = (breakable.do_break)(ctx.pdf, 0, None);
                 location_offset = 1;
                 show_title = false;
             } else {
@@ -139,9 +139,17 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
                     full_height: breakable.full_height,
                     preferred_height_break_count: 0,
 
-                    get_location: &mut |pdf, location_idx| {
+                    do_break: &mut |pdf, location_idx, height| {
                         break_count = break_count.max(location_idx + 1);
-                        (breakable.get_location)(pdf, location_idx + location_offset)
+                        (breakable.do_break)(
+                            pdf,
+                            location_idx + location_offset,
+                            if show_title && location_idx == 0 {
+                                add_optional_size_with_gap(title_size.height, height, self.gap)
+                            } else {
+                                height
+                            },
+                        )
                     },
                 }),
             });
