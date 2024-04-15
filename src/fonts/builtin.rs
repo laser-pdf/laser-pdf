@@ -126,12 +126,14 @@ impl Font for BuiltinFont {
     fn general_metrics(&self) -> super::GeneralMetrics {
         let bbox = self.metrics.font_bbox;
 
-        super::GeneralMetrics {
-            ascent: self.metrics.ascender,
+        // This should be bbox.ymax - bbox.ymin, but it seems that the afm is parsed incorrectly.
+        let line_height = bbox.ymax - bbox.xmax;
 
-            // This should be bbox.ymax - bbox.ymin, but it seems that the afm is parsed
-            // incorrectly.
-            line_height: bbox.ymax - bbox.xmax,
+        let ascent = line_height + self.metrics.descender;
+
+        super::GeneralMetrics {
+            ascent,
+            line_height,
         }
     }
 }
