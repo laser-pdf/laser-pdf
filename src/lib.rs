@@ -316,6 +316,16 @@ pub trait Element {
             element: self,
         }
     }
+
+    fn debug(&self, color: u8) -> elements::debug::Debug<Self>
+    where
+        Self: Sized,
+    {
+        elements::debug::Debug {
+            element: self,
+            color,
+        }
+    }
 }
 
 pub trait CompositeElementCallback {
