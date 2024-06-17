@@ -1,4 +1,5 @@
 pub mod assert_passes;
+pub mod binary_snapshots;
 pub mod build_element;
 pub mod element_proxy;
 pub mod fake_image;
