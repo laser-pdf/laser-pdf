@@ -194,6 +194,7 @@ impl<'a, F: Font> Text<'a, F> {
             {
                 if height_available < line_height {
                     *breakable.break_count += 1;
+                    height_available = breakable.full_height;
                     line_count = 0;
                 }
             }
@@ -285,15 +286,44 @@ impl<'a, F: Font> Element for Text<'a, F> {
 
 #[cfg(test)]
 mod tests {
+    use insta::*;
     use printpdf::PdfDocument;
 
+    use crate::test_utils::binary_snapshots::*;
     use crate::{
         fonts::builtin::BuiltinFont,
         test_utils::{ElementProxy, ElementTestParams},
         DrawCtx, ElementSize,
     };
 
-    use super::Text;
+    use super::*;
+
+    #[test]
+    fn test_multi_page() {
+        let mut write = |file: &mut std::fs::File| {
+            test_element_file(
+                TestElementParams {
+                    first_height: TestElementParams::DEFAULT_REDUCED_HEIGHT,
+                    preferred_height: Some(12.),
+                    breakable: Some(TestElementParamsBreakable {
+                        preferred_height_break_count: 7,
+                        full_height: TestElementParams::DEFAULT_FULL_HEIGHT,
+                    }),
+                    ..Default::default()
+                },
+                |callback| {
+                    let font = BuiltinFont::courier(callback.document());
+
+                    let content = Text::basic(LOREM_IPSUM, &font, 32.);
+                    let content = content.debug(0);
+
+                    callback.call(&content);
+                },
+                file,
+            );
+        };
+        assert_binary_snapshot!("pdf", write);
+    }
 
     #[test]
     fn test_text() {
