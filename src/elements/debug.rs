@@ -18,65 +18,73 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let size;
-        let first_location_height;
-        let location = ctx.location.clone();
+        let mut location = ctx.location.clone();
 
         let color = calculate_color(self.color);
 
         if let Some(breakable) = ctx.breakable {
             let mut break_count = 0;
 
+            let mut break_heights = Vec::new();
+
             size = self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
                 breakable: Some(BreakableDraw {
                     do_break: &mut |pdf, location_idx, height| {
-                        // TODO: draw box here
+                        // TODO: Add an assert or maybe a visual thing for if a repeated break for a
+                        // location doesn't get passed the same height.
+
+                        if location_idx >= break_count {
+                            break_heights.reserve((location_idx - break_count + 1) as usize);
+
+                            break_heights.extend(
+                                std::iter::repeat(None).take((location_idx - break_count) as usize),
+                            );
+
+                            break_heights.push(height);
+                        }
+
                         break_count = break_count.max(location_idx + 1);
-                        (breakable.do_break)(pdf, location_idx, height)
+                        location = (breakable.do_break)(pdf, location_idx, height);
+                        location.clone()
                     },
                     ..breakable
                 }),
+                location: ctx.location.clone(),
                 ..ctx
             });
 
-            if break_count == 0 {
-                first_location_height = size.height;
-            } else {
-                first_location_height = Some(ctx.first_height);
-            }
-
             if let Some(width) = size.width {
-                for i in 0..break_count {
-                    let height = if i == break_count - 1 {
-                        let Some(height) = size.height else {
-                            break;
-                        };
+                for (i, &height) in break_heights.iter().enumerate() {
+                    let full_height;
+                    let location;
 
-                        height
+                    if i == 0 {
+                        full_height = ctx.first_height;
+                        location = ctx.location.clone();
                     } else {
-                        breakable.full_height
+                        full_height = breakable.full_height;
+                        location =
+                            (breakable.do_break)(ctx.pdf, i as u32 - 1, break_heights[i - 1]);
+                    }
+
+                    let dashed = match height {
+                        Some(height) if full_height != height => {
+                            draw_box(location.clone(), (width, height), color, false);
+                            true
+                        }
+                        height => height.is_none(),
                     };
 
-                    let location = (breakable.do_break)(
-                        ctx.pdf,
-                        i,
-                        Some(if i == 0 {
-                            ctx.first_height
-                        } else {
-                            breakable.full_height
-                        }),
-                    );
-
-                    draw_box(location, (width, height), color);
+                    draw_box(location, (width, full_height), color, dashed);
                 }
             }
         } else {
             size = self.element.draw(ctx);
-            first_location_height = size.height;
         }
 
-        if let (Some(width), Some(height)) = (size.width, first_location_height) {
-            draw_box(location, (width, height), color);
+        if let (Some(width), Some(height)) = (size.width, size.height) {
+            draw_box(location, (width, height), color, false);
         }
 
         size
@@ -101,7 +109,7 @@ fn calculate_color(input: u8) -> [f64; 3] {
     hue_to_rgb(input.reverse_bits()).map(|c| c as f64 / 255.)
 }
 
-fn draw_box(location: Location, size: (f64, f64), color: [f64; 3]) {
+fn draw_box(location: Location, size: (f64, f64), color: [f64; 3], dashed: bool) {
     let points = calculate_points_for_rect(
         Mm(size.0),
         Mm(size.1),
@@ -112,6 +120,20 @@ fn draw_box(location: Location, size: (f64, f64), color: [f64; 3]) {
     location.layer.save_graphics_state();
 
     location.layer.set_outline_thickness(0.);
+
+    if dashed {
+        location
+            .layer
+            .set_line_dash_pattern(printpdf::LineDashPattern::new(
+                0,
+                Some(2),
+                Some(2),
+                None,
+                None,
+                None,
+                None,
+            ));
+    }
 
     location
         .layer
