@@ -32,10 +32,13 @@ impl<E: SerdeElement> SerdeElement for Debug<E> {
         fonts: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
-        callback.call(&elements::debug::Debug(&SerdeElementElement {
-            element: &*self.0,
-            fonts,
-        }));
+        callback.call(&elements::debug::Debug {
+            element: &SerdeElementElement {
+                element: &*self.0,
+                fonts,
+            },
+            color: 0,
+        });
     }
 }
 
