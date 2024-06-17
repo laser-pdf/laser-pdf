@@ -123,12 +123,10 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
 
                         match (width, height) {
                             (Some(width), Some(height)) if location_idx >= break_count => {
-                                let mut location = None;
-
                                 let location = if location_idx == break_count {
                                     &last_location
                                 } else {
-                                    location.insert((breakable.do_break)(pdf, location_idx, None))
+                                    &(breakable.do_break)(pdf, location_idx, None)
                                 };
 
                                 self.draw_box(location, (width, height));
