@@ -338,8 +338,6 @@ pub fn test_element_file(
             }
         }
 
-        dbg!(drawn, measured);
-
         assert!(drawn >= measured);
         assert!(drawn <= max(preferred, measured));
     }
