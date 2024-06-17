@@ -41,13 +41,13 @@ impl<'a, E: Element> Element for ExpandToPreferredHeight<'a, E> {
 
             match break_count.cmp(&preferred_breaks) {
                 std::cmp::Ordering::Less => {
-                    for i in break_count..preferred_breaks {
-                        (breakable.do_break)(
-                            ctx.pdf,
-                            preferred_breaks - 1,
-                            Some(breakable.full_height),
-                        );
-                    }
+                    // for i in break_count..preferred_breaks {
+                    (breakable.do_break)(
+                        ctx.pdf,
+                        preferred_breaks - 1,
+                        Some(breakable.full_height),
+                    );
+                    // }
 
                     height = preferred_height;
                 }
@@ -69,46 +69,36 @@ impl<'a, E: Element> Element for ExpandToPreferredHeight<'a, E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{record_passes::RecordPasses, *};
+    use crate::{
+        elements::text::Text, fonts::builtin::BuiltinFont, test_utils::binary_snapshots::*,
+    };
     use insta::*;
 
     #[test]
     fn test_basic() {
-        let output = test_element(
-            TestElementParams {
-                width: WidthConstraint {
-                    max: 20.,
-                    expand: true,
+        let mut write = |file: &mut std::fs::File| {
+            test_element_file(
+                TestElementParams {
+                    first_height: TestElementParams::DEFAULT_REDUCED_HEIGHT,
+                    preferred_height: Some(12.),
+                    breakable: Some(TestElementParamsBreakable {
+                        preferred_height_break_count: 7,
+                        full_height: TestElementParams::DEFAULT_FULL_HEIGHT,
+                    }),
+                    ..Default::default()
                 },
-                first_height: 21.,
-                preferred_height: Some(12.),
-                breakable: Some(TestElementParamsBreakable {
-                    preferred_height_break_count: 7,
-                    full_height: 500.,
-                }),
-                pos: (11., 600.0),
-                ..Default::default()
-            },
-            |assert, callback| {
-                let content = RecordPasses::new(FakeText {
-                    lines: 3,
-                    line_height: 5.,
-                    width: 18.,
-                });
+                |callback| {
+                    let font = BuiltinFont::courier(callback.document());
 
-                let element = ExpandToPreferredHeight(&content);
+                    let content = Text::basic(LOREM_IPSUM, &font, 32.);
+                    let content = content.debug(1);
 
-                let ret = callback.call(element);
-
-                if assert {
-                    assert_debug_snapshot!(content.into_passes());
-                }
-
-                ret
-            },
-        );
-
-        assert_debug_snapshot!(output);
+                    callback.call(&ExpandToPreferredHeight(&content).debug(0));
+                },
+                file,
+            );
+        };
+        assert_binary_snapshot!("pdf", write);
     }
 
     // TODO: Figure out what makes sense here.
