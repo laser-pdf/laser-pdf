@@ -28,10 +28,19 @@ impl<'a, E: Element> Element for ExpandToPreferredHeight<'a, E> {
             size = self.0.draw(DrawCtx {
                 pdf: ctx.pdf,
                 breakable: Some(BreakableDraw {
-                    do_break: &mut |pdf, location_idx, height| {
+                    do_break: &mut |pdf, location_idx, _height| {
                         break_count = break_count.max(location_idx + 1);
 
-                        (breakable.do_break)(pdf, location_idx, height)
+                        (breakable.do_break)(
+                            pdf,
+                            location_idx,
+                            // we also expand all of the heights
+                            if location_idx == 0 {
+                                Some(ctx.first_height)
+                            } else {
+                                Some(breakable.full_height)
+                            },
+                        )
                     },
                     ..breakable
                 }),
@@ -41,13 +50,19 @@ impl<'a, E: Element> Element for ExpandToPreferredHeight<'a, E> {
 
             match break_count.cmp(&preferred_breaks) {
                 std::cmp::Ordering::Less => {
-                    // for i in break_count..preferred_breaks {
-                    (breakable.do_break)(
-                        ctx.pdf,
-                        preferred_breaks - 1,
-                        Some(breakable.full_height),
-                    );
-                    // }
+                    // We need to go through all of the locations to use the full_height on all of
+                    // them.
+                    for i in break_count..preferred_breaks {
+                        (breakable.do_break)(
+                            ctx.pdf,
+                            i,
+                            if i == 0 {
+                                Some(ctx.first_height)
+                            } else {
+                                Some(breakable.full_height)
+                            },
+                        );
+                    }
 
                     height = preferred_height;
                 }
@@ -91,6 +106,33 @@ mod tests {
                     let font = BuiltinFont::courier(callback.document());
 
                     let content = Text::basic(LOREM_IPSUM, &font, 32.);
+                    let content = content.debug(1);
+
+                    callback.call(&ExpandToPreferredHeight(&content).debug(0));
+                },
+                file,
+            );
+        };
+        assert_binary_snapshot!("pdf", write);
+    }
+
+    #[test]
+    fn test_single_location_content() {
+        let mut write = |file: &mut std::fs::File| {
+            test_element_file(
+                TestElementParams {
+                    first_height: TestElementParams::DEFAULT_REDUCED_HEIGHT,
+                    preferred_height: Some(32.),
+                    breakable: Some(TestElementParamsBreakable {
+                        preferred_height_break_count: 3,
+                        full_height: TestElementParams::DEFAULT_FULL_HEIGHT,
+                    }),
+                    ..Default::default()
+                },
+                |callback| {
+                    let font = BuiltinFont::courier(callback.document());
+
+                    let content = Text::basic(LOREM_IPSUM, &font, 12.);
                     let content = content.debug(1);
 
                     callback.call(&ExpandToPreferredHeight(&content).debug(0));
