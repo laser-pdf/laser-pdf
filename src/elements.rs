@@ -15,6 +15,7 @@ pub mod min_first_height;
 pub mod none;
 pub mod padding;
 pub mod page;
+pub mod pin_below;
 pub mod rectangle;
 pub mod repeat_after_break;
 pub mod repeat_bottom;

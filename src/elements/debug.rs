@@ -31,8 +31,6 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
                     do_break: &mut |pdf, location_idx, height| {
                         let break_count = break_heights.len() as u32;
 
-                        // dbg!(self.color, location_idx);
-
                         if location_idx >= break_count {
                             break_heights.reserve((location_idx - break_count + 1) as usize);
 

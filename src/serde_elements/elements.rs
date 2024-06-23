@@ -551,6 +551,37 @@ impl<E: SerdeElement> SerdeElement for RepeatBottom<E> {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct PinBelow<E> {
+    pub content: Box<E>,
+    pub pinned_element: Box<E>,
+    pub gap: f64,
+
+    #[serde(default = "default_false")]
+    pub collapse: bool,
+}
+
+impl<E: SerdeElement> SerdeElement for PinBelow<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::pin_below::PinBelow {
+            content: &SerdeElementElement {
+                element: &*self.content,
+                fonts,
+            },
+            pinned_element: &SerdeElementElement {
+                element: &*self.pinned_element,
+                fonts,
+            },
+            gap: self.gap,
+            collapse: self.collapse,
+        });
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ForceBreak;
 
 impl SerdeElement for ForceBreak {
