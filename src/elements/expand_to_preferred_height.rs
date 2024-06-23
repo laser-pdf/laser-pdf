@@ -94,13 +94,12 @@ mod tests {
         let mut write = |file: &mut std::fs::File| {
             test_element_file(
                 TestElementParams {
-                    first_height: TestElementParams::DEFAULT_REDUCED_HEIGHT,
                     preferred_height: Some(12.),
                     breakable: Some(TestElementParamsBreakable {
                         preferred_height_break_count: 7,
                         full_height: TestElementParams::DEFAULT_FULL_HEIGHT,
                     }),
-                    ..Default::default()
+                    ..TestElementParams::breakable()
                 },
                 |callback| {
                     let font = BuiltinFont::courier(callback.document());
@@ -121,13 +120,12 @@ mod tests {
         let mut write = |file: &mut std::fs::File| {
             test_element_file(
                 TestElementParams {
-                    first_height: TestElementParams::DEFAULT_REDUCED_HEIGHT,
                     preferred_height: Some(32.),
                     breakable: Some(TestElementParamsBreakable {
                         preferred_height_break_count: 3,
                         full_height: TestElementParams::DEFAULT_FULL_HEIGHT,
                     }),
-                    ..Default::default()
+                    ..TestElementParams::breakable()
                 },
                 |callback| {
                     let font = BuiltinFont::courier(callback.document());

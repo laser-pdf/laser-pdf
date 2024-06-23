@@ -18,21 +18,20 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let size;
-        let mut location = ctx.location.clone();
+        let mut last_location = ctx.location.clone();
 
         let color = calculate_color(self.color);
 
         if let Some(breakable) = ctx.breakable {
-            let mut break_count = 0;
-
             let mut break_heights = Vec::new();
 
             size = self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
                 breakable: Some(BreakableDraw {
                     do_break: &mut |pdf, location_idx, height| {
-                        // TODO: Add an assert or maybe a visual thing for if a repeated break for a
-                        // location doesn't get passed the same height.
+                        let break_count = break_heights.len() as u32;
+
+                        // dbg!(self.color, location_idx);
 
                         if location_idx >= break_count {
                             break_heights.reserve((location_idx - break_count + 1) as usize);
@@ -42,11 +41,16 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
                             );
 
                             break_heights.push(height);
-                        }
+                            last_location = (breakable.do_break)(pdf, location_idx, height);
+                            last_location.clone()
+                        } else {
+                            let previous = break_heights[location_idx as usize];
 
-                        break_count = break_count.max(location_idx + 1);
-                        location = (breakable.do_break)(pdf, location_idx, height);
-                        location.clone()
+                            // TODO: A visual indication would probably be better here than a panic.
+                            assert_eq!(previous, height);
+
+                            (breakable.do_break)(pdf, location_idx, height)
+                        }
                     },
                     ..breakable
                 }),
@@ -84,7 +88,7 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
         }
 
         if let (Some(width), Some(height)) = (size.width, size.height) {
-            draw_box(location, (width, height), color, false);
+            draw_box(last_location, (width, height), color, false);
         }
 
         size

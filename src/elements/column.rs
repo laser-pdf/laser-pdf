@@ -586,7 +586,12 @@ mod tests {
 
                 AssertPasses::new(
                     FranticJumper {
-                        jumps: vec![0, 5, 3, 3],
+                        jumps: vec![
+                            (0, Some(0.)),
+                            (5, Some(1.5)),
+                            (3, Some(1.5)),
+                            (3, Some(1.5)),
+                        ],
                         size: ElementSize {
                             width: Some(5.5),
                             height: Some(1.5),

@@ -72,6 +72,7 @@ define_serde_element_value!(ElementValue {
     Titled<ElementValue>,
     TitleOrBreak<ElementValue>,
     RepeatAfterBreak<ElementValue>,
+    RepeatBottom<ElementValue>,
     ForceBreak,
     BreakWhole<ElementValue>,
     MinFirstHeight<ElementValue>,

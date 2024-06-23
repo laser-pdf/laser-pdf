@@ -520,6 +520,37 @@ impl<E: SerdeElement> SerdeElement for RepeatAfterBreak<E> {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct RepeatBottom<E> {
+    pub content: Box<E>,
+    pub bottom: Box<E>,
+    pub gap: f64,
+
+    #[serde(default = "default_false")]
+    pub collapse: bool,
+}
+
+impl<E: SerdeElement> SerdeElement for RepeatBottom<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::repeat_bottom::RepeatBottom {
+            content: &SerdeElementElement {
+                element: &*self.content,
+                fonts,
+            },
+            bottom: &SerdeElementElement {
+                element: &*self.bottom,
+                fonts,
+            },
+            gap: self.gap,
+            collapse: self.collapse,
+        });
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ForceBreak;
 
 impl SerdeElement for ForceBreak {

@@ -717,7 +717,7 @@ mod tests {
             });
 
             let content = RecordPasses::new(FranticJumper {
-                jumps: vec![0, 1, 4],
+                jumps: vec![(0, Some(0.)), (1, Some(11.)), (4, Some(11.))],
                 size: ElementSize {
                     width: None,
                     height: Some(11.),

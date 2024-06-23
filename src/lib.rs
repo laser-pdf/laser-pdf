@@ -164,14 +164,16 @@ pub type Size = (f64, f64);
 ///
 /// The second parameter is which location the break is occurring from. This number
 /// must be counted up for sequential page breaks. This allows the same page break to be
-/// performed twice in a row. A new `draw_rect_id` will be returned from the call to
-/// `next_location`, so if you store the current draw pos, you can just pass the one from there.
+/// performed twice in a row.
 ///
 /// The third parameter is the height of the location.
 pub type Break<'a> = &'a mut dyn FnMut(&mut Pdf, u32, Option<f64>) -> Location;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum FirstLocationUsage {
+    /// This means the element has no height at all. Meaning it doesn't break either. If the element
+    /// breaks, but has a height of None for the first location it should use
+    /// [FirstLocationUsage::WillUse] or [FirstLocationUsage::WillSkip] if appropriate.
     NoneHeight,
     WillUse,
     WillSkip,
@@ -206,6 +208,10 @@ pub struct BreakableMeasure<'a> {
     /// location via `preferred_break_count` and `preferred_height`. The flex needs to be able to
     /// predict the height of the last page so that there isn't a single element that is higher than
     /// the other ones.
+    /// `None` here means the element does not use extra locations. This means it is not possible
+    /// to have an element that does use extra locations, but returns a `None` height on the last
+    /// one. Should that ever become necessary we'll probably have to change this to an
+    /// `Option<Option<f64>>`.
     pub extra_location_min_height: &'a mut Option<f64>,
 }
 
