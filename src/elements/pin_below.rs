@@ -68,17 +68,14 @@ impl<'a, C: Element, B: Element> PinBelow<'a, C, B> {
         }
     }
 
-    fn height(&self, common: &Common, height: Option<f64>) -> Option<f64> {
-        height
-            .map(|h| h + self.gap)
-            .or((!self.collapse).then_some(0.))
-            .and_then(|h| add_optional_size(Some(h), common.bottom_size.height))
-    }
-
-    fn size(&self, common: &Common, content_size: ElementSize) -> ElementSize {
+    fn size(&self, common: &Common, break_count: u32, content_size: ElementSize) -> ElementSize {
         ElementSize {
             width: max_optional_size(content_size.width, common.bottom_size.width),
-            height: self.height(common, content_size.height),
+            height: content_size
+                .height
+                .map(|h| h + self.gap)
+                .or((!self.collapse || break_count > 0).then_some(0.))
+                .and_then(|h| add_optional_size(Some(h), common.bottom_size.height)),
         }
     }
 }
@@ -136,7 +133,7 @@ impl<'a, C: Element, B: Element> Element for PinBelow<'a, C, B> {
                 extra_location_min_height.map(|x| x + common.bottom_height);
         }
 
-        self.size(&common, size)
+        self.size(&common, break_count, size)
     }
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
@@ -147,10 +144,9 @@ impl<'a, C: Element, B: Element> Element for PinBelow<'a, C, B> {
         );
 
         let mut current_location = ctx.location.clone();
+        let mut break_count = 0;
 
         let size = if let Some(breakable) = ctx.breakable {
-            let mut break_count = 0;
-
             let (location, location_offset) = if common.pre_break {
                 current_location = (breakable.do_break)(ctx.pdf, 0, None);
                 (current_location.clone(), 1)
@@ -195,7 +191,7 @@ impl<'a, C: Element, B: Element> Element for PinBelow<'a, C, B> {
         if let Some((y_offset, bottom_height)) = size
             .height
             .map(|h| h + self.gap)
-            .or((!self.collapse).then_some(0.))
+            .or((!self.collapse || break_count > 0).then_some(0.))
             .zip(common.bottom_size.height)
         {
             self.pinned_element.draw(DrawCtx {
@@ -211,7 +207,7 @@ impl<'a, C: Element, B: Element> Element for PinBelow<'a, C, B> {
             });
         }
 
-        self.size(&common, size)
+        self.size(&common, break_count, size)
     }
 }
 
