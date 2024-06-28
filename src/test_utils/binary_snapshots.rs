@@ -31,13 +31,14 @@ pub struct TestElementParamsBreakable {
 }
 
 impl TestElementParams {
+    pub const DEFAULT_MAX_WIDTH: f64 = 210. - 2. * 8.;
     pub const DEFAULT_FULL_HEIGHT: f64 = 297. - 2. * 16.;
     pub const DEFAULT_REDUCED_HEIGHT: f64 = 100.;
 
     pub fn unbreakable() -> Self {
         TestElementParams {
             width: WidthConstraint {
-                max: 210. - 2. * 8.,
+                max: Self::DEFAULT_MAX_WIDTH,
                 expand: true,
             },
             first_height: Self::DEFAULT_FULL_HEIGHT,
@@ -51,7 +52,7 @@ impl TestElementParams {
     pub fn breakable() -> Self {
         TestElementParams {
             width: WidthConstraint {
-                max: 210. - 2. * 8.,
+                max: Self::DEFAULT_MAX_WIDTH,
                 expand: true,
             },
             first_height: Self::DEFAULT_REDUCED_HEIGHT,

@@ -37,7 +37,10 @@ impl<E: SerdeElement> SerdeElement for Debug<E> {
                 element: &*self.0,
                 fonts,
             },
+            // TODO
             color: 0,
+            show_max_width: false,
+            show_last_location_max_height: false,
         });
     }
 }
@@ -484,6 +487,45 @@ impl<E: SerdeElement> SerdeElement for TitleOrBreak<E> {
             },
             gap: self.gap,
             collapse_on_empty_content: self.collapse_on_empty_content,
+        });
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ChangingTitle<E> {
+    pub first_title: Box<E>,
+
+    #[serde(alias = "second_title")]
+    pub remaining_title: Box<E>,
+
+    pub content: Box<E>,
+    pub gap: f64,
+
+    #[serde(default = "default_false")]
+    pub collapse: bool,
+}
+
+impl<E: SerdeElement> SerdeElement for ChangingTitle<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::changing_title::ChangingTitle {
+            first_title: &SerdeElementElement {
+                element: &*self.first_title,
+                fonts,
+            },
+            remaining_title: &SerdeElementElement {
+                element: &*self.remaining_title,
+                fonts,
+            },
+            content: &SerdeElementElement {
+                element: &*self.content,
+                fonts,
+            },
+            gap: self.gap,
+            collapse: self.collapse,
         });
     }
 }

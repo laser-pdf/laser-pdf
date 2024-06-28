@@ -330,6 +330,8 @@ pub trait Element {
         elements::debug::Debug {
             element: self,
             color,
+            show_max_width: false,
+            show_last_location_max_height: false,
         }
     }
 }

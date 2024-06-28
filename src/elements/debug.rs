@@ -5,6 +5,24 @@ use crate::*;
 pub struct Debug<'a, E: Element + ?Sized> {
     pub element: &'a E,
     pub color: u8,
+    pub show_max_width: bool,
+    pub show_last_location_max_height: bool,
+}
+
+impl<'a, E: Element + ?Sized> Debug<'a, E> {
+    pub fn show_max_width(self) -> Self {
+        Self {
+            show_max_width: true,
+            ..self
+        }
+    }
+
+    pub fn show_last_location_max_height(self) -> Self {
+        Self {
+            show_last_location_max_height: true,
+            ..self
+        }
+    }
 }
 
 impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
@@ -21,10 +39,13 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
         let mut last_location = ctx.location.clone();
 
         let color = calculate_color(self.color);
+        let max_width = ctx.width.max;
+        let first_height = ctx.first_height;
+        let full_height = ctx.breakable.as_ref().map(|b| b.full_height);
+
+        let mut break_heights = Vec::new();
 
         if let Some(breakable) = ctx.breakable {
-            let mut break_heights = Vec::new();
-
             size = self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
                 breakable: Some(BreakableDraw {
@@ -56,7 +77,7 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
                 ..ctx
             });
 
-            if let Some(width) = size.width {
+            if size.width.is_some() || self.show_max_width {
                 for (i, &height) in break_heights.iter().enumerate() {
                     let full_height;
                     let location;
@@ -70,23 +91,59 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
                             (breakable.do_break)(ctx.pdf, i as u32 - 1, break_heights[i - 1]);
                     }
 
-                    let dashed = match height {
-                        Some(height) if full_height != height => {
-                            draw_box(location.clone(), (width, height), color, false);
-                            true
+                    let dashed_size = (
+                        if self.show_max_width {
+                            max_width
+                        } else {
+                            size.width.unwrap()
+                        },
+                        full_height,
+                    );
+
+                    let dashed = match size.width.zip(height) {
+                        Some(solid_size) => {
+                            draw_box(location.clone(), solid_size, color, false);
+                            solid_size != dashed_size
                         }
-                        height => height.is_none(),
+                        _ => true,
                     };
 
-                    draw_box(location, (width, full_height), color, dashed);
+                    if dashed {
+                        draw_box(location, dashed_size, color, dashed);
+                    }
                 }
             }
         } else {
             size = self.element.draw(ctx);
         }
 
-        if let (Some(width), Some(height)) = (size.width, size.height) {
-            draw_box(last_location, (width, height), color, false);
+        let dashed_size = (
+            if self.show_max_width {
+                Some(max_width)
+            } else {
+                size.width
+            },
+            if self.show_last_location_max_height {
+                Some(if break_heights.len() == 0 {
+                    first_height
+                } else {
+                    full_height.unwrap()
+                })
+            } else {
+                size.height
+            },
+        );
+
+        let dashed = if let (Some(width), Some(height)) = (size.width, size.height) {
+            draw_box(last_location.clone(), (width, height), color, false);
+            dashed_size != (Some(width), Some(height))
+        } else {
+            true
+        };
+
+        if let Some((width, height)) = dashed.then_some(dashed_size.0.zip(dashed_size.1)).flatten()
+        {
+            draw_box(last_location, (width, height), color, true);
         }
 
         size
