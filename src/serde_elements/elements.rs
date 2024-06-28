@@ -11,6 +11,10 @@ const fn default_false() -> bool {
     false
 }
 
+const fn default_0u8() -> u8 {
+    0
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct None;
 
@@ -24,7 +28,18 @@ impl SerdeElement for None {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct Debug<E>(pub Box<E>);
+pub struct Debug<E> {
+    pub element: Box<E>,
+
+    #[serde(default = "default_0u8")]
+    pub color: u8,
+
+    #[serde(default = "default_false")]
+    pub show_max_width: bool,
+
+    #[serde(default = "default_false")]
+    pub show_last_location_max_height: bool,
+}
 
 impl<E: SerdeElement> SerdeElement for Debug<E> {
     fn element(
@@ -34,13 +49,12 @@ impl<E: SerdeElement> SerdeElement for Debug<E> {
     ) {
         callback.call(&elements::debug::Debug {
             element: &SerdeElementElement {
-                element: &*self.0,
+                element: &*self.element,
                 fonts,
             },
-            // TODO
-            color: 0,
-            show_max_width: false,
-            show_last_location_max_height: false,
+            color: self.color,
+            show_max_width: self.show_max_width,
+            show_last_location_max_height: self.show_last_location_max_height,
         });
     }
 }
