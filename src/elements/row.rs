@@ -66,7 +66,7 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
 
         ElementSize {
             width: if ctx.width.expand {
-                Some(ctx.width.max)
+                Some(width.map(|w| w.max(ctx.width.max)).unwrap_or(ctx.width.max))
             } else {
                 width
             },
@@ -182,7 +182,7 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
 
         ElementSize {
             width: if ctx.width.expand {
-                Some(ctx.width.max)
+                Some(width.map(|w| w.max(ctx.width.max)).unwrap_or(ctx.width.max))
             } else {
                 width
             },
