@@ -3,7 +3,7 @@ use crate::*;
 pub struct ForceBreak;
 
 impl Element for ForceBreak {
-    fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
+    fn first_location_usage(&self, _ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         FirstLocationUsage::WillUse
     }
 
