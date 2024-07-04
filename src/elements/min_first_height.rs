@@ -173,7 +173,8 @@ impl<'a, E: Element> MinFirstHeight<'a, E> {
 mod tests {
     use super::*;
     use crate::{
-        elements::none::NoneElement,
+        elements::{none::NoneElement, text::Text},
+        fonts::builtin::BuiltinFont,
         test_utils::{record_passes::RecordPasses, *},
     };
     use insta::assert_debug_snapshot;
@@ -259,44 +260,35 @@ mod tests {
 
     #[test]
     fn test_pre_break() {
-        let output = test_element(
-            TestElementParams {
-                width: WidthConstraint {
-                    max: 12.,
-                    expand: false,
+        use crate::test_utils::binary_snapshots::*;
+        use insta::*;
+
+        let mut write = |file: &mut std::fs::File| {
+            test_element_file(
+                TestElementParams {
+                    first_height: 9.,
+                    ..TestElementParams::breakable()
                 },
-                first_height: 9.,
-                breakable: Some(TestElementParamsBreakable {
-                    preferred_height_break_count: 3,
-                    full_height: 15.,
-                }),
-                pos: (7., 20.0),
-                preferred_height: Some(4.),
-                ..Default::default()
-            },
-            |assert, callback| {
-                let content = RecordPasses::new(FakeText {
-                    lines: 4,
-                    line_height: 5.,
-                    width: 3.,
-                });
+                |callback| {
+                    let font = BuiltinFont::courier(callback.document());
 
-                let element = MinFirstHeight {
-                    element: &content,
-                    min_first_height: 10.,
-                };
+                    let content = Text::basic(LOREM_IPSUM, &font, 12.);
+                    let content = &content.debug(1).show_max_width();
 
-                let ret = callback.call(element);
-
-                if assert {
-                    assert_debug_snapshot!(content.into_passes());
-                }
-
-                ret
-            },
-        );
-
-        assert_debug_snapshot!(output);
+                    callback.call(
+                        &MinFirstHeight {
+                            element: content,
+                            min_first_height: 10.,
+                        }
+                        .debug(0)
+                        .show_max_width()
+                        .show_last_location_max_height(),
+                    );
+                },
+                file,
+            );
+        };
+        assert_binary_snapshot!("pdf", write);
     }
 
     #[test]
