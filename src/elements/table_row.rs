@@ -15,7 +15,7 @@ pub struct TableRow<F: Fn(&mut RowContent)> {
 
 impl<F: Fn(&mut RowContent)> Element for TableRow<F> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        todo!()
+        FirstLocationUsage::WillUse
     }
 
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
