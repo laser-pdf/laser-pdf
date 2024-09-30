@@ -750,3 +750,25 @@ impl<E: SerdeElement> SerdeElement for ExpandToPreferredHeight<E> {
         );
     }
 }
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ShrinkToFit<E> {
+    pub element: Box<E>,
+    pub min_height: f64,
+}
+
+impl<E: SerdeElement> SerdeElement for ShrinkToFit<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::shrink_to_fit::ShrinkToFit {
+            element: &SerdeElementElement {
+                element: &*self.element,
+                fonts,
+            },
+            min_height: self.min_height,
+        });
+    }
+}
