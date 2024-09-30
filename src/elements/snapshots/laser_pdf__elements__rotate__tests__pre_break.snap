@@ -1,0 +1,31 @@
+---
+source: src/elements/rotate.rs
+expression: content.into_passes()
+---
+[
+    Measure {
+        width: WidthConstraint {
+            max: 500.0,
+            expand: false,
+        },
+        first_height: 16.0,
+        full_height: None,
+    },
+    Draw(
+        DrawPass {
+            width: WidthConstraint {
+                max: 500.0,
+                expand: false,
+            },
+            first_height: 16.0,
+            preferred_height: None,
+            page: 1,
+            layer: 0,
+            pos: (
+                0.0,
+                0.0,
+            ),
+            breakable: None,
+        },
+    ),
+]

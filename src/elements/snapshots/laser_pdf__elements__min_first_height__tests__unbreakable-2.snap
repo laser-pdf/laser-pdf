@@ -1,0 +1,15 @@
+---
+source: src/elements/min_first_height.rs
+expression: output
+---
+ElementTestOutput {
+    size: ElementSize {
+        width: Some(
+            3.0,
+        ),
+        height: Some(
+            5.0,
+        ),
+    },
+    breakable: None,
+}

@@ -1,35 +1,42 @@
 use crate::*;
 
-pub fn v_expand<W: Element>(element: W) -> impl Element {
-    move |width: Option<f64>, draw: Option<DrawContext>| {
-        let widget_size = element.element(width, None);
+pub struct VExpand<W: Element> {
+    element: W,
+}
 
-        if let Some(ctx) = draw {
-            let preferred_height = ctx
-                .draw_pos
-                .preferred_height
-                .unwrap_or(0.)
-                .max(widget_size[1]);
+impl<W: Element> Element for VExpand<T> {
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+        let widget_size = element.draw(width, None);
 
-            dbg!(ctx.draw_pos.preferred_height, preferred_height);
+        widget_size
+    }
 
-            let [width, height] = element.element(
-                width,
-                Some(DrawContext {
-                    pdf: ctx.pdf,
-                    draw_pos: DrawPos {
-                        pos: [ctx.draw_pos.pos[0], ctx.draw_pos.pos[1]],
-                        preferred_height: Some(preferred_height),
-                        ..ctx.draw_pos
-                    },
-                    full_height: preferred_height,
-                    next_draw_pos: None,
-                }),
-            );
+    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+        let widget_size = element.draw(width, None);
 
-            [width, height.max(preferred_height)]
-        } else {
-            widget_size
-        }
+        let preferred_height = ctx
+            .location
+            .preferred_height
+            .unwrap_or(0.)
+            .max(widget_size[1]);
+
+        let [width, height] = element.draw(
+            width,
+            Some(DrawCtx {
+                pdf: ctx.pdf,
+                location: Location {
+                    pos: [ctx.location.pos[0], ctx.location.pos[1]],
+                    preferred_height: Some(preferred_height),
+                    ..ctx.location
+                },
+                full_height: preferred_height,
+                next_location: None,
+            }),
+        );
+
+        Some(ElementSize {
+            width: width,
+            height: Some(height.max(preferred_height)),
+        })
     }
 }

@@ -1,0 +1,15 @@
+---
+source: src/elements/page.rs
+expression: output
+---
+ElementTestOutput {
+    size: ElementSize {
+        width: Some(
+            10.0,
+        ),
+        height: Some(
+            20.0,
+        ),
+    },
+    breakable: None,
+}

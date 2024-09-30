@@ -1,0 +1,6 @@
+---
+source: src/elements/min_first_height.rs
+expression: write
+extension: pdf
+snapshot_type: binary
+---

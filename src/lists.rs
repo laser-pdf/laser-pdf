@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct VListHandler<'a, 'b> {
     max_width: Option<f64>,
-    render: Option<DrawContext<'a, 'b>>,
+    render: Option<DrawCtx<'a, 'b>>,
     width: f64,
     height: f64,
     break_page: bool,
@@ -13,31 +13,31 @@ pub struct VListHandler<'a, 'b> {
 impl<'a, 'b> VListHandler<'a, 'b> {
     pub fn element<W: Widget>(&mut self, widget: &W, break_page: bool) {
         let size = match self.render {
-            Some(DrawContext {
+            Some(DrawCtx {
                 ref mut pdf,
-                ref mut draw_pos,
+                ref mut location,
                 full_height,
-                next_draw_pos: Some(ref mut next_draw_pos),
+                next_location: Some(ref mut next_location),
             }) => {
                 let size = widget.widget(self.max_width, None);
 
-                if self.break_page && break_page && size[1] > draw_pos.height_available {
-                    *draw_pos = next_draw_pos(pdf);
+                if self.break_page && break_page && size[1] > location.height_available {
+                    *location = next_location(pdf);
 
                     self.height = 2.0 * self.gap;
 
-                    draw_pos.pos[1] -= self.gap;
+                    location.pos[1] -= self.gap;
                     if let Some(line) = self.line {
                         crate::utils::line(
-                            &mut draw_pos.layer,
-                            draw_pos.pos,
+                            &mut location.layer,
+                            location.pos,
                             self.max_width.unwrap_or(1.0),
                             line,
                         );
                     }
-                    draw_pos.pos[1] -= self.gap;
-                    draw_pos.height_available =
-                        (draw_pos.height_available - 4.0 * self.gap).max(0.0);
+                    location.pos[1] -= self.gap;
+                    location.height_available =
+                        (location.height_available - 4.0 * self.gap).max(0.0);
                 }
 
                 let height = &mut self.height;
@@ -47,34 +47,38 @@ impl<'a, 'b> VListHandler<'a, 'b> {
 
                 widget.widget(
                     self.max_width,
-                    Some(DrawContext {
+                    Some(DrawCtx {
                         pdf,
-                        draw_pos: *draw_pos,
+                        location: *location,
                         full_height,
-                        next_draw_pos: Some(&mut |pdf| {
-                            *draw_pos = next_draw_pos(pdf);
-                            *height = 0.0;
-
-                            draw_pos.height_available =
-                                (draw_pos.height_available - 2.0 * gap).max(0.0);
-
-                            *draw_pos
-                        }),
+                        breakable: Some(BreakableDraw {
+                          get_location: &mut |pdf| {
+                              *location = next_location(pdf);
+                              *height = 0.0;
+                        
+                              location.height_available =
+                                  (location.height_available - 2.0 * gap).max(0.0);
+                        
+                              *location
+                          },
+                          ..break_ctx
+                        })
+                        ,
                     }),
                 )
             }
-            Some(DrawContext {
+            Some(DrawCtx {
                 ref mut pdf,
-                draw_pos,
+                location,
                 full_height,
-                next_draw_pos: None,
+                next_location: None,
             }) => widget.widget(
                 self.max_width,
-                Some(DrawContext {
+                Some(DrawCtx {
                     pdf,
-                    draw_pos,
+                    location,
                     full_height,
-                    next_draw_pos: None,
+                    next_location: None,
                 }),
             ),
             None => widget.widget(self.max_width, None),
@@ -85,21 +89,21 @@ impl<'a, 'b> VListHandler<'a, 'b> {
 
         self.height += 2.0 * self.gap;
         if let Some(ref mut context) = self.render {
-            context.draw_pos.pos[1] -= size[1];
-            context.draw_pos.height_available -= size[1];
+            context.location.pos[1] -= size[1];
+            context.location.height_available -= size[1];
 
-            context.draw_pos.pos[1] -= self.gap;
+            context.location.pos[1] -= self.gap;
             if let Some(line) = self.line {
-                // println!("{:?} {:?}", context.draw_pos.pos, size);
+                // println!("{:?} {:?}", context.location.pos, size);
                 crate::utils::line(
-                    &mut context.draw_pos.layer,
-                    context.draw_pos.pos,
+                    &mut context.location.layer,
+                    context.location.pos,
                     self.max_width.unwrap_or(1.0),
                     line,
                 );
             }
-            context.draw_pos.pos[1] -= self.gap;
-            context.draw_pos.height_available -= 2.0 * self.gap;
+            context.location.pos[1] -= self.gap;
+            context.location.height_available -= 2.0 * self.gap;
         }
     }
 }
@@ -123,20 +127,20 @@ impl<F: Fn(&mut VListHandler)> VList<F> {
 }
 
 impl<F: Fn(&mut VListHandler)> Widget for VList<F> {
-    fn widget(&self, width: Option<f64>, mut render: Option<DrawContext>) -> [f64; 2] {
+    fn widget(&self, width: Option<f64>, mut render: Option<DrawCtx>) -> [f64; 2] {
         if let Some(context) = &mut render {
-            context.draw_pos.pos[1] -= self.gap;
+            context.location.pos[1] -= self.gap;
             if let Some(line) = self.line {
                 crate::utils::line(
-                    &mut context.draw_pos.layer,
-                    context.draw_pos.pos,
+                    &mut context.location.layer,
+                    context.location.pos,
                     width.unwrap_or(1.0),
                     line,
                 );
             }
-            context.draw_pos.pos[1] -= self.gap;
-            context.draw_pos.height_available =
-                (context.draw_pos.height_available - 4.0 * self.gap).max(0.0);
+            context.location.pos[1] -= self.gap;
+            context.location.height_available =
+                (context.location.height_available - 4.0 * self.gap).max(0.0);
         }
 
         let mut handler = VListHandler {
@@ -151,12 +155,13 @@ impl<F: Fn(&mut VListHandler)> Widget for VList<F> {
 
         (self.list)(&mut handler);
 
-        [handler.width, handler.height]
+        Some(ElementSize { width: handler.width, height: Some(handler.height) })
+        
     }
 }
 
 pub struct HListHandler<'a, 'b> {
-    draw: Option<DrawContext<'a, 'b>>,
+    draw: Option<DrawCtx<'a, 'b>>,
     width: f64,
     height: f64,
 }
@@ -164,18 +169,18 @@ pub struct HListHandler<'a, 'b> {
 impl<'a, 'b> HListHandler<'a, 'b> {
     pub fn element<W: Widget>(&mut self, widget: &W) {
         let size = {
-            let draw = if let Some(DrawContext {
+            let draw = if let Some(DrawCtx {
                 ref mut pdf,
-                draw_pos,
+                location,
                 full_height,
-                next_draw_pos: _,
+                next_location: _,
             }) = self.draw
             {
-                Some(DrawContext {
+                Some(DrawCtx {
                     pdf,
-                    draw_pos,
+                    location,
                     full_height,
-                    next_draw_pos: None,
+                    next_location: None,
                 })
             } else {
                 None
@@ -186,7 +191,7 @@ impl<'a, 'b> HListHandler<'a, 'b> {
         self.width += size[0];
         self.height = self.height.max(size[1]);
         if let Some(ref mut context) = self.draw {
-            context.draw_pos.pos[0] += size[0];
+            context.location.pos[0] += size[0];
         }
     }
 }
@@ -194,7 +199,7 @@ impl<'a, 'b> HListHandler<'a, 'b> {
 pub struct HList<F: Fn(&mut HListHandler)>(pub F);
 
 impl<F: Fn(&mut HListHandler)> Widget for HList<F> {
-    fn widget(&self, _width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    fn widget(&self, _width: Option<f64>, draw: Option<DrawCtx>) -> [f64; 2] {
         let mut handler = HListHandler {
             draw,
             width: 0.0,
@@ -203,7 +208,8 @@ impl<F: Fn(&mut HListHandler)> Widget for HList<F> {
 
         self.0(&mut handler);
 
-        [handler.width, handler.height]
+        Some(ElementSize { width: handler.width, height: Some(handler.height) })
+        
     }
 }
 
@@ -216,7 +222,7 @@ impl<F: Fn(&mut HListHandler)> Widget for HList<F> {
 // pub struct FlexList<F: Fn(&mut dyn FnMut(&dyn Widget, FlexMode))>(pub F);
 
 // impl<F: Fn(&mut dyn FnMut(&dyn Widget, FlexMode))> Widget for FlexList<F> {
-//     fn widget(&self, width: Option<f64>, mut render: Option<DrawContext>) -> [f64; 2] {
+//     fn widget(&self, width: Option<f64>, mut render: Option<DrawCtx>) -> [f64; 2] {
 //         use FlexMode::*;
 
 //         let mut no_expand_width = 0.0;
@@ -252,11 +258,11 @@ impl<F: Fn(&mut HListHandler)> Widget for HList<F> {
 //                 expand,
 //                 // if expand { Some(expand_width) } else { None },
 //                 if let Some(r) = &mut render {
-//                     Some(DrawContext {
+//                     Some(DrawCtx {
 //                         pos: r.pos,
 //                         height_available: r.height_available,
 //                         pdf: r.pdf,
-//                         next_draw_pos: None,
+//                         next_location: None,
 //                     })
 //                 } else {
 //                     None

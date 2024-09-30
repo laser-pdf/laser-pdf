@@ -57,3 +57,27 @@ pub fn u32_to_rgb_color_array(color: u32) -> [u8; 3] {
 pub fn rgb_color_array_to_u32(color: [u8; 3]) -> u32 {
     ((color[0] as u32) << 24) | ((color[1] as u32) << 16) | ((color[2] as u32) << 8) | 0xFF
 }
+
+pub fn max_optional_size(a: Option<f64>, b: Option<f64>) -> Option<f64> {
+    match (a, b) {
+        (None, None) => None,
+        (None, Some(x)) | (Some(x), None) => Some(x),
+        (Some(a), Some(b)) => Some(a.max(b)),
+    }
+}
+
+pub fn add_optional_size(a: Option<f64>, b: Option<f64>) -> Option<f64> {
+    match (a, b) {
+        (None, None) => None,
+        (None, Some(x)) | (Some(x), None) => Some(x),
+        (Some(a), Some(b)) => Some(a + b),
+    }
+}
+
+pub fn add_optional_size_with_gap(a: Option<f64>, b: Option<f64>, gap: f64) -> Option<f64> {
+    match (a, b) {
+        (None, None) => None,
+        (None, Some(x)) | (Some(x), None) => Some(x),
+        (Some(a), Some(b)) => Some(a + gap + b),
+    }
+}

@@ -1,101 +1,105 @@
 use crate::*;
 
-pub fn repeat_bottom<C: Element, B: Element>(
+pub struct RepeatBottom<C: Element, B: Element> {
     content: C,
     bottom: B,
     gap: f64,
     // vanish_if_empty: bool,
-) -> impl Element {
-    move |width: Option<f64>, draw: Option<DrawContext>| {
-        let bottom_size = bottom.element(width, None);
+}
+
+impl<C: Element, B: Element> Element for RepeatBottom<T> {
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+        let bottom_size = bottom.draw(width, None);
         let bottom_height = bottom_size[1] + gap;
 
-        if let Some(ctx) = draw {
-            let mut draw_pos = ctx.draw_pos;
+        let content_size = content.draw(width, None);
 
-            let content_size = if let Some(next_draw_pos) = ctx.next_draw_pos {
-                content.element(
-                    width,
-                    Some(DrawContext {
-                        pdf: ctx.pdf,
-                        draw_pos: DrawPos {
-                            layer: draw_pos.layer.clone(),
-                            pos: draw_pos.pos,
-                            preferred_height: None,
-                            height_available: draw_pos.height_available - bottom_height,
-                        },
-                        full_height: (ctx.full_height - bottom_height).max(0.),
-                        next_draw_pos: Some(&mut |pdf, draw_rect_id, size| {
-                            bottom.element(
+        Some(ElementSize {
+            width: content_size[0].max(bottom_size[0]),
+            height: Some(content_size[1] + bottom_height),
+        })
+    }
+
+    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+        let bottom_size = bottom.draw(width, None);
+        let bottom_height = bottom_size[1] + gap;
+
+        let mut location = ctx.location;
+
+        let content_size = if let Some(next_location) = ctx.next_location {
+            content.draw(
+                width,
+                Some(DrawCtx {
+                    pdf: ctx.pdf,
+                    location: Location {
+                        layer: location.layer.clone(),
+                        pos: location.pos,
+                        preferred_height: None,
+                        height_available: location.height_available - bottom_height,
+                    },
+                    full_height: (ctx.full_height - bottom_height).max(0.),
+                    breakable: Some(BreakableDraw {
+                        get_location: &mut |pdf, draw_rect_id| {
+                            bottom.draw(
                                 width,
-                                Some(DrawContext {
+                                Some(DrawCtx {
                                     pdf,
-                                    draw_pos: DrawPos {
-                                        layer: draw_pos.layer.clone(),
-                                        pos: [draw_pos.pos[0], draw_pos.pos[1] - size[1] - gap],
+                                    location: Location {
+                                        layer: location.layer.clone(),
+                                        pos: [location.pos[0], location.pos[1] - size[1] - gap],
                                         preferred_height: None,
                                         height_available: bottom_size[1],
                                     },
                                     full_height: 0.,
-                                    next_draw_pos: None,
+                                    next_location: None,
                                 }),
                             );
-                            draw_pos = next_draw_pos(
+                            location = next_location(
                                 pdf,
                                 draw_rect_id,
                                 [size[0].max(bottom_size[0]), size[1] + bottom_height],
                             );
-
-                            DrawPos {
-                                height_available: draw_pos.height_available - bottom_height,
-                                ..draw_pos.clone()
-                            }
-                        }),
-                    }),
-                )
-            } else {
-                content.element(
-                    width,
-                    Some(DrawContext {
-                        pdf: ctx.pdf,
-                        draw_pos: DrawPos {
-                            layer: draw_pos.layer.clone(),
-                            height_available: draw_pos.height_available - bottom_height,
-                            preferred_height: None,
-                            ..draw_pos
+                            location.clone()
                         },
-                        full_height: 0.,
-                        next_draw_pos: None,
+                        ..break_ctx
                     }),
-                )
-            };
-
-            bottom.element(
+                }),
+            )
+        } else {
+            content.draw(
                 width,
-                Some(DrawContext {
+                Some(DrawCtx {
                     pdf: ctx.pdf,
-                    draw_pos: DrawPos {
-                        layer: draw_pos.layer.clone(),
-                        pos: [draw_pos.pos[0], draw_pos.pos[1] - content_size[1] - gap],
+                    location: Location {
+                        layer: location.layer.clone(),
+                        height_available: location.height_available - bottom_height,
                         preferred_height: None,
-                        height_available: bottom_size[1],
+                        ..location
                     },
                     full_height: 0.,
-                    next_draw_pos: None,
+                    next_location: None,
                 }),
-            );
+            )
+        };
 
-            [
-                content_size[0].max(bottom_size[0]),
-                content_size[1] + bottom_height,
-            ]
-        } else {
-            let content_size = content.element(width, None);
+        bottom.draw(
+            width,
+            Some(DrawCtx {
+                pdf: ctx.pdf,
+                location: Location {
+                    layer: location.layer.clone(),
+                    pos: [location.pos[0], location.pos[1] - content_size[1] - gap],
+                    preferred_height: None,
+                    height_available: bottom_size[1],
+                },
+                full_height: 0.,
+                next_location: None,
+            }),
+        );
 
-            [
-                content_size[0].max(bottom_size[0]),
-                content_size[1] + bottom_height,
-            ]
-        }
+        Some(ElementSize {
+            width: content_size[0].max(bottom_height),
+            height: Some(content_size[1] + bottom_size[1]),
+        })
     }
 }

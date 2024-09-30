@@ -1,0 +1,21 @@
+---
+source: src/elements/center_in_preferred_height.rs
+expression: output
+---
+ElementTestOutput {
+    size: ElementSize {
+        width: Some(
+            12.0,
+        ),
+        height: Some(
+            19.0,
+        ),
+    },
+    breakable: Some(
+        ElementTestOutputBreakable {
+            break_count: 0,
+            extra_location_min_height: None,
+            first_location_usage: WillUse,
+        },
+    ),
+}

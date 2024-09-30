@@ -1,0 +1,6 @@
+---
+source: src/elements/text.rs
+expression: write
+extension: pdf
+snapshot_type: binary
+---

@@ -9,20 +9,20 @@ pub struct Svg<'a> {
 }
 
 impl<'a> Widget for Svg<'a> {
-    fn widget(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
+    fn widget(&self, width: Option<f64>, draw: Option<DrawCtx>) -> [f64; 2] {
         if let Some(context) = draw {
-            let pos = context.draw_pos.pos;
+            let pos = context.location.pos;
             context
-                .draw_pos
+                .location
                 .layer
                 .set_ctm(CurTransMat::Translate(Mm(pos[0]), Mm(pos[1])));
             context
-                .draw_pos
+                .location
                 .layer
                 .set_ctm(CurTransMat::Scale(0.25, -0.25));
-            context.draw_pos.layer.add_svg(self.tree);
+            context.location.layer.add_svg(self.tree);
             // let root = &self.tree.root();
-            // render_node(context.pdf, &context.draw_pos, root);
+            // render_node(context.pdf, &context.location, root);
         }
 
         [0.0; 2]
@@ -31,17 +31,17 @@ impl<'a> Widget for Svg<'a> {
 
 // fn render_node(
 //     pdf: &mut Pdf,
-//     draw_pos: &DrawPos,
+//     location: &DrawPos,
 //     node: &usvg::Node,
 // ) -> Option<[f64; 2]> {
 //     match *node.borrow() {
-//         usvg::NodeKind::Svg(_) => render_group(pdf, draw_pos, node),
-//         usvg::NodeKind::Path(ref path) => render_path(pdf, draw_pos, path),
+//         usvg::NodeKind::Svg(_) => render_group(pdf, location, node),
+//         usvg::NodeKind::Path(ref path) => render_path(pdf, location, path),
 //         usvg::NodeKind::Group(ref g) => {
-//             draw_pos.layer.save_graphics_state();
-//             apply_transform(&draw_pos.layer, g.transform);
-//             let ret = render_group(pdf, draw_pos, node);
-//             draw_pos.layer.restore_graphics_state();
+//             location.layer.save_graphics_state();
+//             apply_transform(&location.layer, g.transform);
+//             let ret = render_group(pdf, location, node);
+//             location.layer.restore_graphics_state();
 //             ret
 //         }
 //         _ => None,
@@ -50,11 +50,11 @@ impl<'a> Widget for Svg<'a> {
 
 // fn render_group(
 //     pdf: &mut Pdf,
-//     draw_pos: &DrawPos,
+//     location: &DrawPos,
 //     parent: &usvg::Node,
 // ) -> Option<[f64; 2]> {
 //     for node in parent.children() {
-//         render_node(pdf, draw_pos, &node);
+//         render_node(pdf, location, &node);
 //     }
 //     None
 // }
@@ -72,29 +72,29 @@ impl<'a> Widget for Svg<'a> {
 //     ]));
 // }
 
-// fn render_path(pdf: &mut Pdf, draw_pos: &DrawPos, path: &usvg::Path) -> Option<[f64; 2]> {
-//     draw_pos.layer.save_graphics_state();
+// fn render_path(pdf: &mut Pdf, location: &DrawPos, path: &usvg::Path) -> Option<[f64; 2]> {
+//     location.layer.save_graphics_state();
 //     if let Some(usvg::Fill { paint: usvg::Paint::Color(color), ref opacity, ref rule }) = path.fill {
-//         draw_pos.layer.set_fill_color(printpdf::Color::Rgb(printpdf::Rgb::new(
+//         location.layer.set_fill_color(printpdf::Color::Rgb(printpdf::Rgb::new(
 //             color.red as f64 / 255.0,
 //             color.green as f64 / 255.0,
 //             color.blue as f64 / 255.0,
 //             None,
 //         )));
 
-//         // draw_pos.layer.set_fill_alpha(opacity.value());
+//         // location.layer.set_fill_alpha(opacity.value());
 //     }
 
 //     if let Some(ref stroke) = path.stroke {
 //         let dash_array = stroke.dasharray.as_deref().unwrap_or(&[]);
 //         let dash_phase = stroke.dashoffset;
-//         draw_pos.layer.add_op(Operation::new("d", vec![
+//         location.layer.add_op(Operation::new("d", vec![
 //             Object::Array(dash_array.iter().map(|d| Object::Integer(*d as i64)).collect()),
 //             Object::Integer(dash_phase as i64),
 //         ]));
-//         draw_pos.layer.set_outline_thickness(stroke.width.value());
+//         location.layer.set_outline_thickness(stroke.width.value());
 
-//         draw_pos.layer.set_line_cap_style(match stroke.linecap {
+//         location.layer.set_line_cap_style(match stroke.linecap {
 //             usvg::LineCap::Butt => LineCapStyle::Butt,
 //             usvg::LineCap::Round => LineCapStyle::Round,
 //             usvg::LineCap::Square => LineCapStyle::ProjectingSquare,
@@ -105,7 +105,7 @@ impl<'a> Widget for Svg<'a> {
 
 //     let mut closed = false;
 
-//     apply_transform(&draw_pos.layer, path.transform);
+//     apply_transform(&location.layer, path.transform);
 
 //     for s in path.data.iter() {
 //         match s {
@@ -130,8 +130,8 @@ impl<'a> Widget for Svg<'a> {
 //         _ => ops.push(Operation::new("n", Vec::new())),
 //     }
 
-//     draw_pos.layer.add_ops(ops);
-//     draw_pos.layer.restore_graphics_state();
+//     location.layer.add_ops(ops);
+//     location.layer.restore_graphics_state();
 
 //     // let ops = path.data.iter().map(|s: &PathSegment| match s {
 //     //     &PathSegment::MoveTo { x, y } => Operation::new("m", vec![x.into(), y.into()]),

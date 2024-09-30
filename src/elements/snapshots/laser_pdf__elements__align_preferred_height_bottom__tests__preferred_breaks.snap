@@ -1,0 +1,31 @@
+---
+source: src/elements/align_preferred_height_bottom.rs
+expression: content.into_passes()
+---
+[
+    Measure {
+        width: WidthConstraint {
+            max: 12.0,
+            expand: true,
+        },
+        first_height: 26.0,
+        full_height: None,
+    },
+    Draw(
+        DrawPass {
+            width: WidthConstraint {
+                max: 12.0,
+                expand: true,
+            },
+            first_height: 26.0,
+            preferred_height: None,
+            page: 4,
+            layer: 0,
+            pos: (
+                11.0,
+                29.0,
+            ),
+            breakable: None,
+        },
+    ),
+]

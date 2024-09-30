@@ -2,7 +2,7 @@ use crate::{widgets::break_whole, *};
 
 pub struct BreakListHandler<'a, 'b> {
     width: Option<f64>,
-    draw: Option<DrawContext<'a, 'b>>,
+    draw: Option<DrawCtx<'a, 'b>>,
     gap: f64,
     start: bool,
     max_width: f64,
@@ -21,14 +21,14 @@ impl<'a, 'b> BreakListHandler<'a, 'b> {
 
         match (self.width, &mut self.draw) {
             (None, None) => {
-                let [el_width, el_height] = el.element(None, None);
+                let [el_width, el_height] = el.draw(None, None);
 
                 self.x_offset += el_width;
                 self.line_height = self.line_height.max(el_height);
             }
             (None, Some(_)) => (),
             (Some(width), None) => {
-                let [el_width, el_height] = el.element(None, None);
+                let [el_width, el_height] = el.draw(None, None);
                 if self.x_offset > 0. && self.x_offset + el_width > width {
                     self.x_offset = el_width;
                     self.y_offset += self.line_height + self.gap;
@@ -40,7 +40,7 @@ impl<'a, 'b> BreakListHandler<'a, 'b> {
             }
             (Some(width), Some(_)) => {
                 if self.x_offset > 0. {
-                    let [el_width, ..] = el.element(None, None);
+                    let [el_width, ..] = el.draw(None, None);
 
                     if self.x_offset + el_width > width {
                         self.x_offset = 0.;
@@ -51,30 +51,30 @@ impl<'a, 'b> BreakListHandler<'a, 'b> {
             }
         }
 
-        if let Some(DrawContext {
+        if let Some(DrawCtx {
             pdf: &mut ref mut pdf,
-            ref mut draw_pos,
+            ref mut location,
             full_height: _,
-            next_draw_pos: _,
+            next_location: _,
         }) = self.draw
         {
-            let draw_pos = DrawPos {
-                layer: draw_pos.layer.clone(),
+            let location = Location {
+                layer: location.layer.clone(),
                 pos: [
-                    draw_pos.pos[0] + self.x_offset,
-                    draw_pos.pos[1] - self.y_offset,
+                    location.pos[0] + self.x_offset,
+                    location.pos[1] - self.y_offset,
                 ],
                 preferred_height: None,
-                height_available: draw_pos.height_available - self.y_offset,
+                height_available: location.height_available - self.y_offset,
             };
 
-            let [el_width, el_height] = el.element(
+            let [el_width, el_height] = el.draw(
                 None,
-                Some(DrawContext {
+                Some(DrawCtx {
                     pdf,
-                    draw_pos,
+                    location,
                     full_height: 0.,
-                    next_draw_pos: None,
+                    next_location: None,
                 }),
             );
 
@@ -90,7 +90,7 @@ impl<'a, 'b> BreakListHandler<'a, 'b> {
 
 /// This behaves a bit like flexbox wrapping.
 pub fn break_list<F: Fn(&mut BreakListHandler)>(content: F, gap: f64) -> impl Element {
-    break_whole(move |width: Option<f64>, draw: Option<DrawContext>| {
+    break_whole(move |width: Option<f64>, draw: Option<DrawCtx>| {
         let mut handler = BreakListHandler {
             width,
             draw,
@@ -104,6 +104,9 @@ pub fn break_list<F: Fn(&mut BreakListHandler)>(content: F, gap: f64) -> impl El
 
         content(&mut handler);
 
-        [handler.max_width, handler.y_offset + handler.line_height]
+        Some(ElementSize {
+            width: handler.max_width,
+            height: Some(handler.y_offset + handler.line_height),
+        })
     })
 }

@@ -1,22 +1,12 @@
-use std::ops::Deref;
-
-use printpdf::types::pdf_layer::GappedTextElement;
-use printpdf::*;
-use serde::Deserialize;
-use serde::Serialize;
-use stb_truetype as tt;
-
-use crate::break_text_into_lines::*;
-use crate::utils::*;
-use crate::*;
+use crate::fonts::Font;
 
 /**
  * Calculates the width needed for a given string, font and size (in pt).
  */
-pub fn text_width<D: Deref<Target = [u8]>>(
+pub fn text_width(
     text: &str,
     size: f64,
-    font: &tt::FontInfo<D>,
+    font: &impl Font,
     character_spacing: f64,
     word_spacing: f64,
 ) -> f64 {
@@ -33,7 +23,7 @@ pub fn text_width<D: Deref<Target = [u8]>>(
                 return None;
             }
 
-            Some((ch, font.get_codepoint_h_metrics(ch as u32)))
+            Some((ch, font.codepoint_h_metrics(ch as u32)))
         })
         .fold(0., |acc, (ch, h_metrics)| {
             acc + h_metrics.advance_width as f64
@@ -58,442 +48,356 @@ pub fn remove_non_trailing_soft_hyphens(text: &str) -> String {
         .collect()
 }
 
-pub struct Text<'a, D: Deref<Target = [u8]>>(pub &'a str, pub &'a crate::widget::Font<D>, pub f64);
+#[derive(Clone)]
+pub struct BreakTextIntoLines<'a, F: Fn(&str) -> f64> {
+    line_generator: LineGenerator<'a, F>,
+    max_width: f64,
+}
 
-impl<'a, D: Deref<Target = [u8]>> Element for Text<'a, D> {
-    fn element(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
-        TextFull {
-            text: self.0,
-            font: self.1,
-            size: self.2,
-            color: 0x00_00_00_FF,
-            underline: false,
-            character_spacing: 0.,
-            word_spacing: 0.,
-            extra_line_height: 0.,
-            align: TextAlign::Left,
-        }
-        .element(width, draw)
+impl<'a, F: Fn(&str) -> f64> Iterator for BreakTextIntoLines<'a, F> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.line_generator.next(self.max_width, false) //.map(|t| t.trim_end())
     }
 }
 
-pub struct TextColor<'a, D: Deref<Target = [u8]>>(
-    pub &'a str,
-    pub &'a crate::widget::Font<D>,
-    pub f64,
-    pub u32,
-);
-
-impl<'a, D: Deref<Target = [u8]>> Element for TextColor<'a, D> {
-    fn element(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
-        TextFull {
-            text: self.0,
-            font: self.1,
-            size: self.2,
-            color: self.3,
-            underline: false,
-            character_spacing: 0.,
-            word_spacing: 0.,
-            extra_line_height: 0.,
-            align: TextAlign::Left,
-        }
-        .element(width, draw)
+pub fn break_text_into_lines<'a, F: Fn(&str) -> f64>(
+    text: &'a str,
+    max_width: f64,
+    text_width: F,
+) -> BreakTextIntoLines<'a, F> {
+    BreakTextIntoLines {
+        line_generator: LineGenerator::new(text, text_width),
+        max_width,
     }
 }
 
-pub struct TextVertical<'a, D: Deref<Target = [u8]>> {
-    pub text: &'a str,
-    pub font: &'a crate::widget::Font<D>,
-    pub size: f64,
-    pub color: [f64; 3],
-    pub underline: bool,
+#[derive(Clone)]
+pub struct LineGenerator<'a, F: Fn(&str) -> f64> {
+    text: Option<&'a str>,
+    text_width: F,
+    soft_hyphen_width: f64,
 }
 
-impl<'a, D: Deref<Target = [u8]>> Element for TextVertical<'a, D> {
-    fn element(&self, _width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
-        // some font related variables
-        let v_metrics = self.font.font.get_v_metrics();
-        let size = self.size as f64;
-        let units_per_em = self.font.font.units_per_em() as f64;
-        let ascent = pt_to_mm(v_metrics.ascent as f64 * size / units_per_em);
-        let descent = pt_to_mm(v_metrics.descent as f64 * size / units_per_em);
-        let line_gap = pt_to_mm(v_metrics.line_gap as f64 * size / units_per_em);
-        let line_height = ascent - descent + line_gap;
+impl<'a, F: Fn(&str) -> f64> LineGenerator<'a, F> {
+    pub fn new(text: &'a str, text_width: F) -> Self {
+        let soft_hyphen_width = text_width("\u{00ad}");
 
-        fn render_lines<'a, L: Iterator<Item = &'a str>, D: Deref<Target = [u8]>>(
-            lines: L,
-            size: f64,
-            font: &'a crate::widget::Font<D>,
-            color: [f64; 3],
-            draw: Option<DrawContext>,
-            ascent: f64,
-            line_height: f64,
-            underline: bool,
-            max_width: &mut f64,
-        ) -> f64 {
-            let line_count = if let Some(context) = draw {
-                let x = context.draw_pos.pos[0];
-                let mut y = context.draw_pos.pos[1];
+        LineGenerator {
+            text: Some(text),
+            text_width,
+            soft_hyphen_width,
+        }
+    }
 
-                let mut height_available = context.draw_pos.height_available;
+    pub fn done(&self) -> bool {
+        self.text.is_none()
+    }
 
-                let pdf_font = &font.font_ref;
+    pub fn next(&mut self, max_width: f64, incomplete: bool) -> Option<&'a str> {
+        if let Some(slice) = self.text {
+            let mut current_width = 0.0;
+            let mut last_break = 0;
+            let mut end_break = 0;
+            let mut not_start = incomplete;
 
-                let mut line_count = 0;
+            let mut in_whitespace: Option<usize> = None;
 
-                for line in lines {
-                    *max_width =
-                        max_width.max(pt_to_mm(text_width(line, size, &font.font, 0., 0.)));
-
-                    // if height_available < line_height {
-                    //     if let Some(ref mut next_draw_pos) = context.next_draw_pos {
-                    //         let new_draw_pos = next_draw_pos(
-                    //             context.pdf,
-                    //             [*max_width, line_count as f64 * line_height],
-                    //         );
-                    //         x = new_draw_pos.pos[0];
-                    //         y = new_draw_pos.pos[1];
-                    //         height_available = new_draw_pos.height_available;
-                    //         context.draw_pos.layer = new_draw_pos.layer;
-                    //         line_count = 0;
-                    //     }
-                    // }
-
-                    context.draw_pos.layer.save_graphics_state();
-                    context
-                        .draw_pos
-                        .layer
-                        .set_fill_color(printpdf::Color::Rgb(Rgb::new(
-                            color[0], color[1], color[2], None,
-                        )));
-                    context.draw_pos.layer.begin_text_section();
-                    context.draw_pos.layer.set_font(pdf_font, size);
-                    context.draw_pos.layer.set_ctm(CurTransMat::Translate(
-                        Mm(x + ascent),
-                        Mm(y - pt_to_mm(text_width(line, size, &font.font, 0., 0.))),
-                    ));
-                    context.draw_pos.layer.set_ctm(CurTransMat::Rotate(90.));
-                    context.draw_pos.layer.write_text(line, pdf_font);
-                    context.draw_pos.layer.end_text_section();
-
-                    if underline {
-                        crate::utils::line(
-                            &context.draw_pos.layer,
-                            [x, y - 1.0],
-                            pt_to_mm(text_width(line, size, &font.font, 0., 0.)),
-                            pt_to_mm(2.0),
-                        );
+            for (i, c) in slice.char_indices() {
+                if c == '\n' {
+                    if in_whitespace == None {
+                        current_width += (self.text_width)(&slice[last_break..i]);
                     }
-                    context.draw_pos.layer.restore_graphics_state();
-                    y -= line_height;
-                    height_available -= line_height;
-                    line_count += 1;
-                }
 
-                line_count
+                    if current_width > max_width && not_start {
+                        self.text = Some(&slice[end_break..]);
+                        return Some(&slice[..last_break]);
+                    } else {
+                        self.text = Some(&slice[i + 1..]);
+                        return Some(&slice[..i]);
+                    }
+                } else if c.is_whitespace() {
+                    if in_whitespace == None {
+                        current_width += (self.text_width)(&slice[last_break..i]);
+                        in_whitespace = Some(i);
+                    }
+                } else if c == '\u{00ad}' && in_whitespace == None {
+                    let end = i + c.len_utf8();
+
+                    current_width += (self.text_width)(&slice[last_break..i]);
+
+                    // While we don't add the soft hyphen to `current_width` we
+                    // check here if the line would be too long with it such
+                    // that if the code doesn't return here, but returns later
+                    // we know that the line will produce will fit within the
+                    // max width.
+                    if not_start && current_width + self.soft_hyphen_width > max_width {
+                        self.text = Some(&slice[end_break..]);
+                        return Some(&slice[..last_break]);
+                    }
+
+                    last_break = end;
+                    end_break = end;
+
+                    in_whitespace = Some(end);
+                } else if (c == '-' || c == '\u{2010}') && in_whitespace == None {
+                    // \u{2010} is the Unicode hyphen
+
+                    let end = i + c.len_utf8();
+
+                    current_width += (self.text_width)(&slice[last_break..end]);
+
+                    if not_start && current_width > max_width {
+                        self.text = Some(&slice[end_break..]);
+                        return Some(&slice[..last_break]);
+                    }
+
+                    last_break = end;
+                    end_break = end;
+
+                    in_whitespace = Some(end);
+                } else {
+                    if let Some(start_whitespace) = in_whitespace {
+                        in_whitespace = None;
+
+                        if current_width > max_width {
+                            return Some(
+                                &slice[..if !not_start {
+                                    self.text = Some(&slice[i..]);
+                                    start_whitespace
+                                } else {
+                                    self.text = Some(&slice[end_break..]);
+                                    last_break
+                                }],
+                            );
+                        }
+
+                        not_start = true;
+                        last_break = start_whitespace;
+                        end_break = i;
+                    }
+                }
+            }
+
+            if in_whitespace == None {
+                current_width += (self.text_width)(&slice[last_break..]);
+            }
+
+            if current_width > max_width && not_start {
+                self.text = Some(&slice[end_break..]);
+                Some(&slice[..last_break])
             } else {
-                let mut line_count = 0;
-                for line in lines {
-                    *max_width =
-                        max_width.max(pt_to_mm(text_width(line, size, &font.font, 0., 0.)));
-                    line_count += 1;
-                }
-                line_count
-                // if let Some(&mut ref mut max_width) = max_width {
-                // } else {
-                //     lines.count()
-                // }
-            };
-
-            // This can be used if you don't want the line_gap to be added after the last line
-            // [
-            //     width,
-            //     (line_count as f64 * (ascent - descent)) +
-            //         // the gap is to be repeated one time less than the line count unless theres no lines
-            //         (if line_count > 0 { line_count - 1 } else { line_count } as f64 * line_gap),
-            // ]
-
-            line_count as f64 * line_height
+                self.text = None;
+                Some(slice)
+            }
+        } else {
+            None
         }
+    }
+}
 
-        let mut width = 0.0;
-        let lines = self.text.split('\n');
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        let height = render_lines(
-            lines,
-            self.size,
-            self.font,
-            self.color,
-            draw,
-            ascent,
-            line_height,
-            self.underline,
-            &mut width,
+    #[test]
+    fn test_text_flow() {
+        let mut generator = LineGenerator::new(
+            "Amet consequatur facilis necessitatibus sed quia numquam reiciendis. \
+                Id impedit quo quaerat enim amet. ",
+            |s| s.len() as f64,
         );
 
-        [height, width]
+        assert_eq!(generator.next(16., false), Some("Amet consequatur"));
+        assert_eq!(generator.next(16., false), Some("facilis"));
+        assert_eq!(generator.next(16., false), Some("necessitatibus"));
+        assert_eq!(generator.next(16., false), Some("sed quia numquam"));
+        assert_eq!(generator.next(16., false), Some("reiciendis. Id"));
+        assert_eq!(generator.next(16., false), Some("impedit quo"));
+        assert_eq!(generator.next(16., false), Some("quaerat enim"));
+        assert_eq!(generator.next(16., false), Some("amet. "));
+        assert_eq!(generator.next(16., false), None);
     }
-}
 
-#[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TextAlign {
-    Left,
-    Center,
-    Right,
-}
-
-pub struct TextFull<'a, D: Deref<Target = [u8]>> {
-    pub text: &'a str,
-    pub font: &'a crate::widget::Font<D>,
-    pub size: f64,
-    // pub color: [f64; 3],
-    pub color: u32,
-    pub underline: bool,
-    pub character_spacing: f64,
-    pub word_spacing: f64,
-    pub extra_line_height: f64,
-    pub align: TextAlign,
-}
-
-impl<'a, D: Deref<Target = [u8]>> Element for TextFull<'a, D> {
-    fn element(&self, width: Option<f64>, draw: Option<DrawContext>) -> [f64; 2] {
-        // some font related variables
-        let v_metrics = self.font.font.get_v_metrics();
-        let size = self.size as f64;
-        let units_per_em = self.font.font.units_per_em() as f64;
-        let ascent = pt_to_mm(v_metrics.ascent as f64 * size / units_per_em);
-        let descent = pt_to_mm(v_metrics.descent as f64 * size / units_per_em);
-        let line_gap = pt_to_mm(v_metrics.line_gap as f64 * size / units_per_em);
-        let line_height = ascent - descent + line_gap + self.extra_line_height;
-
-        #[inline(always)]
-        fn render_lines<'a, L: Iterator<Item = &'a str>, D: Deref<Target = [u8]>>(
-            lines: L,
-            size: f64,
-            font: &'a crate::widget::Font<D>,
-            color: u32,
-            mut context: DrawContext,
-            ascent: f64,
-            line_height: f64,
-            underline: bool,
-            character_spacing: f64,
-            word_spacing: f64,
-            width: f64,
-            align: TextAlign,
-        ) -> [f64; 2] {
-            let mut max_width = width;
-
-            let mut x = context.draw_pos.pos[0];
-            let mut y = context.draw_pos.pos[1] - ascent;
-
-            let mut height_available = context.draw_pos.height_available;
-
-            let pdf_font = &font.font_ref;
-
-            let mut line_count = 0;
-            let mut draw_rect = 0;
-
-            for line in lines {
-                let line: &str = &remove_non_trailing_soft_hyphens(line);
-
-                let line_width = pt_to_mm(text_width(
-                    line,
-                    size,
-                    &font.font,
-                    character_spacing,
-                    word_spacing,
-                ));
-                max_width = max_width.max(line_width);
-
-                if height_available < line_height {
-                    if let Some(ref mut next_draw_pos) = context.next_draw_pos {
-                        let new_draw_pos = next_draw_pos(
-                            context.pdf,
-                            draw_rect,
-                            [max_width, line_count as f64 * line_height],
-                        );
-                        draw_rect += 1;
-                        x = new_draw_pos.pos[0];
-                        y = new_draw_pos.pos[1] - ascent;
-                        height_available = new_draw_pos.height_available;
-                        context.draw_pos.layer = new_draw_pos.layer;
-                        line_count = 0;
-                    }
-                }
-
-                context.draw_pos.layer.save_graphics_state();
-                context
-                    .draw_pos
-                    .layer
-                    .set_fill_color(u32_to_color_and_alpha(color).0);
-
-                if character_spacing != 0. {
-                    context
-                        .draw_pos
-                        .layer
-                        .set_character_spacing(character_spacing);
-                }
-
-                let x_offset = match align {
-                    TextAlign::Left => 0.,
-                    TextAlign::Center => (width - line_width) / 2.,
-                    TextAlign::Right => width - line_width,
-                };
-
-                let x = x + x_offset;
-
-                if word_spacing != 0. {
-                    // context.draw_pos.layer.set_word_spacing(word_spacing);
-                    context.draw_pos.layer.begin_text_section();
-                    context.draw_pos.layer.set_font(pdf_font, size);
-                    context.draw_pos.layer.set_text_cursor(Mm(x), Mm(y));
-
-                    let word_spacing = word_spacing * 1000. / size;
-
-                    context.draw_pos.layer.write_gapped_text(
-                        line.split_inclusive(" ").flat_map(|s| {
-                            std::iter::once(GappedTextElement::Text(s)).chain(if s.ends_with(' ') {
-                                Some(GappedTextElement::Gap(word_spacing))
-                            } else {
-                                None
-                            })
-                        }),
-                        pdf_font,
-                    );
-                    context.draw_pos.layer.end_text_section();
-                    // context.draadd_op(Operation::new(
-                    //     "TJ",
-                    //     vec![Object::Array(w_pos.layer.use_
-                    //     )],
-                    // ));
-                } else {
-                    context
-                        .draw_pos
-                        .layer
-                        .use_text(line, size, Mm(x), Mm(y), pdf_font);
-                }
-
-                if underline {
-                    crate::utils::line(
-                        &context.draw_pos.layer,
-                        [x, y - 1.0],
-                        line_width,
-                        pt_to_mm(2.0),
-                    );
-                }
-                context.draw_pos.layer.restore_graphics_state();
-                y -= line_height;
-                height_available -= line_height;
-                line_count += 1;
-            }
-
-            [max_width, line_count as f64 * line_height]
-        }
-
-        fn layout_lines<'a, L: Iterator<Item = &'a str>, D: Deref<Target = [u8]>>(
-            lines: L,
-            size: f64,
-            font: &'a crate::widget::Font<D>,
-            line_height: f64,
-            character_spacing: f64,
-            word_spacing: f64,
-        ) -> [f64; 2] {
-            let mut max_width: f64 = 0.;
-            let mut line_count = 0;
-            for line in lines {
-                max_width = max_width.max(pt_to_mm(text_width(
-                    line,
-                    size,
-                    &font.font,
-                    character_spacing,
-                    word_spacing,
-                )));
-                line_count += 1;
-            }
-            [max_width, line_count as f64 * line_height]
-        }
-
-        if let Some(width) = width {
-            let lines = break_text_into_lines(self.text, mm_to_pt(width), |text| {
-                text_width(
-                    text,
-                    self.size,
-                    &self.font.font,
-                    self.character_spacing,
-                    self.word_spacing,
-                )
+    #[test]
+    fn test_trailing_whitespace() {
+        let mut generator =
+            LineGenerator::new("Id impedit quo quaerat enim amet.                  ", |s| {
+                s.len() as f64
             });
 
-            let height = if let Some(context) = draw {
-                render_lines(
-                    lines,
-                    self.size,
-                    self.font,
-                    self.color,
-                    context,
-                    ascent,
-                    line_height,
-                    self.underline,
-                    self.character_spacing,
-                    self.word_spacing,
-                    width,
-                    self.align,
-                )[1]
-            } else {
-                layout_lines(
-                    lines,
-                    self.size,
-                    self.font,
-                    line_height,
-                    self.character_spacing,
-                    self.word_spacing,
-                )[1]
-            };
+        assert_eq!(generator.next(16., false), Some("Id impedit quo"));
+        assert_eq!(generator.next(16., false), Some("quaerat enim"));
 
-            [width, height]
-        } else {
-            let lines = self.text.split('\n');
+        // it's unclear whether any other behavior would be better here
+        assert_eq!(generator.next(16., false), Some("amet.                  "));
+        assert_eq!(generator.next(16., false), None);
+    }
 
-            if let Some(draw) = draw {
-                // For left alignment we don't need to pre-layout because the
-                // x offset is always zero.
-                let width = if self.align == TextAlign::Left {
-                    0.
-                } else {
-                    layout_lines(
-                        lines.clone(),
-                        self.size,
-                        self.font,
-                        line_height,
-                        self.character_spacing,
-                        self.word_spacing,
-                    )[0]
-                };
+    #[test]
+    fn test_pre_newline_whitespace() {
+        let mut generator =
+            LineGenerator::new("Id impedit quo \nquaerat enimmmmm    \namet.", |s| {
+                s.len() as f64
+            });
 
-                render_lines(
-                    lines,
-                    self.size,
-                    self.font,
-                    self.color,
-                    draw,
-                    ascent,
-                    line_height,
-                    self.underline,
-                    self.character_spacing,
-                    self.word_spacing,
-                    width,
-                    self.align,
-                )
-            } else {
-                layout_lines(
-                    lines,
-                    self.size,
-                    self.font,
-                    line_height,
-                    self.character_spacing,
-                    self.word_spacing,
-                )
-            }
-        }
+        assert_eq!(generator.next(16., false), Some("Id impedit quo "));
+        assert_eq!(generator.next(16., false), Some("quaerat enimmmmm    "));
+        assert_eq!(generator.next(16., false), Some("amet."));
+        assert_eq!(generator.next(16., false), None);
+    }
+
+    #[test]
+    fn test_newline() {
+        let mut generator = LineGenerator::new("\n", |s| s.len() as f64);
+
+        assert_eq!(generator.next(16., false), Some(""));
+        assert_eq!(generator.next(16., false), Some(""));
+        assert_eq!(generator.next(16., false), None);
+    }
+
+    #[test]
+    fn test_empty_str() {
+        let mut generator = LineGenerator::new("", |s| s.len() as f64);
+
+        assert_eq!(generator.next(16., false), Some(""));
+        assert_eq!(generator.next(16., false), None);
+    }
+
+    #[test]
+    fn test_space() {
+        let mut generator = LineGenerator::new("  ", |s| s.len() as f64);
+
+        assert_eq!(generator.next(16., false), Some("  "));
+        assert_eq!(generator.next(16., false), None);
+    }
+
+    #[test]
+    fn test_word_longer_than_line() {
+        let mut generator = LineGenerator::new("Averylongword", |s| s.len() as f64);
+
+        assert_eq!(generator.next(8., false), Some("Averylongword"));
+        assert_eq!(generator.next(8., false), None);
+
+        let mut generator = LineGenerator::new("Averylongword test.", |s| s.len() as f64);
+
+        assert_eq!(generator.next(8., false), Some("Averylongword"));
+        assert_eq!(generator.next(8., false), Some("test."));
+        assert_eq!(generator.next(8., false), None);
+
+        let mut generator = LineGenerator::new("A verylongword test.", |s| s.len() as f64);
+
+        assert_eq!(generator.next(8., false), Some("A"));
+        assert_eq!(generator.next(8., false), Some("verylongword"));
+        assert_eq!(generator.next(8., false), Some("test."));
+        assert_eq!(generator.next(8., false), None);
+    }
+
+    fn len_without_soft_hyphens(s: &str) -> f64 {
+        use itertools::{Itertools, Position};
+
+        s.chars()
+            .with_position()
+            .filter(|&(p, c)| c != '\u{00ad}' || matches!(p, Position::Last | Position::Only))
+            .count() as f64
+    }
+
+    #[test]
+    fn test_soft_hyphens() {
+        let mut generator = LineGenerator::new(
+            "A\u{00ad}very\u{00ad}long\u{00ad}word",
+            len_without_soft_hyphens,
+        );
+
+        assert_eq!(generator.next(7., false), Some("A\u{00ad}very\u{00ad}"));
+        assert_eq!(generator.next(7., false), Some("long\u{00ad}"));
+        assert_eq!(generator.next(7., false), Some("word"));
+        assert_eq!(generator.next(7., false), None);
+
+        let mut generator = LineGenerator::new(
+            "A\u{00ad}very \u{00ad}long\u{00ad}word",
+            len_without_soft_hyphens,
+        );
+
+        assert_eq!(generator.next(7., false), Some("A\u{00ad}very"));
+        assert_eq!(generator.next(7., false), Some("\u{00ad}long\u{00ad}"));
+        assert_eq!(generator.next(7., false), Some("word"));
+        assert_eq!(generator.next(7., false), None);
+
+        let mut generator = LineGenerator::new(
+            "A\u{00ad}very\u{00ad}\u{00ad}long\u{00ad}word",
+            len_without_soft_hyphens,
+        );
+
+        assert_eq!(generator.next(7., false), Some("A\u{00ad}very\u{00ad}"));
+        assert_eq!(generator.next(7., false), Some("\u{00ad}long\u{00ad}"));
+        assert_eq!(generator.next(7., false), Some("word"));
+        assert_eq!(generator.next(7., false), None);
+    }
+
+    #[test]
+    fn test_soft_hyphen_length() {
+        let mut generator =
+            LineGenerator::new("A\u{00ad}very long\u{00ad}word", len_without_soft_hyphens);
+
+        assert_eq!(generator.next(5., false), Some("A\u{00ad}very"));
+        assert_eq!(generator.next(5., false), Some("long\u{00ad}"));
+        assert_eq!(generator.next(5., false), Some("word"));
+        assert_eq!(generator.next(5., false), None);
+
+        let mut generator = LineGenerator::new(
+            "A\u{00ad}very\u{00ad}long\u{00ad}word",
+            len_without_soft_hyphens,
+        );
+
+        assert_eq!(generator.next(5., false), Some("A\u{00ad}"));
+        assert_eq!(generator.next(5., false), Some("very\u{00ad}"));
+        assert_eq!(generator.next(5., false), Some("long\u{00ad}"));
+        assert_eq!(generator.next(5., false), Some("word"));
+        assert_eq!(generator.next(5., false), None);
+    }
+
+    #[test]
+    fn test_hard_hyphens() {
+        let mut generator = LineGenerator::new("A-very-long-word", len_without_soft_hyphens);
+
+        assert_eq!(generator.next(7., false), Some("A-very-"));
+        assert_eq!(generator.next(7., false), Some("long-"));
+        assert_eq!(generator.next(7., false), Some("word"));
+        assert_eq!(generator.next(7., false), None);
+
+        let mut generator = LineGenerator::new("A-very -long-word", len_without_soft_hyphens);
+
+        assert_eq!(generator.next(7., false), Some("A-very"));
+        assert_eq!(generator.next(7., false), Some("-long-"));
+        assert_eq!(generator.next(7., false), Some("word"));
+        assert_eq!(generator.next(7., false), None);
+
+        let mut generator = LineGenerator::new("A‐very--long-word", len_without_soft_hyphens);
+
+        assert_eq!(generator.next(7., false), Some("A‐very-"));
+        assert_eq!(generator.next(7., false), Some("-long-"));
+        assert_eq!(generator.next(7., false), Some("word"));
+        assert_eq!(generator.next(7., false), None);
+    }
+
+    #[test]
+    fn test_hard_hyphen_length() {
+        let mut generator = LineGenerator::new("A\u{2010}very long-word", len_without_soft_hyphens);
+
+        assert_eq!(generator.next(5., false), Some("A‐"));
+        assert_eq!(generator.next(5., false), Some("very"));
+        assert_eq!(generator.next(5., false), Some("long-"));
+        assert_eq!(generator.next(5., false), Some("word"));
+        assert_eq!(generator.next(5., false), None);
+
+        let mut generator = LineGenerator::new("A-very-long-word", len_without_soft_hyphens);
+
+        assert_eq!(generator.next(5., false), Some("A-"));
+        assert_eq!(generator.next(5., false), Some("very-"));
+        assert_eq!(generator.next(5., false), Some("long-"));
+        assert_eq!(generator.next(5., false), Some("word"));
+        assert_eq!(generator.next(5., false), None);
     }
 }

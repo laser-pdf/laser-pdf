@@ -4,107 +4,115 @@ use crate::*;
 /// interface to allow us to ask a widget for its minimum content height. This would of course break
 /// the way widgets can be created as closures and might mean more manual work when creating a
 /// wrapper widget. So for now this approach wins.
-pub fn titled<T: Element, C: Element>(
+pub struct Titled<T: Element, C: Element> {
     title: T,
     content: C,
     gap: f64,
     vanish_if_empty: bool,
-) -> impl Element {
-    move |width: Option<f64>, draw: Option<DrawContext>| {
-        let title_size = title.element(width, None);
+}
+
+impl<T: Element, C: Element> Element for Titled<T> {
+    fn measure(&self, ctx: MeasureCtx) -> Option<ElementSize> {
+        let title_size = title.draw(width, None);
         let title_height = title_size[1] + gap;
 
-        if let Some(DrawContext {
-            pdf,
-            draw_pos,
-            next_draw_pos,
-            full_height,
-        }) = draw
-        {
-            let mut page = 0;
-            let mut title_on_page = 0;
-            let mut title_drawn = false;
+        let content_size = content.draw(width, None);
 
-            let content_size = if let Some(next_draw_pos) = next_draw_pos {
-                // let content_draw_pos = if draw_pos.height_available >= title_height {
-                //     DrawPos {
-                //         pos: [draw_pos.pos[0], draw_pos.pos[1] - gap - title_size[1]],
-                //         height_available: draw_pos.height_available - gap - title_size[1],
-                //         layer: draw_pos.layer.clone(),
-                //     }
-                // } else if vanish_if_empty {
-                //     DrawPos {
-                //         height_available: 0.,
-                //         ..draw_pos.clone()
-                //     }
-                // } else {
-                //     draw_pos = next_draw_pos(pdf, [0.; 2]);
+        Some(ElementSize {
+            width: content_size[0].max(title_size[0]),
+            height: Some(content_size[1] + title_height),
+        })
+    }
 
-                //     DrawPos {
-                //         pos: [draw_pos.pos[0], draw_pos.pos[1] - gap - title_size[1]],
-                //         height_available: draw_pos.height_available - gap - title_size[1],
-                //         layer: draw_pos.layer.clone(),
-                //     }
-                // };
+    fn draw(&self, ctx: DrawCtx) -> Option<ElementSize> {
+        let title_size = title.draw(width, None);
+        let title_height = title_size[1] + gap;
 
-                let content_draw_pos;
-                let first_draw_rect;
+        let mut page = 0;
+        let mut title_on_page = 0;
+        let mut title_drawn = false;
 
-                if vanish_if_empty || draw_pos.height_available >= title_height {
-                    first_draw_rect = 0;
-                    content_draw_pos = DrawPos {
-                        pos: [draw_pos.pos[0], draw_pos.pos[1] - gap - title_size[1]],
-                        preferred_height: None,
-                        height_available: draw_pos.height_available - gap - title_size[1],
-                        layer: draw_pos.layer.clone(),
-                    };
-                } else {
-                    let draw_pos = next_draw_pos(pdf, 0, [0.; 2]);
+        let content_size = if let Some(next_location) = next_location {
+            // let content_location = if location.height_available >= title_height {
+            //     DrawPos {
+            //         pos: [location.pos[0], location.pos[1] - gap - title_size[1]],
+            //         height_available: location.height_available - gap - title_size[1],
+            //         layer: location.layer.clone(),
+            //     }
+            // } else if vanish_if_empty {
+            //     DrawPos {
+            //         height_available: 0.,
+            //         ..location.clone()
+            //     }
+            // } else {
+            //     location = next_location(pdf, [0.; 2]);
 
-                    title.element(
-                        width,
-                        Some(DrawContext {
-                            pdf,
-                            draw_pos: draw_pos.clone(),
-                            next_draw_pos: None,
-                            full_height: 0.,
-                        }),
-                    );
+            //     DrawPos {
+            //         pos: [location.pos[0], location.pos[1] - gap - title_size[1]],
+            //         height_available: location.height_available - gap - title_size[1],
+            //         layer: location.layer.clone(),
+            //     }
+            // };
 
-                    title_drawn = true;
+            let content_location;
+            let first_draw_rect;
 
-                    // draw_pos.pos[1] -= title_height;
-                    // draw_pos.height_available -= title_height;
-
-                    first_draw_rect = 1;
-                    content_draw_pos = DrawPos {
-                        pos: [draw_pos.pos[0], draw_pos.pos[1] - gap - title_size[1]],
-                        preferred_height: None,
-                        height_available: draw_pos.height_available - gap - title_size[1],
-                        layer: draw_pos.layer,
-                    };
+            if vanish_if_empty || location.height_available >= title_height {
+                first_draw_rect = 0;
+                content_location = Location {
+                    pos: [location.pos[0], location.pos[1] - gap - title_size[1]],
+                    preferred_height: None,
+                    height_available: location.height_available - gap - title_size[1],
+                    layer: location.layer.clone(),
                 };
+            } else {
+                let location = next_location(pdf, 0, [0.; 2]);
 
-                content.element(
+                title.draw(
                     width,
-                    Some(DrawContext {
+                    Some(DrawCtx {
                         pdf,
-                        draw_pos: content_draw_pos,
-                        // draw_pos: DrawPos {
-                        //     pos: [draw_pos.pos[0], draw_pos.pos[1] - gap - title_size[1]],
-                        //     height_available: if draw_pos.height_available <= title_height {
-                        //         // next_draw_pos could be called before starting the render but when
-                        //         // combined with vanish_if_empty this could mean an unneeded empty
-                        //         // page at the end of the document. So what we do here is let the
-                        //         // content trigger a page break if there's any content at all.
-                        //         0.
-                        //     } else {
-                        //         draw_pos.height_available - gap - title_size[1]
-                        //     },
-                        //     layer: draw_pos.layer.clone(),
-                        //     ..draw_pos
-                        // },
-                        next_draw_pos: Some(&mut |pdf, draw_rect_id, size| {
+                        location: location.clone(),
+                        next_location: None,
+                        full_height: 0.,
+                    }),
+                );
+
+                title_drawn = true;
+
+                // location.pos[1] -= title_height;
+                // location.height_available -= title_height;
+
+                first_draw_rect = 1;
+                content_location = Location {
+                    pos: [location.pos[0], location.pos[1] - gap - title_size[1]],
+                    preferred_height: None,
+                    height_available: location.height_available - gap - title_size[1],
+                    layer: location.layer,
+                };
+            };
+
+            content.draw(
+                width,
+                Some(DrawCtx {
+                    pdf,
+                    location: content_location,
+                    // location: DrawPos {
+                    //     pos: [location.pos[0], location.pos[1] - gap - title_size[1]],
+                    //     height_available: if location.height_available <= title_height {
+                    //         // next_location could be called before starting the render but when
+                    //         // combined with vanish_if_empty this could mean an unneeded empty
+                    //         // page at the end of the document. So what we do here is let the
+                    //         // content trigger a page break if there's any content at all.
+                    //         0.
+                    //     } else {
+                    //         location.height_available - gap - title_size[1]
+                    //     },
+                    //     layer: location.layer.clone(),
+                    //     ..location
+                    // },
+                    breakable: Some(BreakableDraw {
+                        get_location: &mut |pdf, draw_rect_id| {
                             let draw_rect_id = draw_rect_id + first_draw_rect;
                             page = page.max(draw_rect_id + 1);
                             if title_drawn {
@@ -114,23 +122,23 @@ pub fn titled<T: Element, C: Element>(
                                     size
                                 };
                                 // title_on_current_page = false;
-                                let mut new_draw_pos = next_draw_pos(pdf, draw_rect_id, size);
+                                let mut new_location = next_location(pdf, draw_rect_id, size);
 
                                 if title_on_page == draw_rect_id + 1 {
-                                    new_draw_pos.pos[1] -= title_height;
+                                    new_location.pos[1] -= title_height;
                                 }
 
-                                new_draw_pos
+                                new_location
                             } else if size[1] > 0. {
                                 // Title is only drawn on the upper page when some of the content is
                                 // there too.
 
-                                title.element(
+                                title.draw(
                                     width,
-                                    Some(DrawContext {
+                                    Some(DrawCtx {
                                         pdf,
-                                        draw_pos: draw_pos.clone(),
-                                        next_draw_pos: None,
+                                        location: location.clone(),
+                                        next_location: None,
                                         full_height: 0.,
                                     }),
                                 );
@@ -138,20 +146,20 @@ pub fn titled<T: Element, C: Element>(
                                 title_drawn = true;
                                 title_on_page = draw_rect_id;
 
-                                next_draw_pos(
+                                next_location(
                                     pdf,
                                     draw_rect_id,
                                     [size[0].max(title_size[0]), size[1] + title_height],
                                 )
                             } else {
-                                let mut draw_pos = next_draw_pos(pdf, draw_rect_id, [0.; 2]);
+                                let mut location = next_location(pdf, draw_rect_id, [0.; 2]);
 
-                                title.element(
+                                title.draw(
                                     width,
-                                    Some(DrawContext {
+                                    Some(DrawCtx {
                                         pdf,
-                                        draw_pos: draw_pos.clone(),
-                                        next_draw_pos: None,
+                                        location: location.clone(),
+                                        next_location: None,
                                         full_height: 0.,
                                     }),
                                 );
@@ -159,63 +167,57 @@ pub fn titled<T: Element, C: Element>(
                                 title_drawn = true;
                                 title_on_page = draw_rect_id + 1;
 
-                                draw_pos.pos[1] -= title_height;
-                                draw_pos.height_available -= title_height;
+                                location.pos[1] -= title_height;
+                                location.height_available -= title_height;
 
-                                draw_pos
+                                location
                             }
-                        }),
-                        full_height,
-                    }),
-                )
-            } else {
-                content.element(
-                    width,
-                    Some(DrawContext {
-                        pdf,
-                        draw_pos: DrawPos {
-                            pos: [draw_pos.pos[0], draw_pos.pos[1] - gap - title_size[1]],
-                            height_available: draw_pos.height_available - gap - title_size[1],
-                            layer: draw_pos.layer.clone(),
-                            ..draw_pos
                         },
-                        next_draw_pos: None,
-                        full_height,
+                        ..break_ctx
                     }),
-                )
-            };
-
-            if !title_drawn {
-                if vanish_if_empty && content_size[1] <= 0. {
-                    return [0.; 2];
-                } else {
-                    title.element(
-                        width,
-                        Some(DrawContext {
-                            pdf,
-                            draw_pos,
-                            next_draw_pos: None,
-                            full_height: 0.,
-                        }),
-                    );
-                }
-            }
-
-            if title_on_page == page {
-                [
-                    content_size[0].max(title_size[0]),
-                    content_size[1] + title_height,
-                ]
-            } else {
-                content_size
-            }
+                    full_height,
+                }),
+            )
         } else {
-            let content_size = content.element(width, None);
+            content.draw(
+                width,
+                Some(DrawCtx {
+                    pdf,
+                    location: Location {
+                        pos: [location.pos[0], location.pos[1] - gap - title_size[1]],
+                        height_available: location.height_available - gap - title_size[1],
+                        layer: location.layer.clone(),
+                        ..location
+                    },
+                    next_location: None,
+                    full_height,
+                }),
+            )
+        };
 
-            [
-                content_size[0].max(title_size[0]),
-                content_size[1] + title_height,
-            ]
+        if !title_drawn {
+            if vanish_if_empty && content_size[1] <= 0. {
+                return [0.; 2];
+            } else {
+                title.draw(
+                    width,
+                    Some(DrawCtx {
+                        pdf,
+                        location,
+                        next_location: None,
+                        full_height: 0.,
+                    }),
+                );
+            }
+        }
+
+        if title_on_page == page {
+            Some(ElementSize {
+                width: content_size[0].max(title_size[0]),
+                height: Some(content_size[1] + title_height),
+            })
+        } else {
+            content_size
         }
     }
 }
