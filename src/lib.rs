@@ -12,7 +12,7 @@ pub(crate) mod flex;
 
 use elements::padding::Padding;
 use fonts::Font;
-use printpdf::{Mm, PdfDocumentReference, PdfLayerReference};
+use printpdf::{CurTransMat, Mm, PdfDocumentReference, PdfLayerReference};
 use serde::{Deserialize, Serialize};
 
 pub const EMPTY_FIELD: &str = "—";
@@ -124,19 +124,23 @@ pub struct Pdf {
 pub struct Location {
     pub layer: PdfLayerReference,
     pub pos: (f64, f64),
+    pub scale_factor: f64,
 }
 
 impl Location {
-    pub fn next_layer(&self, pdf: &mut Pdf) -> PdfLayerReference {
+    pub fn next_layer(&self, pdf: &mut Pdf) -> Location {
         let page = pdf.document.get_page(self.layer.page);
 
-        let idx = self.layer.layer.0 + 1;
+        // The issue is some of the layers are scaled. That's why we currently can't reuse them.
+        // TODO: Find a better solution that doesn't require adding so many layers, but also doesn't
+        // lead to unbalances saves/restores (which is not allowed by the spec).
+        let layer = page.add_layer(format!("Layer {}", page.layers_len()));
 
-        if idx == page.layers_len() {
-            page.add_layer(format!("Layer {}", idx))
-        } else {
-            page.get_layer(printpdf::indices::PdfLayerIndex(idx))
+        if self.scale_factor != 1. {
+            layer.set_ctm(CurTransMat::Scale(self.scale_factor, self.scale_factor));
         }
+
+        Location { layer, ..*self }
     }
 }
 
@@ -460,6 +464,7 @@ pub fn build_pdf<F: 'static>(
         Location {
             layer,
             pos: (0., page_size.1),
+            scale_factor: 1.,
         }
     };
 
@@ -478,6 +483,7 @@ pub fn build_pdf<F: 'static>(
         location: Location {
             layer,
             pos: (0., page_size.1),
+            scale_factor: 1.,
         },
 
         first_height: page_size.1,

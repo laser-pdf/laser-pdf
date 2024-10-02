@@ -1,0 +1,6 @@
+---
+source: src/elements/shrink_to_fit.rs
+expression: write
+extension: pdf
+snapshot_type: binary
+---

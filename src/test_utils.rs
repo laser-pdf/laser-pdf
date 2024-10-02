@@ -292,6 +292,7 @@ fn draw_element<E: Element>(
         Location {
             layer,
             pos: breakable.as_ref().unwrap().pos,
+            scale_factor: 1.,
         }
     };
 
@@ -303,6 +304,7 @@ fn draw_element<E: Element>(
         location: Location {
             layer,
             pos: first_pos,
+            scale_factor: 1.,
         },
 
         first_height,

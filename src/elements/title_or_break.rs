@@ -131,6 +131,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
                         location.pos.0,
                         location.pos.1 - if show_title { y_offset } else { 0. },
                     ),
+                    ..location
                 },
                 width: ctx.width,
                 first_height,
@@ -161,6 +162,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
                 location: Location {
                     layer: location.layer.clone(),
                     pos: (location.pos.0, location.pos.1 - y_offset),
+                    ..location
                 },
                 width: ctx.width,
                 first_height: ctx.first_height - y_offset,

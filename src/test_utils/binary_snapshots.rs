@@ -237,6 +237,7 @@ impl<'a> Callback<'a> {
                     Location {
                         layer,
                         pos: params.pos,
+                        scale_factor: 1.,
                     }
                 };
 
@@ -258,6 +259,7 @@ impl<'a> Callback<'a> {
                     location: Location {
                         layer,
                         pos: first_pos,
+                        scale_factor: 1.,
                     },
 
                     first_height: params.first_height,

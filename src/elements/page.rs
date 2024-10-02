@@ -89,16 +89,16 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for P
 
         // We put the primary content one layer up so the decoration elements can be used for things
         // like watermarks.
-        let primary_layer = location.next_layer(ctx.pdf);
+        let primary_location = location.next_layer(ctx.pdf);
 
         self.primary.draw(DrawCtx {
             pdf: ctx.pdf,
             location: Location {
-                layer: primary_layer,
                 pos: (
                     location.pos.0 + self.border_left,
                     location.pos.1 - self.border_top,
                 ),
+                ..primary_location
             },
             width: primary_width,
             first_height: primary_height,
@@ -114,7 +114,7 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for P
                             Some(breakable.full_height),
                         );
 
-                        location.layer = location.next_layer(pdf);
+                        location = location.next_layer(pdf);
                         location.pos.0 += self.border_left;
                         location.pos.1 -= self.border_top;
 
@@ -217,6 +217,7 @@ impl<'a> DecorationElements<'a> {
                         Y::Bottom(bottom) => self.location.pos.1 - self.height + bottom,
                     },
                 ),
+                ..self.location
             },
             width: WidthConstraint {
                 max: width.unwrap_or_else(|| match pos.0 {

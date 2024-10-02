@@ -115,6 +115,7 @@ impl<'a, E: Element> Element for Rotate<'a, E> {
                 location: Location {
                     layer: layer.clone(),
                     pos: (0., 0.),
+                    ..location
                 },
                 width: element_width_constraint,
                 first_height: ctx.width.max,

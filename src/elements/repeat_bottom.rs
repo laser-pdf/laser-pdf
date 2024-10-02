@@ -265,6 +265,7 @@ impl<'a, C: Element, B: Element> Element for RepeatBottom<'a, C, B> {
                 location: Location {
                     layer: current_location.layer.clone(),
                     pos: (current_location.pos.0, current_location.pos.1 - y_offset),
+                    ..current_location
                 },
                 width: ctx.width,
                 first_height: bottom_height,

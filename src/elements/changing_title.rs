@@ -207,6 +207,7 @@ impl<'a, F: Element, R: Element, C: Element> Element for ChangingTitle<'a, F, R,
                         location.pos.0,
                         location.pos.1 - common.total_first_title_height,
                     ),
+                    ..location
                 },
                 width: ctx.width,
                 first_height: common.first_height,
@@ -300,6 +301,7 @@ impl<'a, F: Element, R: Element, C: Element> Element for ChangingTitle<'a, F, R,
                                 location.pos.0,
                                 location.pos.1 - common_breakable.total_remaining_title_height,
                             ),
+                            ..location
                         }
                     },
                 }),
@@ -313,6 +315,7 @@ impl<'a, F: Element, R: Element, C: Element> Element for ChangingTitle<'a, F, R,
                         ctx.location.pos.0,
                         ctx.location.pos.1 - common.total_first_title_height,
                     ),
+                    ..ctx.location
                 },
                 width: ctx.width,
                 first_height: common.first_height,

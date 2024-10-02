@@ -202,6 +202,7 @@ impl<'a, 'b, 'c> BreakListContent<'a, 'b, 'c> {
                     location: Location {
                         pos: (location.pos.0 + x_offset, location.pos.1 - y_offset),
                         layer: location.layer.clone(),
+                        ..*location
                     },
 
                     // should we only give it the remaining width here?

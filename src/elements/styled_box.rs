@@ -43,7 +43,7 @@ impl Common {
     fn location(&self, pdf: &mut Pdf, location: &Location) -> Location {
         Location {
             pos: (location.pos.0 + self.left, location.pos.1 - self.top),
-            layer: location.next_layer(pdf),
+            ..location.next_layer(pdf)
         }
     }
 

@@ -35,7 +35,9 @@ impl<'a, E: Element> ShrinkToFit<'a, E> {
         } else {
             pre_break = full_height.is_some();
 
-            full_height.unwrap_or(first_height)
+            // We prefer overflowing if min_height is not available. If available_height were to
+            // become negative it would lead to the element being flipped.
+            full_height.unwrap_or(first_height).max(self.min_height)
         };
 
         let size = self.element.measure(MeasureCtx {
@@ -136,7 +138,10 @@ impl<'a, E: Element> Element for ShrinkToFit<'a, E> {
 
         self.element.draw(DrawCtx {
             pdf: ctx.pdf,
-            location: location.clone(),
+            location: Location {
+                scale_factor: location.scale_factor * layout.scale_factor,
+                ..location.clone()
+            },
             width: ctx.width,
             first_height: layout.height,
             preferred_height: None,
@@ -151,7 +156,7 @@ impl<'a, E: Element> Element for ShrinkToFit<'a, E> {
 
 #[cfg(test)]
 mod tests {
-    use elements::align_location_bottom::AlignLocationBottom;
+    use elements::{align_location_bottom::AlignLocationBottom, styled_box::StyledBox};
     use insta::assert_binary_snapshot;
 
     use super::*;
@@ -166,6 +171,39 @@ mod tests {
                 TestElementParams {
                     first_height: 10.,
                     ..TestElementParams::breakable()
+                },
+                |callback| {
+                    let font = BuiltinFont::courier(callback.document());
+                    let text = Text::basic("TEST", &font, 100.);
+                    let text = &text
+                        .debug(1)
+                        .show_max_width()
+                        .show_last_location_max_height();
+
+                    let shrink_to_fit = ShrinkToFit {
+                        element: text,
+                        min_height: 9.,
+                    };
+                    let shrink_to_fit = &shrink_to_fit
+                        .debug(0)
+                        .show_max_width()
+                        .show_last_location_max_height();
+
+                    callback.call(shrink_to_fit);
+                },
+                file,
+            );
+        };
+        assert_binary_snapshot!("pdf", write);
+    }
+
+    #[test]
+    fn test_unbreakable_negative_first_height() {
+        let mut write = |file: &mut std::fs::File| {
+            test_element_file(
+                TestElementParams {
+                    first_height: -10.,
+                    ..TestElementParams::unbreakable()
                 },
                 |callback| {
                     let font = BuiltinFont::courier(callback.document());
@@ -249,6 +287,109 @@ mod tests {
                         min_height: 10.,
                     };
                     let shrink_to_fit = &shrink_to_fit
+                        .debug(0)
+                        .show_max_width()
+                        .show_last_location_max_height();
+
+                    callback.call(shrink_to_fit);
+                },
+                file,
+            );
+        };
+        assert_binary_snapshot!("pdf", write);
+    }
+
+    #[test]
+    fn test_layers() {
+        let mut write = |file: &mut std::fs::File| {
+            test_element_file(
+                TestElementParams {
+                    first_height: 20.,
+                    ..TestElementParams::breakable()
+                },
+                |callback| {
+                    let font = BuiltinFont::courier(callback.document());
+                    let text = Text::basic("Test", &font, 100.);
+                    let text = &text
+                        .debug(1)
+                        .show_max_width()
+                        .show_last_location_max_height();
+
+                    let wrapper = StyledBox {
+                        outline: Some(LineStyle {
+                            thickness: 12.,
+                            color: 0x00_00_00_FF,
+                            dash_pattern: None,
+                            cap_style: LineCapStyle::Round,
+                        }),
+                        ..StyledBox::new(text)
+                    };
+                    let wrapper = &wrapper.debug(2);
+
+                    let shrink_to_fit = ShrinkToFit {
+                        element: wrapper,
+                        min_height: 10.,
+                    };
+                    let shrink_to_fit = &shrink_to_fit
+                        .debug(0)
+                        .show_max_width()
+                        .show_last_location_max_height();
+
+                    callback.call(shrink_to_fit);
+                },
+                file,
+            );
+        };
+        assert_binary_snapshot!("pdf", write);
+    }
+
+    #[test]
+    fn test_nested_layers() {
+        let mut write = |file: &mut std::fs::File| {
+            test_element_file(
+                TestElementParams {
+                    first_height: 30.,
+                    ..TestElementParams::breakable()
+                },
+                |callback| {
+                    let font = BuiltinFont::courier(callback.document());
+                    let text = Text::basic("Test", &font, 100.);
+                    let text = &text
+                        .debug(1)
+                        .show_max_width()
+                        .show_last_location_max_height();
+
+                    let wrapper = StyledBox {
+                        outline: Some(LineStyle {
+                            thickness: 10.,
+                            color: 0x00_00_00_FF,
+                            dash_pattern: None,
+                            cap_style: LineCapStyle::Round,
+                        }),
+                        ..StyledBox::new(text)
+                    };
+                    let wrapper = &wrapper.debug(2);
+                    let shrink_to_fit = ShrinkToFit {
+                        element: wrapper,
+                        min_height: 10.,
+                    };
+
+                    let wrapper_1 = StyledBox {
+                        outline: Some(LineStyle {
+                            thickness: 10.,
+                            color: 0xAA_00_00_FF,
+                            dash_pattern: None,
+                            cap_style: LineCapStyle::Round,
+                        }),
+                        ..StyledBox::new(&shrink_to_fit)
+                    };
+                    let wrapper_1 = &wrapper_1.debug(3);
+
+                    let shrink_to_fit_1 = ShrinkToFit {
+                        element: wrapper_1,
+                        min_height: 10.,
+                    };
+                    let shrink_to_fit = &shrink_to_fit_1
                         .debug(0)
                         .show_max_width()
                         .show_last_location_max_height();
