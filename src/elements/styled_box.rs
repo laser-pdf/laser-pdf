@@ -54,7 +54,7 @@ impl Common {
 
 impl<'a, E: Element> StyledBox<'a, E> {
     fn common(&self, width: WidthConstraint) -> Common {
-        let extra_outline_offset = self.outline.map(|o| o.thickness / 2.).unwrap_or(0.0);
+        let extra_outline_offset = self.outline.map(|o| o.thickness).unwrap_or(0.0);
 
         let top = self.padding_top + extra_outline_offset;
         let bottom = self.padding_bottom + extra_outline_offset;
@@ -98,13 +98,14 @@ impl<'a, E: Element> StyledBox<'a, E> {
             size.1 + self.padding_top + self.padding_bottom,
         );
 
-        let half_thickness = self.outline.map(|o| o.thickness / 2.).unwrap_or(0.);
+        let thickness = self.outline.map(|o| o.thickness).unwrap_or(0.);
+        let half_thickness = thickness / 2.;
 
         let shape = RoundedRect::new(
             mm_to_pt(location.pos.0 + half_thickness),
             mm_to_pt(location.pos.1 - half_thickness),
-            mm_to_pt(location.pos.0 + size.0 + half_thickness),
-            mm_to_pt(location.pos.1 - size.1 - half_thickness),
+            mm_to_pt(location.pos.0 + size.0 + thickness + half_thickness),
+            mm_to_pt(location.pos.1 - size.1 - thickness - half_thickness),
             mm_to_pt(self.border_radius),
         );
 
@@ -520,6 +521,43 @@ mod tests {
                                 dash_pattern: None,
                                 cap_style: LineCapStyle::Butt,
                             }),
+                        }
+                        .debug(0)
+                        .show_max_width()
+                        .show_last_location_max_height(),
+                    );
+                },
+                file,
+            );
+        };
+        assert_binary_snapshot!("pdf", write);
+    }
+
+    #[test]
+    fn test_border_sizing() {
+        use crate::test_utils::binary_snapshots::*;
+        use insta::*;
+
+        let mut write = |file: &mut std::fs::File| {
+            test_element_file(
+                TestElementParams::breakable(),
+                |callback| {
+                    let first = Rectangle {
+                        size: (12., 12.),
+                        fill: Some(0x00_00_77_FF),
+                        outline: None,
+                    };
+                    let first = first.debug(1).show_max_width();
+
+                    callback.call(
+                        &StyledBox {
+                            outline: Some(LineStyle {
+                                thickness: 32.,
+                                color: 0x00_00_00_FF,
+                                dash_pattern: None,
+                                cap_style: LineCapStyle::Butt,
+                            }),
+                            ..StyledBox::new(&first)
                         }
                         .debug(0)
                         .show_max_width()

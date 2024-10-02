@@ -1,0 +1,6 @@
+---
+source: src/elements/styled_box.rs
+expression: write
+extension: pdf
+snapshot_type: binary
+---
