@@ -1,5 +1,7 @@
 use std::ops::Index;
 
+use elements::rotate::Rotation;
+
 use crate::{
     elements::{h_align::HorizontalAlignment, rich_text::Span, row::Flex, text::TextAlign},
     *,
@@ -769,6 +771,28 @@ impl<E: SerdeElement> SerdeElement for ShrinkToFit<E> {
                 fonts,
             },
             min_height: self.min_height,
+        });
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Rotate<E> {
+    pub element: Box<E>,
+    pub rotation: Rotation,
+}
+
+impl<E: SerdeElement> SerdeElement for Rotate<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::rotate::Rotate {
+            element: &SerdeElementElement {
+                element: &*self.element,
+                fonts,
+            },
+            rotation: self.rotation,
         });
     }
 }

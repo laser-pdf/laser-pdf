@@ -2,6 +2,7 @@ use printpdf::CurTransMat;
 
 use crate::*;
 
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum Rotation {
     QuarterLeft,
     QuarterRight,
