@@ -19,6 +19,12 @@ itertools = "0.11.0"
 pdf-core-14-font-afms = "0.1.0"
 afm = "0.1.2"
 pom = "1.1.0"
+pdf-writer = "0.12.0"
+ttf-parser = "0.25.0"
+subsetter = "0.2.0"
+typst-utils = "0.12.0"
+miniz_oxide = "0.8.0"
+rustybuzz = "0.20.1"
 
 [dev-dependencies]
 # insta = "1.35.1"
