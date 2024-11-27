@@ -1,18 +1,15 @@
-use crate::fonts::Font;
-
-/**
- * Calculates the width needed for a given string, font and size (in pt).
- */
+/// Calculates the width needed for a given string, font and size (in pt).
 pub fn text_width(
     text: &str,
     size: f64,
-    font: &impl Font,
+    units_per_em: f64,
+    codepoint_advance_width: impl Fn(u32) -> f64,
     character_spacing: f64,
     word_spacing: f64,
 ) -> f64 {
     use itertools::{Itertools, Position};
 
-    let scale = font.units_per_em() as f64;
+    let scale = units_per_em;
     let character_spacing = character_spacing * scale / size;
     let word_spacing = word_spacing * scale / size;
     let total_width = text
@@ -23,10 +20,10 @@ pub fn text_width(
                 return None;
             }
 
-            Some((ch, font.codepoint_h_metrics(ch as u32)))
+            Some((ch, codepoint_advance_width(ch as u32)))
         })
-        .fold(0., |acc, (ch, h_metrics)| {
-            acc + h_metrics.advance_width as f64
+        .fold(0., |acc, (ch, advance_width)| {
+            acc + advance_width as f64
                 + character_spacing
                 + if ch == ' ' { word_spacing } else { 0. }
         });
