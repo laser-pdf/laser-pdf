@@ -10,7 +10,7 @@ pub mod test_utils;
 
 pub(crate) mod flex;
 
-use pdf_writer::{Chunk, Content, Ref};
+use pdf_writer::{Content, Ref};
 // use elements::padding::Padding;
 // use fonts::Font;
 // use printpdf::{CurTransMat, Mm, PdfDocumentReference, PdfLayerReference};
