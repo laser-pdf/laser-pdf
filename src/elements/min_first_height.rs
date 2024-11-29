@@ -2,7 +2,7 @@ use crate::*;
 
 pub struct MinFirstHeight<'a, E: Element> {
     pub element: &'a E,
-    pub min_first_height: f64,
+    pub min_first_height: f32,
 }
 
 impl<'a, E: Element> Element for MinFirstHeight<'a, E> {
@@ -124,7 +124,7 @@ impl<'a, E: Element> Element for MinFirstHeight<'a, E> {
 struct MeasureOutput {
     size: ElementSize,
     break_count: u32,
-    extra_location_min_height: Option<f64>,
+    extra_location_min_height: Option<f32>,
 }
 
 struct Layout {
@@ -134,7 +134,7 @@ struct Layout {
 
 impl<'a, E: Element> MinFirstHeight<'a, E> {
     #[inline(always)]
-    fn layout(&self, width: WidthConstraint, first_height: f64, full_height: f64) -> Layout {
+    fn layout(&self, width: WidthConstraint, first_height: f32, full_height: f32) -> Layout {
         let mut measured = None;
         let pre_break = first_height < full_height && first_height < self.min_first_height && {
             let mut break_count = 0;
@@ -268,8 +268,8 @@ mod tests {
                 first_height: 9.,
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
 
                 let content = Text::basic(LOREM_IPSUM, &font, 12.);
                 let content = &content.debug(1).show_max_width();

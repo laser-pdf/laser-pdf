@@ -1,403 +1,885 @@
-use crate::fonts::Font;
+use std::{iter::Peekable, sync::LazyLock};
 
-/**
- * Calculates the width needed for a given string, font and size (in pt).
- */
-pub fn text_width(
+use icu_properties::LineBreak;
+use icu_segmenter::LineBreakIteratorUtf8;
+use pdf_writer::{Str, writers::PositionedItems};
+
+use crate::{
+    Location, Pdf,
+    fonts::{EncodedGlyph, Font, ShapedGlyph},
+};
+
+thread_local! {
+    static LINE_SEGMENTER: icu_segmenter::LineSegmenter = icu_segmenter::LineSegmenter::new_auto();
+}
+
+static LINE_BREAK_MAP: LazyLock<
+    icu_properties::maps::CodePointMapDataBorrowed<'static, icu_properties::LineBreak>,
+> = LazyLock::new(icu_properties::maps::line_break);
+
+// TODO: Move somewhere else?
+const PDFA_LIMIT: usize = 32767;
+
+pub fn draw_line<'a, F: Font>(
+    pdf: &mut Pdf,
+    location: &Location,
+    font: &'a F,
     text: &str,
-    size: f64,
-    font: &impl Font,
-    character_spacing: f64,
-    word_spacing: f64,
-) -> f64 {
-    use itertools::{Itertools, Position};
+    line: Line<F::Shaped<'a>>,
+) {
+    let mut run = Vec::with_capacity(line.size_hint().0);
 
-    let scale = font.units_per_em() as f64;
-    let character_spacing = character_spacing * scale / size;
-    let word_spacing = word_spacing * scale / size;
-    let total_width = text
-        .chars()
-        .with_position()
-        .filter_map(|(p, ch)| {
-            if ch == '\u{00ad}' && !matches!(p, Position::Last | Position::Only) {
-                return None;
+    fn draw_run(items: &mut PositionedItems, run: &mut Vec<u8>) {
+        for chunk in run.chunks(PDFA_LIMIT) {
+            items.show(Str(chunk));
+        }
+    }
+
+    let glyphs: Vec<_> = line
+        .map(|glyph| {
+            let encoded = font.encode(pdf, glyph.glyph_id, &text[glyph.text_range]);
+
+            (encoded, glyph.x_offset)
+        })
+        .collect();
+
+    let layer = location.layer(pdf);
+    let mut positioned = layer.show_positioned();
+    let mut items = positioned.items();
+
+    for (encoded, x_offset) in glyphs {
+        if x_offset != 0 {
+            if !run.is_empty() {
+                draw_run(&mut items, &mut run);
+                run.clear();
             }
 
-            Some((ch, font.codepoint_h_metrics(ch as u32)))
+            items.adjust(-(x_offset as f32));
+        }
+
+        match encoded {
+            EncodedGlyph::OneByte(byte) => run.push(byte),
+            EncodedGlyph::TwoBytes(ref bytes) => run.extend_from_slice(bytes),
+        }
+    }
+
+    if !run.is_empty() {
+        draw_run(&mut items, &mut run);
+    }
+}
+
+struct Piece<'a, S> {
+    text: &'a str,
+    shaped_start: S,
+    width: u32,
+    trailing_whitespace_width: u32,
+    mandatory_break_after: bool,
+    glyph_count: usize,
+}
+
+struct Pieces<'a, 'b, S> {
+    current: Option<usize>,
+    text: &'a str,
+    shaped: S,
+    segments: Peekable<LineBreakIteratorUtf8<'b, 'a>>,
+}
+
+impl<'a, S> Pieces<'a, 'static, S> {
+    fn new<F: 'a, R>(
+        font: &'a F,
+        text: &'a str,
+        f: impl for<'b> FnOnce(Pieces<'a, 'b, S>) -> R,
+    ) -> R
+    where
+        F: Font<Shaped<'a> = S>,
+    {
+        LINE_SEGMENTER.with(|segmenter| {
+            let shaped = font.shape(text);
+            let segments = segmenter.segment_str(text).peekable();
+
+            f(Pieces {
+                current: Some(0),
+                text,
+                shaped,
+                segments,
+            })
         })
-        .fold(0., |acc, (ch, h_metrics)| {
-            acc + h_metrics.advance_width as f64
-                + character_spacing
-                + if ch == ' ' { word_spacing } else { 0. }
-        });
-    total_width as f64 * size as f64 / scale
+    }
 }
 
-pub fn remove_non_trailing_soft_hyphens(text: &str) -> String {
-    use itertools::{Itertools, Position};
-
-    text.chars()
-        .with_position()
-        .filter_map(|(p, c)| {
-            if c != '\u{00ad}' || matches!(p, Position::Last | Position::Only) {
-                Some(c)
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-#[derive(Clone)]
-pub struct BreakTextIntoLines<'a, F: Fn(&str) -> f64> {
-    line_generator: LineGenerator<'a, F>,
-    max_width: f64,
-}
-
-impl<'a, F: Fn(&str) -> f64> Iterator for BreakTextIntoLines<'a, F> {
-    type Item = &'a str;
+impl<'a, 'b, S: Clone + Iterator<Item = ShapedGlyph>> Iterator for Pieces<'a, 'b, S> {
+    type Item = Piece<'a, S>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.line_generator.next(self.max_width, false) //.map(|t| t.trim_end())
-    }
-}
+        let mut shaped = self.shaped.clone();
 
-pub fn break_text_into_lines<'a, F: Fn(&str) -> f64>(
-    text: &'a str,
-    max_width: f64,
-    text_width: F,
-) -> BreakTextIntoLines<'a, F> {
-    BreakTextIntoLines {
-        line_generator: LineGenerator::new(text, text_width),
-        max_width,
+        let Some(current) = self.current else {
+            return None;
+        };
+
+        // TODO: Handle unsafe_to_break somewhere here. If unsafe_to_break is true when we would
+        // otherwise split pieces we should probably fuse them into one piece because that seems
+        // like the only reasonable thing to do.
+
+        let segment = self.segments.find(|&s| s != 0).unwrap_or_else(|| {
+            self.current = None;
+            self.text.len()
+        });
+
+        let mut iter = std::iter::from_fn({
+            let mut done = false;
+            let shaped = &mut shaped;
+            move || {
+                if done {
+                    return None;
+                }
+
+                let next = shaped.next()?;
+
+                if next.text_range.end >= segment {
+                    done = true;
+                }
+
+                Some(next)
+            }
+        })
+        .peekable();
+
+        let mut width = 0;
+        let mut whitespace_width = 0;
+        let mut glyph_count = 0;
+
+        while let Some(glyph) = iter.next() {
+            glyph_count += 1;
+
+            // A space at the end of a line doesn't count towards the width.
+            if matches!(&self.text[glyph.text_range], " " | "\u{00A0}" | "　") {
+                whitespace_width += glyph.x_advance as u32;
+            } else {
+                width += whitespace_width;
+                whitespace_width = 0;
+                width += glyph.x_advance as u32;
+            }
+        }
+
+        let last_char = self.text[..segment].chars().next_back();
+
+        let mandatory = match last_char
+            .filter(|_| self.current.is_some())
+            .map(|l| LINE_BREAK_MAP.get(l))
+        {
+            Some(
+                LineBreak::MandatoryBreak
+                | LineBreak::CarriageReturn
+                | LineBreak::LineFeed
+                | LineBreak::NextLine,
+            ) => true,
+            _ => false,
+        };
+
+        let piece = Piece {
+            text: &self.text[current..segment],
+            shaped_start: self.shaped.clone(),
+            width,
+            trailing_whitespace_width: whitespace_width,
+            mandatory_break_after: mandatory,
+            glyph_count,
+        };
+
+        self.current = self.current.and(Some(segment));
+        self.shaped = shaped;
+
+        if self.segments.peek().is_none() && !mandatory {
+            self.current = None;
+        }
+
+        Some(piece)
     }
 }
 
 #[derive(Clone)]
-pub struct LineGenerator<'a, F: Fn(&str) -> f64> {
-    text: Option<&'a str>,
-    text_width: F,
-    soft_hyphen_width: f64,
+pub struct Line<I> {
+    pub width: u32,
+    iter: std::iter::Take<I>,
 }
 
-impl<'a, F: Fn(&str) -> f64> LineGenerator<'a, F> {
-    pub fn new(text: &'a str, text_width: F) -> Self {
-        let soft_hyphen_width = text_width("\u{00ad}");
+impl<I: Iterator> Iterator for Line<I> {
+    type Item = I::Item;
 
-        LineGenerator {
-            text: Some(text),
-            text_width,
-            soft_hyphen_width,
-        }
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
     }
 
-    pub fn done(&self) -> bool {
-        self.text.is_none()
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
     }
+}
 
-    pub fn next(&mut self, max_width: f64, incomplete: bool) -> Option<&'a str> {
-        if let Some(slice) = self.text {
-            let mut current_width = 0.0;
-            let mut last_break = 0;
-            let mut end_break = 0;
-            let mut not_start = incomplete;
+pub struct Lines<'a, 'b, F: Font> {
+    max_width: u32,
+    generator: LineGenerator<'a, 'b, F>,
+}
 
-            let mut in_whitespace: Option<usize> = None;
+pub fn lines<'a, R, F: Font>(
+    font: &'a F,
+    max_width: u32,
+    text: &'a str,
+    f: impl for<'b> FnOnce(Lines<'a, 'b, F>) -> R,
+) -> R {
+    LineGenerator::new(font, text, |generator| {
+        f(Lines {
+            max_width,
+            generator,
+        })
+    })
+}
 
-            for (i, c) in slice.char_indices() {
-                if c == '\n' {
-                    if in_whitespace == None {
-                        current_width += (self.text_width)(&slice[last_break..i]);
-                    }
+impl<'a, 'b, F: Font> Iterator for Lines<'a, 'b, F> {
+    type Item = Line<F::Shaped<'a>>;
 
-                    if current_width > max_width && not_start {
-                        self.text = Some(&slice[end_break..]);
-                        return Some(&slice[..last_break]);
-                    } else {
-                        self.text = Some(&slice[i + 1..]);
-                        return Some(&slice[..i]);
-                    }
-                } else if c.is_whitespace() {
-                    if in_whitespace == None {
-                        current_width += (self.text_width)(&slice[last_break..i]);
-                        in_whitespace = Some(i);
-                    }
-                } else if c == '\u{00ad}' && in_whitespace == None {
-                    let end = i + c.len_utf8();
+    fn next(&mut self) -> Option<Self::Item> {
+        self.generator.next(self.max_width, false)
+    }
+}
 
-                    current_width += (self.text_width)(&slice[last_break..i]);
+pub struct LineGenerator<'a, 'b, F: Font> {
+    font: &'a F,
+    // text: &'a str,
+    pieces: Peekable<Pieces<'a, 'b, F::Shaped<'a>>>,
+}
 
-                    // While we don't add the soft hyphen to `current_width` we
-                    // check here if the line would be too long with it such
-                    // that if the code doesn't return here, but returns later
-                    // we know that the line will produce will fit within the
-                    // max width.
-                    if not_start && current_width + self.soft_hyphen_width > max_width {
-                        self.text = Some(&slice[end_break..]);
-                        return Some(&slice[..last_break]);
-                    }
+impl<'a, F: Font> LineGenerator<'a, 'static, F> {
+    pub fn new<R>(
+        font: &'a F,
+        text: &'a str,
+        f: impl for<'b> FnOnce(LineGenerator<'a, 'b, F>) -> R,
+    ) -> R {
+        Pieces::new(font, text, |pieces| {
+            f(LineGenerator {
+                font,
+                // text,
+                pieces: pieces.peekable(),
+            })
+        })
+    }
+}
 
-                    last_break = end;
-                    end_break = end;
+impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
+    pub fn next(&mut self, max_width: u32, incomplete: bool) -> Option<Line<F::Shaped<'a>>> {
+        let Some(start) = self.pieces.peek().map(|p| p.shaped_start.clone()) else {
+            return None;
+        };
 
-                    in_whitespace = Some(end);
-                } else if (c == '-' || c == '\u{2010}') && in_whitespace == None {
-                    // \u{2010} is the Unicode hyphen
+        let mut glyph_count = 0;
+        let mut current_width = 0;
+        let mut current_width_whitespace = 0;
 
-                    let end = i + c.len_utf8();
-
-                    current_width += (self.text_width)(&slice[last_break..end]);
-
-                    if not_start && current_width > max_width {
-                        self.text = Some(&slice[end_break..]);
-                        return Some(&slice[..last_break]);
-                    }
-
-                    last_break = end;
-                    end_break = end;
-
-                    in_whitespace = Some(end);
-                } else {
-                    if let Some(start_whitespace) = in_whitespace {
-                        in_whitespace = None;
-
-                        if current_width > max_width {
-                            return Some(
-                                &slice[..if !not_start {
-                                    self.text = Some(&slice[i..]);
-                                    start_whitespace
-                                } else {
-                                    self.text = Some(&slice[end_break..]);
-                                    last_break
-                                }],
-                            );
-                        }
-
-                        not_start = true;
-                        last_break = start_whitespace;
-                        end_break = i;
-                    }
-                }
+        while let Some(piece) = self.pieces.peek() {
+            // If current_width is zero we have to place the piece on this line, because adding
+            // another line would not help.
+            if (current_width > 0 || incomplete)
+                && current_width + current_width_whitespace + piece.width > max_width
+            {
+                break;
             }
 
-            if in_whitespace == None {
-                current_width += (self.text_width)(&slice[last_break..]);
-            }
+            glyph_count += piece.glyph_count;
 
-            if current_width > max_width && not_start {
-                self.text = Some(&slice[end_break..]);
-                Some(&slice[..last_break])
-            } else {
-                self.text = None;
-                Some(slice)
+            current_width += current_width_whitespace + piece.width;
+            current_width_whitespace = piece.trailing_whitespace_width;
+
+            let mandatory_break_after = piece.mandatory_break_after;
+
+            self.pieces.next();
+
+            if mandatory_break_after {
+                break;
             }
-        } else {
-            None
         }
+
+        Some(Line {
+            width: current_width,
+            iter: start.take(glyph_count),
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::fonts::ShapedGlyph;
+
     use super::*;
+
+    #[derive(Debug)]
+    struct FakeFont;
+
+    #[derive(Clone, Debug)]
+    struct FakeShaped<'a> {
+        // last: usize,
+        inner: std::str::CharIndices<'a>,
+    }
+
+    impl<'a> Iterator for FakeShaped<'a> {
+        type Item = ShapedGlyph;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if let Some((i, c)) = self.inner.next() {
+                Some(ShapedGlyph {
+                    unsafe_to_break: false,
+                    glyph_id: c as u32,
+                    text_range: i..i + c.len_utf8(),
+                    x_advance: if matches!(c, '\n' | '\u{00ad}') { 0 } else { 1 },
+                    x_offset: 0,
+                    y_offset: 0,
+                    y_advance: 0,
+                })
+            } else {
+                None
+            }
+        }
+    }
+
+    impl Font for FakeFont {
+        type Shaped<'a>
+            = FakeShaped<'a>
+        where
+            Self: 'a;
+
+        fn shape<'a>(&'a self, text: &'a str) -> Self::Shaped<'a> {
+            FakeShaped {
+                inner: text.char_indices(),
+            }
+        }
+
+        fn encode(&self, _: &mut crate::Pdf, _: u32, _: &str) -> crate::fonts::EncodedGlyph {
+            unimplemented!()
+        }
+
+        fn resource_name(&self) -> pdf_writer::Name {
+            unimplemented!()
+        }
+
+        fn general_metrics(&self) -> crate::fonts::GeneralMetrics {
+            unimplemented!()
+        }
+
+        fn units_per_em(&self) -> u16 {
+            1
+        }
+    }
+
+    fn collect<'a>(text: &'a str) -> impl Fn(Line<FakeShaped>) -> &'a str {
+        |line| {
+            let by_range = {
+                let mut line = line.clone();
+                if let Some(first) = line.next() {
+                    let last = line
+                        .last()
+                        .map(|l| l.text_range.end)
+                        .unwrap_or(first.text_range.end);
+
+                    &text[first.text_range.start..last]
+                } else {
+                    ""
+                }
+            };
+
+            let mut text = String::new();
+
+            for glyph in line {
+                text.push(glyph.glyph_id as u8 as char);
+            }
+
+            assert_eq!(by_range, text);
+            by_range
+        }
+    }
+
+    fn collect_piece<'a>(
+        text: &'a str,
+        piece: Piece<'a, FakeShaped<'a>>,
+    ) -> (&'a str, u32, u32, bool) {
+        let line = piece.shaped_start.take(piece.text.len());
+
+        let by_range = {
+            let mut line = line.clone();
+            if let Some(first) = line.next() {
+                let last = line
+                    .last()
+                    .map(|l| l.text_range.end)
+                    .unwrap_or(first.text_range.end);
+
+                &text[first.text_range.start..last]
+            } else {
+                ""
+            }
+        };
+
+        let mut text = String::new();
+
+        for glyph in line {
+            text.push(glyph.glyph_id as u8 as char);
+        }
+
+        assert_eq!(by_range, text);
+        assert_eq!(text, piece.text);
+
+        (
+            piece.text,
+            piece.width,
+            piece.trailing_whitespace_width,
+            piece.mandatory_break_after,
+        )
+    }
+
+    #[test]
+    fn test_pieces_empty() {
+        let text = "";
+
+        Pieces::new(&FakeFont, text, |pieces| {
+            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+
+            assert_eq!(&pieces, &[("", 0, 0, false)]);
+        });
+    }
+
+    #[test]
+    fn test_pieces_one() {
+        let text = "abcde";
+
+        Pieces::new(&FakeFont, text, |pieces| {
+            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+
+            assert_eq!(&pieces, &[("abcde", 5, 0, false)]);
+        });
+    }
+
+    #[test]
+    fn test_pieces_two() {
+        let text = "deadbeef defaced";
+
+        Pieces::new(&FakeFont, text, |pieces| {
+            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+
+            assert_eq!(
+                &pieces,
+                &[("deadbeef ", 8, 1, false), ("defaced", 7, 0, false)]
+            );
+        });
+    }
+
+    #[test]
+    fn test_pieces_three() {
+        let text = "deadbeef defaced fart";
+
+        Pieces::new(&FakeFont, text, |pieces| {
+            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+
+            assert_eq!(
+                &pieces,
+                &[
+                    ("deadbeef ", 8, 1, false),
+                    ("defaced ", 7, 1, false),
+                    ("fart", 4, 0, false)
+                ],
+            );
+        });
+    }
+
+    #[test]
+    fn test_pieces_just_newline() {
+        let text = "\n";
+
+        Pieces::new(&FakeFont, text, |pieces| {
+            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+
+            assert_eq!(&pieces, &[("\n", 0, 0, true), ("", 0, 0, false)]);
+        });
+    }
+
+    #[test]
+    fn test_pieces_surrounded_newline() {
+        let text = "abc\ndef";
+
+        Pieces::new(&FakeFont, text, |pieces| {
+            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+
+            assert_eq!(&pieces, &[("abc\n", 3, 0, true), ("def", 3, 0, false)]);
+        });
+    }
+
+    #[test]
+    fn test_pieces_newline_at_start() {
+        let text = "\nabc def";
+
+        Pieces::new(&FakeFont, text, |pieces| {
+            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+
+            assert_eq!(
+                &pieces,
+                &[
+                    ("\n", 0, 0, true),
+                    ("abc ", 3, 1, false),
+                    ("def", 3, 0, false),
+                ]
+            );
+        });
+    }
+
+    #[test]
+    fn test_pieces_trailing_newline() {
+        let text = "abc def\n";
+
+        Pieces::new(&FakeFont, text, |pieces| {
+            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+
+            assert_eq!(
+                &pieces,
+                &[
+                    ("abc ", 3, 1, false),
+                    ("def\n", 3, 0, true),
+                    ("", 0, 0, false),
+                ]
+            );
+        });
+    }
+
+    #[test]
+    fn test_pieces_just_spaces() {
+        let text = "        ";
+
+        Pieces::new(&FakeFont, text, |pieces| {
+            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+
+            assert_eq!(&pieces, &[("        ", 0, 8, false)]);
+        });
+    }
+
+    #[test]
+    fn test_pieces_mixed_whitespace() {
+        let text = "    abc    \ndef  the\tjflkdsa";
+
+        Pieces::new(&FakeFont, text, |pieces| {
+            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+
+            assert_eq!(
+                &pieces,
+                &[
+                    ("    ", 0, 4, false),
+                    ("abc    \n", 7, 0, true),
+                    ("def  ", 3, 2, false),
+                    ("the\t", 4, 0, false),
+                    ("jflkdsa", 7, 0, false),
+                ],
+            );
+        });
+    }
+
+    #[test]
+    fn teeest() {
+        LINE_SEGMENTER.with(|segmenter| {
+            // dbg!('\u{00ad}'.len_utf8());
+            // let text = "A-very -long-word";
+            let text = "A-very--long-word";
+            // let text = "A\u{00ad}very\u{00ad}\u{00ad}long\u{00ad}word";
+            // let text = "A\u{00ad}very \u{00ad}long\u{00ad}word";
+            dbg!(text);
+            dbg!(segmenter.segment_str(text).collect::<Vec<_>>());
+        });
+
+        // panic!()
+    }
+
+    fn assert_width(width: u32) -> impl Fn(&Line<FakeShaped>) {
+        move |l| {
+            assert_eq!(l.width, width);
+        }
+    }
+
+    #[test]
+    fn test_empty_string() {
+        let text = "";
+
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
+
+            assert_eq!(generator.next(16, false).map(&collect), Some(""));
+            assert_eq!(generator.next(16, false).map(&collect), None);
+        });
+    }
 
     #[test]
     fn test_text_flow() {
-        let mut generator = LineGenerator::new(
-            "Amet consequatur facilis necessitatibus sed quia numquam reiciendis. \
-                Id impedit quo quaerat enim amet. ",
-            |s| s.len() as f64,
-        );
+        let text = "Amet consequatur facilis necessitatibus sed quia numquam reiciendis. \
+                Id impedit quo quaerat enim amet. ";
 
-        assert_eq!(generator.next(16., false), Some("Amet consequatur"));
-        assert_eq!(generator.next(16., false), Some("facilis"));
-        assert_eq!(generator.next(16., false), Some("necessitatibus"));
-        assert_eq!(generator.next(16., false), Some("sed quia numquam"));
-        assert_eq!(generator.next(16., false), Some("reiciendis. Id"));
-        assert_eq!(generator.next(16., false), Some("impedit quo"));
-        assert_eq!(generator.next(16., false), Some("quaerat enim"));
-        assert_eq!(generator.next(16., false), Some("amet. "));
-        assert_eq!(generator.next(16., false), None);
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
+
+            assert_eq!(
+                generator
+                    .next(16, false)
+                    .inspect(assert_width(16))
+                    .map(&collect),
+                Some("Amet consequatur ")
+            );
+
+            assert_eq!(
+                generator
+                    .next(16, false)
+                    .inspect(assert_width(7))
+                    .map(&collect),
+                Some("facilis ")
+            );
+            assert_eq!(
+                generator.next(16, false).map(&collect),
+                Some("necessitatibus ")
+            );
+            assert_eq!(
+                generator.next(16, false).map(&collect),
+                Some("sed quia numquam ")
+            );
+            assert_eq!(
+                generator.next(16, false).map(&collect),
+                Some("reiciendis. Id ")
+            );
+            assert_eq!(
+                generator.next(16, false).map(&collect),
+                Some("impedit quo ")
+            );
+            assert_eq!(
+                generator.next(16, false).map(&collect),
+                Some("quaerat enim ")
+            );
+            assert_eq!(
+                generator
+                    .next(16, false)
+                    .inspect(assert_width(5))
+                    .map(&collect),
+                Some("amet. ")
+            );
+            assert_eq!(generator.next(16, false).map(&collect), None);
+
+            // Make sure it's sealed.
+            assert_eq!(generator.next(16, false).map(&collect), None);
+            assert_eq!(generator.next(16, false).map(&collect), None);
+        });
+    }
+
+    #[test]
+    fn test_text_after_newline() {
+        let text = "\nthe the the";
+
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
+
+            assert_eq!(generator.next(4, false).map(&collect), Some("\n"));
+            assert_eq!(generator.next(4, false).map(&collect), Some("the "));
+            assert_eq!(generator.next(4, false).map(&collect), Some("the "));
+            assert_eq!(generator.next(4, false).map(&collect), Some("the"));
+            assert_eq!(generator.next(4, false).map(&collect), None);
+        });
     }
 
     #[test]
     fn test_trailing_whitespace() {
-        let mut generator =
-            LineGenerator::new("Id impedit quo quaerat enim amet.                  ", |s| {
-                s.len() as f64
-            });
+        let text = "Id impedit quo quaerat enim amet.                  ";
 
-        assert_eq!(generator.next(16., false), Some("Id impedit quo"));
-        assert_eq!(generator.next(16., false), Some("quaerat enim"));
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-        // it's unclear whether any other behavior would be better here
-        assert_eq!(generator.next(16., false), Some("amet.                  "));
-        assert_eq!(generator.next(16., false), None);
+            assert_eq!(
+                generator.next(16, false).map(&collect),
+                Some("Id impedit quo ")
+            );
+            assert_eq!(
+                generator.next(16, false).map(&collect),
+                Some("quaerat enim ")
+            );
+
+            // it's unclear whether any other behavior would be better here
+            assert_eq!(
+                generator
+                    .next(16, false)
+                    .inspect(assert_width(5))
+                    .map(&collect),
+                Some("amet.                  ")
+            );
+            assert_eq!(generator.next(16, false).map(&collect), None);
+        });
     }
 
     #[test]
     fn test_pre_newline_whitespace() {
-        let mut generator =
-            LineGenerator::new("Id impedit quo \nquaerat enimmmmm    \namet.", |s| {
-                s.len() as f64
-            });
+        let text = "Id impedit quo \nquaerat enimmmmm    \namet.";
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-        assert_eq!(generator.next(16., false), Some("Id impedit quo "));
-        assert_eq!(generator.next(16., false), Some("quaerat enimmmmm    "));
-        assert_eq!(generator.next(16., false), Some("amet."));
-        assert_eq!(generator.next(16., false), None);
+            assert_eq!(
+                generator.next(16, false).map(&collect),
+                Some("Id impedit quo \n")
+            );
+            assert_eq!(generator.next(16, false).map(&collect), Some("quaerat "));
+
+            // The old line-breaker used to not count the spaces before the newline. It's sort of
+            // unclear what's better here.
+            assert_eq!(
+                generator.next(16, false).map(&collect),
+                Some("enimmmmm    \n")
+            );
+            assert_eq!(generator.next(16, false).map(&collect), Some("amet."));
+            assert_eq!(generator.next(16, false).map(&collect), None);
+        });
     }
 
     #[test]
     fn test_newline() {
-        let mut generator = LineGenerator::new("\n", |s| s.len() as f64);
+        let text = "\n";
 
-        assert_eq!(generator.next(16., false), Some(""));
-        assert_eq!(generator.next(16., false), Some(""));
-        assert_eq!(generator.next(16., false), None);
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
+
+            assert_eq!(generator.next(16, false).map(&collect), Some("\n"));
+            assert_eq!(generator.next(16, false).map(&collect), Some(""));
+            assert_eq!(generator.next(16, false).map(&collect), None);
+        });
     }
 
     #[test]
-    fn test_empty_str() {
-        let mut generator = LineGenerator::new("", |s| s.len() as f64);
+    fn test_just_spaces() {
+        let text = "  ";
 
-        assert_eq!(generator.next(16., false), Some(""));
-        assert_eq!(generator.next(16., false), None);
-    }
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-    #[test]
-    fn test_space() {
-        let mut generator = LineGenerator::new("  ", |s| s.len() as f64);
-
-        assert_eq!(generator.next(16., false), Some("  "));
-        assert_eq!(generator.next(16., false), None);
+            assert_eq!(generator.next(16, false).map(&collect), Some("  "));
+            assert_eq!(generator.next(16, false).map(&collect), None);
+        });
     }
 
     #[test]
     fn test_word_longer_than_line() {
-        let mut generator = LineGenerator::new("Averylongword", |s| s.len() as f64);
+        let text = "Averylongword";
 
-        assert_eq!(generator.next(8., false), Some("Averylongword"));
-        assert_eq!(generator.next(8., false), None);
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-        let mut generator = LineGenerator::new("Averylongword test.", |s| s.len() as f64);
+            assert_eq!(
+                generator.next(8, false).map(&collect),
+                Some("Averylongword")
+            );
+            assert_eq!(generator.next(8, false).map(&collect), None);
+        });
 
-        assert_eq!(generator.next(8., false), Some("Averylongword"));
-        assert_eq!(generator.next(8., false), Some("test."));
-        assert_eq!(generator.next(8., false), None);
+        let text = "Averylongword test.";
 
-        let mut generator = LineGenerator::new("A verylongword test.", |s| s.len() as f64);
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-        assert_eq!(generator.next(8., false), Some("A"));
-        assert_eq!(generator.next(8., false), Some("verylongword"));
-        assert_eq!(generator.next(8., false), Some("test."));
-        assert_eq!(generator.next(8., false), None);
-    }
+            assert_eq!(
+                generator.next(8, false).map(&collect),
+                Some("Averylongword ")
+            );
+            assert_eq!(generator.next(8, false).map(&collect), Some("test."));
+            assert_eq!(generator.next(8, false).map(&collect), None);
+        });
 
-    fn len_without_soft_hyphens(s: &str) -> f64 {
-        use itertools::{Itertools, Position};
+        let text = "A verylongword test.";
 
-        s.chars()
-            .with_position()
-            .filter(|&(p, c)| c != '\u{00ad}' || matches!(p, Position::Last | Position::Only))
-            .count() as f64
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
+
+            assert_eq!(generator.next(8, false).map(&collect), Some("A "));
+            assert_eq!(
+                generator.next(8, false).map(&collect),
+                Some("verylongword ")
+            );
+            assert_eq!(generator.next(8, false).map(&collect), Some("test."));
+            assert_eq!(generator.next(8, false).map(&collect), None);
+        });
     }
 
     #[test]
     fn test_soft_hyphens() {
-        let mut generator = LineGenerator::new(
-            "A\u{00ad}very\u{00ad}long\u{00ad}word",
-            len_without_soft_hyphens,
-        );
+        let text = "A\u{00ad}very\u{00ad}long\u{00ad}word";
 
-        assert_eq!(generator.next(7., false), Some("A\u{00ad}very\u{00ad}"));
-        assert_eq!(generator.next(7., false), Some("long\u{00ad}"));
-        assert_eq!(generator.next(7., false), Some("word"));
-        assert_eq!(generator.next(7., false), None);
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-        let mut generator = LineGenerator::new(
-            "A\u{00ad}very \u{00ad}long\u{00ad}word",
-            len_without_soft_hyphens,
-        );
+            assert_eq!(
+                generator.next(7, false).map(&collect),
+                Some("A\u{00ad}very\u{00ad}"),
+            );
+            assert_eq!(generator.next(7, false).map(&collect), Some("long\u{00ad}"),);
+            assert_eq!(generator.next(7, false).map(&collect), Some("word"));
+            assert_eq!(generator.next(7, false).map(&collect), None);
+        });
 
-        assert_eq!(generator.next(7., false), Some("A\u{00ad}very"));
-        assert_eq!(generator.next(7., false), Some("\u{00ad}long\u{00ad}"));
-        assert_eq!(generator.next(7., false), Some("word"));
-        assert_eq!(generator.next(7., false), None);
+        let text = "A\u{00ad}very \u{00ad}long\u{00ad}word";
 
-        let mut generator = LineGenerator::new(
-            "A\u{00ad}very\u{00ad}\u{00ad}long\u{00ad}word",
-            len_without_soft_hyphens,
-        );
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-        assert_eq!(generator.next(7., false), Some("A\u{00ad}very\u{00ad}"));
-        assert_eq!(generator.next(7., false), Some("\u{00ad}long\u{00ad}"));
-        assert_eq!(generator.next(7., false), Some("word"));
-        assert_eq!(generator.next(7., false), None);
-    }
+            assert_eq!(
+                generator.next(7, false).map(&collect),
+                // The old line breaker used to not split at a soft hypen that was at the start of
+                // a word. But since the segmenter splits there we treat it as a separate piece now.
+                Some("A\u{00ad}very \u{00ad}"),
+            );
+            assert_eq!(generator.next(7, false).map(&collect), Some("long\u{00ad}"),);
+            assert_eq!(generator.next(7, false).map(&collect), Some("word"));
+            assert_eq!(generator.next(7, false).map(&collect), None);
+        });
 
-    #[test]
-    fn test_soft_hyphen_length() {
-        let mut generator =
-            LineGenerator::new("A\u{00ad}very long\u{00ad}word", len_without_soft_hyphens);
+        let text = "A\u{00ad}very\u{00ad}\u{00ad}long\u{00ad}word";
 
-        assert_eq!(generator.next(5., false), Some("A\u{00ad}very"));
-        assert_eq!(generator.next(5., false), Some("long\u{00ad}"));
-        assert_eq!(generator.next(5., false), Some("word"));
-        assert_eq!(generator.next(5., false), None);
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-        let mut generator = LineGenerator::new(
-            "A\u{00ad}very\u{00ad}long\u{00ad}word",
-            len_without_soft_hyphens,
-        );
-
-        assert_eq!(generator.next(5., false), Some("A\u{00ad}"));
-        assert_eq!(generator.next(5., false), Some("very\u{00ad}"));
-        assert_eq!(generator.next(5., false), Some("long\u{00ad}"));
-        assert_eq!(generator.next(5., false), Some("word"));
-        assert_eq!(generator.next(5., false), None);
+            assert_eq!(
+                generator.next(7, false).map(&collect),
+                Some("A\u{00ad}very\u{00ad}\u{00ad}"),
+            );
+            assert_eq!(generator.next(7, false).map(&collect), Some("long\u{00ad}"),);
+            assert_eq!(generator.next(7, false).map(&collect), Some("word"));
+            assert_eq!(generator.next(7, false).map(&collect), None);
+        });
     }
 
     #[test]
     fn test_hard_hyphens() {
-        let mut generator = LineGenerator::new("A-very-long-word", len_without_soft_hyphens);
+        let text = "A-very-long-word";
 
-        assert_eq!(generator.next(7., false), Some("A-very-"));
-        assert_eq!(generator.next(7., false), Some("long-"));
-        assert_eq!(generator.next(7., false), Some("word"));
-        assert_eq!(generator.next(7., false), None);
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-        let mut generator = LineGenerator::new("A-very -long-word", len_without_soft_hyphens);
+            assert_eq!(generator.next(7, false).map(&collect), Some("A-very-"));
+            assert_eq!(generator.next(7, false).map(&collect), Some("long-"));
+            assert_eq!(generator.next(7, false).map(&collect), Some("word"));
+            assert_eq!(generator.next(7, false).map(&collect), None);
+        });
 
-        assert_eq!(generator.next(7., false), Some("A-very"));
-        assert_eq!(generator.next(7., false), Some("-long-"));
-        assert_eq!(generator.next(7., false), Some("word"));
-        assert_eq!(generator.next(7., false), None);
+        let text = "A-very -long-word";
 
-        let mut generator = LineGenerator::new("A‐very--long-word", len_without_soft_hyphens);
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-        assert_eq!(generator.next(7., false), Some("A‐very-"));
-        assert_eq!(generator.next(7., false), Some("-long-"));
-        assert_eq!(generator.next(7., false), Some("word"));
-        assert_eq!(generator.next(7., false), None);
-    }
+            assert_eq!(generator.next(7, false).map(&collect), Some("A-very "));
+            assert_eq!(generator.next(7, false).map(&collect), Some("-long-"));
+            assert_eq!(generator.next(7, false).map(&collect), Some("word"));
+            assert_eq!(generator.next(7, false).map(&collect), None);
+        });
 
-    #[test]
-    fn test_hard_hyphen_length() {
-        let mut generator = LineGenerator::new("A\u{2010}very long-word", len_without_soft_hyphens);
+        let text = "A-very--long-word";
 
-        assert_eq!(generator.next(5., false), Some("A‐"));
-        assert_eq!(generator.next(5., false), Some("very"));
-        assert_eq!(generator.next(5., false), Some("long-"));
-        assert_eq!(generator.next(5., false), Some("word"));
-        assert_eq!(generator.next(5., false), None);
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
 
-        let mut generator = LineGenerator::new("A-very-long-word", len_without_soft_hyphens);
-
-        assert_eq!(generator.next(5., false), Some("A-"));
-        assert_eq!(generator.next(5., false), Some("very-"));
-        assert_eq!(generator.next(5., false), Some("long-"));
-        assert_eq!(generator.next(5., false), Some("word"));
-        assert_eq!(generator.next(5., false), None);
+            assert_eq!(generator.next(7, false).map(&collect), Some("A-"));
+            assert_eq!(generator.next(7, false).map(&collect), Some("very--"));
+            assert_eq!(generator.next(7, false).map(&collect), Some("long-"));
+            assert_eq!(generator.next(7, false).map(&collect), Some("word"));
+            assert_eq!(generator.next(7, false).map(&collect), None);
+        });
     }
 }

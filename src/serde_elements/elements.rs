@@ -65,12 +65,12 @@ impl<E: SerdeElement> SerdeElement for Debug<E> {
 pub struct Text {
     pub text: String,
     pub font: String,
-    pub size: f64,
+    pub size: f32,
     pub color: u32,
     pub underline: bool,
-    pub extra_character_spacing: f64,
-    pub extra_word_spacing: f64,
-    pub extra_line_height: f64,
+    pub extra_character_spacing: f32,
+    pub extra_word_spacing: f32,
+    pub extra_line_height: f32,
     pub align: TextAlign,
 }
 
@@ -97,9 +97,9 @@ impl SerdeElement for Text {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RichText {
     pub spans: Vec<Span>,
-    pub size: f64,
-    pub small_size: f64,
-    pub extra_line_height: f64,
+    pub size: f32,
+    pub small_size: f32,
+    pub extra_line_height: f32,
     pub regular: String,
     pub bold: String,
     pub italic: String,
@@ -129,7 +129,7 @@ impl SerdeElement for RichText {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct VGap {
-    pub gap: f64,
+    pub gap: f32,
 }
 
 impl SerdeElement for VGap {
@@ -166,10 +166,10 @@ impl<E: SerdeElement> SerdeElement for HAlign<E> {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Padding<E> {
-    pub left: f64,
-    pub right: f64,
-    pub top: f64,
-    pub bottom: f64,
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
 
     #[serde(alias = "elem")]
     pub element: Box<E>,
@@ -197,11 +197,11 @@ impl<E: SerdeElement> SerdeElement for Padding<E> {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StyledBox<E> {
     pub element: Box<E>,
-    pub padding_left: f64,
-    pub padding_right: f64,
-    pub padding_top: f64,
-    pub padding_bottom: f64,
-    pub border_radius: f64,
+    pub padding_left: f32,
+    pub padding_right: f32,
+    pub padding_top: f32,
+    pub padding_bottom: f32,
+    pub border_radius: f32,
     pub fill: Option<u32>,
     pub outline: Option<LineStyle>,
 }
@@ -261,9 +261,9 @@ impl SerdeElement for Image {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Rectangle {
-    pub size: (f64, f64),
+    pub size: (f32, f32),
     pub fill: Option<u32>,
-    pub outline: Option<(f64, u32)>,
+    pub outline: Option<(f32, u32)>,
 }
 
 impl SerdeElement for Rectangle {
@@ -282,9 +282,9 @@ impl SerdeElement for Rectangle {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Circle {
-    pub radius: f64,
+    pub radius: f32,
     pub fill: Option<u32>,
-    pub outline: Option<(f64, u32)>,
+    pub outline: Option<(f32, u32)>,
 }
 
 impl SerdeElement for Circle {
@@ -304,7 +304,7 @@ impl SerdeElement for Circle {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Column<E> {
     pub content: Vec<E>,
-    pub gap: f64,
+    pub gap: f32,
 
     #[serde(default = "default_false")]
     pub collapse: bool,
@@ -339,7 +339,7 @@ pub struct RowElement<E> {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Row<E> {
     pub content: Vec<RowElement<E>>,
-    pub gap: f64,
+    pub gap: f32,
     pub expand: bool,
     pub collapse: bool,
 }
@@ -366,7 +366,7 @@ impl<E: SerdeElement> SerdeElement for Row<E> {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct BreakList<E> {
     pub content: Vec<E>,
-    pub gap: f64,
+    pub gap: f32,
 }
 
 impl<E: SerdeElement> SerdeElement for BreakList<E> {
@@ -448,7 +448,7 @@ impl<E: SerdeElement> SerdeElement for TableRow<E> {
 pub struct Titled<E> {
     pub title: Box<E>,
     pub content: Box<E>,
-    pub gap: f64,
+    pub gap: f32,
 
     #[serde(default = "default_false")]
     pub collapse_on_empty_content: bool,
@@ -479,7 +479,7 @@ impl<E: SerdeElement> SerdeElement for Titled<E> {
 pub struct TitleOrBreak<E> {
     pub title: Box<E>,
     pub content: Box<E>,
-    pub gap: f64,
+    pub gap: f32,
 
     #[serde(default = "default_false")]
     pub collapse_on_empty_content: bool,
@@ -514,7 +514,7 @@ pub struct ChangingTitle<E> {
     pub remaining_title: Box<E>,
 
     pub content: Box<E>,
-    pub gap: f64,
+    pub gap: f32,
 
     #[serde(default = "default_false")]
     pub collapse: bool,
@@ -549,7 +549,7 @@ impl<E: SerdeElement> SerdeElement for ChangingTitle<E> {
 pub struct RepeatAfterBreak<E> {
     pub title: Box<E>,
     pub content: Box<E>,
-    pub gap: f64,
+    pub gap: f32,
 
     #[serde(default = "default_false")]
     pub collapse_on_empty_content: bool,
@@ -580,7 +580,7 @@ impl<E: SerdeElement> SerdeElement for RepeatAfterBreak<E> {
 pub struct RepeatBottom<E> {
     pub content: Box<E>,
     pub bottom: Box<E>,
-    pub gap: f64,
+    pub gap: f32,
 
     #[serde(default = "default_false")]
     pub collapse: bool,
@@ -611,7 +611,7 @@ impl<E: SerdeElement> SerdeElement for RepeatBottom<E> {
 pub struct PinBelow<E> {
     pub content: Box<E>,
     pub pinned_element: Box<E>,
-    pub gap: f64,
+    pub gap: f32,
 
     #[serde(default = "default_false")]
     pub collapse: bool,
@@ -672,7 +672,7 @@ impl<E: SerdeElement> SerdeElement for BreakWhole<E> {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct MinFirstHeight<E> {
     pub element: Box<E>,
-    pub min_first_height: f64,
+    pub min_first_height: f32,
 }
 
 impl<E: SerdeElement> SerdeElement for MinFirstHeight<E> {
@@ -756,7 +756,7 @@ impl<E: SerdeElement> SerdeElement for ExpandToPreferredHeight<E> {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ShrinkToFit<E> {
     pub element: Box<E>,
-    pub min_height: f64,
+    pub min_height: f32,
 }
 
 impl<E: SerdeElement> SerdeElement for ShrinkToFit<E> {

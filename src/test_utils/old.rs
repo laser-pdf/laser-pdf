@@ -3,10 +3,10 @@ use super::*;
 pub fn test_measure_draw_compatibility<E: Element>(
     element: &E,
     width: WidthConstraint,
-    first_height: f64,
-    full_height: Option<f64>,
-    pos: (f64, f64),
-    page_size: (f64, f64),
+    first_height: f32,
+    full_height: Option<f32>,
+    pos: (f32, f32),
+    page_size: (f32, f32),
 ) -> ElementMeasureDrawCompatibilityOutput {
     let measure = measure_element(element, width, first_height, full_height);
     let draw = draw_element(
@@ -59,13 +59,13 @@ pub fn test_measure_draw_compatibility<E: Element>(
 
 pub struct ElementTestParams {
     /// Will be tested with None and this.
-    pub width: f64,
+    pub width: f32,
 
-    pub first_height: f64,
-    pub full_height: f64,
+    pub first_height: f32,
+    pub full_height: f32,
 
-    pub pos: (f64, f64),
-    pub page_size: (f64, f64),
+    pub pos: (f32, f32),
+    pub page_size: (f32, f32),
 }
 
 impl Default for ElementTestParams {
@@ -150,10 +150,10 @@ impl ElementTestParams {
 }
 
 pub struct ElementMeasureDrawCompatibilityOutputBreakable {
-    pub full_height: f64,
+    pub full_height: f32,
 
     pub break_count: u32,
-    pub extra_location_min_height: Option<f64>,
+    pub extra_location_min_height: Option<f32>,
 
     pub first_location_usage: FirstLocationUsage,
 }
@@ -166,7 +166,7 @@ impl ElementMeasureDrawCompatibilityOutputBreakable {
 
     pub fn assert_extra_location_min_height(
         &self,
-        extra_location_min_height: Option<f64>,
+        extra_location_min_height: Option<f32>,
     ) -> &Self {
         assert_eq!(self.extra_location_min_height, extra_location_min_height);
         self
@@ -180,10 +180,10 @@ impl ElementMeasureDrawCompatibilityOutputBreakable {
 
 pub struct ElementMeasureDrawCompatibilityOutput {
     pub width: WidthConstraint,
-    pub first_height: f64,
+    pub first_height: f32,
 
-    pub pos: (f64, f64),
-    pub page_size: (f64, f64),
+    pub pos: (f32, f32),
+    pub page_size: (f32, f32),
 
     pub size: ElementSize,
 

@@ -1,19 +1,20 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::CharIndices};
 
 use afm::{CharMetric, FontMetrics, Ligature};
 use pdf_core_14_font_afms::*;
-use printpdf::{BuiltinFont::*, IndirectFontRef, PdfDocumentReference};
+use pdf_writer::Name;
 
-use super::Font;
+use super::{EncodedGlyph, Font, ShapedGlyph};
+use crate::Pdf;
 
 pub struct BuiltinFont {
-    font_ref: IndirectFontRef,
+    resource_name: String,
     metrics: FontMetrics,
     char_metrics_by_codepoint: HashMap<u32, CharMetric>,
 }
 
 impl BuiltinFont {
-    fn add(document: &PdfDocumentReference, font: printpdf::BuiltinFont, afm: &str) -> Self {
+    fn add(pdf: &mut Pdf, font_name: &str, afm: &str) -> Self {
         let parser = afm::afm();
 
         let mut input = pom::DataInput::new(afm.as_bytes());
@@ -42,81 +43,126 @@ impl BuiltinFont {
             );
         }
 
+        let id = pdf.alloc();
+
+        pdf.pdf
+            .type1_font(id)
+            .base_font(pdf_writer::Name(font_name.as_bytes()));
+
+        let idx = pdf.fonts.len();
+        pdf.fonts.push(id);
+
+        let resource_name = format!("F{}", idx);
+
         BuiltinFont {
-            font_ref: document.add_builtin_font(font).unwrap(),
+            resource_name,
             metrics,
             char_metrics_by_codepoint,
         }
     }
 
-    pub fn courier(document: &PdfDocumentReference) -> Self {
-        Self::add(document, Courier, COURIER)
+    pub fn courier(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Courier", COURIER)
     }
 
-    pub fn courier_bold(document: &PdfDocumentReference) -> Self {
-        Self::add(document, CourierBold, COURIER_BOLD)
+    pub fn courier_bold(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Courier-Bold", COURIER_BOLD)
     }
 
-    pub fn courier_oblique(document: &PdfDocumentReference) -> Self {
-        Self::add(document, CourierOblique, COURIER_OBLIQUE)
+    pub fn courier_oblique(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Courier-Oblique", COURIER_OBLIQUE)
     }
 
-    pub fn courier_bold_oblique(document: &PdfDocumentReference) -> Self {
-        Self::add(document, CourierBoldOblique, COURIER_BOLD_OBLIQUE)
+    pub fn courier_bold_oblique(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Courier-BoldOblique", COURIER_BOLD_OBLIQUE)
     }
 
-    pub fn helvetica(document: &PdfDocumentReference) -> Self {
-        Self::add(document, Helvetica, HELVETICA)
+    pub fn helvetica(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Helvetica", HELVETICA)
     }
 
-    pub fn helvetica_bold(document: &PdfDocumentReference) -> Self {
-        Self::add(document, HelveticaBold, HELVETICA_BOLD)
+    pub fn helvetica_bold(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Helvetica-Bold", HELVETICA_BOLD)
     }
 
-    pub fn helvetica_oblique(document: &PdfDocumentReference) -> Self {
-        Self::add(document, HelveticaOblique, HELVETICA_OBLIQUE)
+    pub fn helvetica_oblique(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Helvetica-Oblique", HELVETICA_OBLIQUE)
     }
 
-    pub fn helvetica_bold_oblique(document: &PdfDocumentReference) -> Self {
-        Self::add(document, HelveticaBoldOblique, HELVETICA_BOLD_OBLIQUE)
+    pub fn helvetica_bold_oblique(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Helvetica-BoldOblique", HELVETICA_BOLD_OBLIQUE)
     }
 
-    pub fn times_roman(document: &PdfDocumentReference) -> Self {
-        Self::add(document, TimesRoman, TIMES_ROMAN)
+    pub fn times_roman(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Times-Roman", TIMES_ROMAN)
     }
 
-    pub fn times_bold(document: &PdfDocumentReference) -> Self {
-        Self::add(document, TimesBold, HELVETICA_BOLD)
+    pub fn times_bold(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Times-Bold", HELVETICA_BOLD)
     }
 
-    pub fn times_italic(document: &PdfDocumentReference) -> Self {
-        Self::add(document, TimesItalic, TIMES_ITALIC)
+    pub fn times_italic(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Times-Italic", TIMES_ITALIC)
     }
 
-    pub fn times_bold_italic(document: &PdfDocumentReference) -> Self {
-        Self::add(document, TimesBoldItalic, TIMES_BOLD_ITALIC)
+    pub fn times_bold_italic(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Times-BoldItalic", TIMES_BOLD_ITALIC)
     }
 
-    pub fn symbol(document: &PdfDocumentReference) -> Self {
-        Self::add(document, Symbol, SYMBOL)
+    pub fn symbol(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "Symbol", SYMBOL)
     }
 
-    pub fn zapf_dingbats(document: &PdfDocumentReference) -> Self {
-        Self::add(document, ZapfDingbats, ZAPF_DINGBATS)
+    pub fn zapf_dingbats(pdf: &mut Pdf) -> Self {
+        Self::add(pdf, "ZapfDingbats", ZAPF_DINGBATS)
+    }
+}
+
+#[derive(Clone)]
+pub struct Shaped<'a> {
+    font: &'a BuiltinFont,
+    chars: CharIndices<'a>,
+}
+
+impl<'a> Iterator for Shaped<'a> {
+    type Item = ShapedGlyph;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.chars.next().map(|(i, c)| {
+            let metrics = &self.font.char_metrics_by_codepoint[&(c as u32)];
+
+            ShapedGlyph {
+                unsafe_to_break: false,
+                glyph_id: c as u32, // i guess
+                text_range: i..i + c.len_utf8(),
+                x_advance: metrics.wx as u16, // i hope those are ints in practice
+                x_offset: 0,
+                y_offset: 0,
+                y_advance: 0,
+            }
+        })
     }
 }
 
 impl Font for BuiltinFont {
-    fn indirect_font_ref(&self) -> &IndirectFontRef {
-        &self.font_ref
+    type Shaped<'a>
+        = Shaped<'a>
+    where
+        Self: 'a;
+
+    fn shape<'a>(&'a self, text: &'a str) -> Self::Shaped<'a> {
+        Shaped {
+            font: self,
+            chars: text.char_indices(),
+        }
     }
 
-    fn codepoint_h_metrics(&self, codepoint: u32) -> super::HMetrics {
-        let metrics = self.char_metrics_by_codepoint.get(&codepoint).unwrap();
+    fn encode(&self, _: &mut crate::Pdf, glyph_id: u32, _: &str) -> EncodedGlyph {
+        EncodedGlyph::OneByte(glyph_id as u8)
+    }
 
-        super::HMetrics {
-            advance_width: metrics.wx,
-        }
+    fn resource_name(&self) -> pdf_writer::Name {
+        Name(self.resource_name.as_bytes())
     }
 
     fn units_per_em(&self) -> u16 {
@@ -132,8 +178,8 @@ impl Font for BuiltinFont {
         let ascent = line_height + self.metrics.descender;
 
         super::GeneralMetrics {
-            ascent,
-            line_height,
+            ascent: ascent as u32,
+            line_height: line_height as u32,
         }
     }
 }
@@ -142,28 +188,26 @@ impl Font for BuiltinFont {
 mod tests {
     use super::*;
 
-    use printpdf::PdfDocument;
-
     #[test]
     fn test_no_panic() {
-        let doc = PdfDocument::empty("");
+        let mut pdf = Pdf::new((12., 12.));
 
-        BuiltinFont::courier(&doc);
-        BuiltinFont::courier_bold(&doc);
-        BuiltinFont::courier_oblique(&doc);
-        BuiltinFont::courier_bold_oblique(&doc);
+        BuiltinFont::courier(&mut pdf);
+        BuiltinFont::courier_bold(&mut pdf);
+        BuiltinFont::courier_oblique(&mut pdf);
+        BuiltinFont::courier_bold_oblique(&mut pdf);
 
-        BuiltinFont::helvetica(&doc);
-        BuiltinFont::helvetica_bold(&doc);
-        BuiltinFont::helvetica_oblique(&doc);
-        BuiltinFont::helvetica_bold_oblique(&doc);
+        BuiltinFont::helvetica(&mut pdf);
+        BuiltinFont::helvetica_bold(&mut pdf);
+        BuiltinFont::helvetica_oblique(&mut pdf);
+        BuiltinFont::helvetica_bold_oblique(&mut pdf);
 
-        BuiltinFont::times_roman(&doc);
-        BuiltinFont::times_bold(&doc);
-        BuiltinFont::times_italic(&doc);
-        BuiltinFont::times_bold_italic(&doc);
+        BuiltinFont::times_roman(&mut pdf);
+        BuiltinFont::times_bold(&mut pdf);
+        BuiltinFont::times_italic(&mut pdf);
+        BuiltinFont::times_bold_italic(&mut pdf);
 
-        BuiltinFont::symbol(&doc);
-        BuiltinFont::zapf_dingbats(&doc);
+        BuiltinFont::symbol(&mut pdf);
+        BuiltinFont::zapf_dingbats(&mut pdf);
     }
 }

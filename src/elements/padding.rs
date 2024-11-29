@@ -1,15 +1,15 @@
 use crate::*;
 
 pub struct Padding<'a, E: Element> {
-    pub left: f64,
-    pub right: f64,
-    pub top: f64,
-    pub bottom: f64,
+    pub left: f32,
+    pub right: f32,
+    pub top: f32,
+    pub bottom: f32,
     pub element: &'a E,
 }
 
 impl<'a, E: Element> Padding<'a, E> {
-    pub fn top(top: f64, element: &'a E) -> Self {
+    pub fn top(top: f32, element: &'a E) -> Self {
         Padding {
             left: 0.,
             right: 0.,
@@ -110,7 +110,7 @@ impl<'a, E: Element> Padding<'a, E> {
         }
     }
 
-    fn height(&self, input: f64) -> f64 {
+    fn height(&self, input: f32) -> f32 {
         input - self.top - self.bottom
     }
 

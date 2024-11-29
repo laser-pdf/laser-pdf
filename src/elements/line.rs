@@ -1,5 +1,3 @@
-use printpdf::Point;
-
 use crate::{utils::*, *};
 
 pub struct Line {
@@ -7,7 +5,7 @@ pub struct Line {
 }
 
 impl Line {
-    pub fn new(thickness: f64) -> Self {
+    pub fn new(thickness: f32) -> Self {
         Line {
             style: LineStyle {
                 thickness,
@@ -30,41 +28,31 @@ impl Element for Line {
         ctx.break_if_appropriate_for_min_height(self.style.thickness);
 
         if ctx.width.expand {
-            ctx.location.layer.save_graphics_state();
-
             let (color, _alpha) = u32_to_color_and_alpha(self.style.color);
-            ctx.location.layer.set_outline_color(color);
-            ctx.location
-                .layer
-                .set_outline_thickness(mm_to_pt(self.style.thickness));
-            ctx.location
-                .layer
-                .set_line_cap_style(self.style.cap_style.into());
-            ctx.location.layer.set_line_dash_pattern(
-                if let Some(pattern) = self.style.dash_pattern {
-                    pattern.into()
-                } else {
-                    printpdf::LineDashPattern::default()
-                },
-            );
+            let style = self.style;
+
+            let layer = ctx.location.layer(ctx.pdf);
+
+            layer
+                .save_state()
+                .set_line_width(mm_to_pt(style.thickness))
+                .set_stroke_rgb(color[0], color[1], color[2])
+                .set_line_cap(style.cap_style.into());
+
+            if let Some(pattern) = style.dash_pattern {
+                layer.set_dash_pattern(pattern.dashes.map(f32::from), pattern.offset as f32);
+            }
 
             let line_y = ctx.location.pos.1 - self.style.thickness / 2.0;
 
-            ctx.location.layer.add_shape(printpdf::Line {
-                points: vec![
-                    (Point::new(Mm(ctx.location.pos.0), Mm(line_y)), false),
-                    (
-                        Point::new(Mm(ctx.location.pos.0 + ctx.width.max), Mm(line_y)),
-                        false,
-                    ),
-                ],
-                is_closed: false,
-                has_fill: false,
-                has_stroke: true,
-                is_clipping_path: false,
-            });
-
-            ctx.location.layer.restore_graphics_state();
+            layer
+                .move_to(mm_to_pt(ctx.location.pos.0), mm_to_pt(line_y))
+                .line_to(
+                    mm_to_pt(ctx.location.pos.0 + ctx.width.max),
+                    mm_to_pt(line_y),
+                )
+                .stroke()
+                .restore_state();
         }
 
         size(self, ctx.width)

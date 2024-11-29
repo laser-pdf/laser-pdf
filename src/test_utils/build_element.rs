@@ -13,26 +13,26 @@ impl<'a> BuildElementCallback<'a> {
 }
 
 pub struct BreakableDraw {
-    pub full_height: f64,
+    pub full_height: f32,
     pub preferred_height_break_count: u32,
 }
 
 pub enum Pass {
     FirstLocationUsage {
-        full_height: f64,
+        full_height: f32,
     },
     Measure {
-        full_height: Option<f64>,
+        full_height: Option<f32>,
     },
     Draw {
-        preferred_height: Option<f64>,
+        preferred_height: Option<f32>,
         breakable: Option<BreakableDraw>,
     },
 }
 
 pub struct BuildElementCtx {
     pub width: WidthConstraint,
-    pub first_height: f64,
+    pub first_height: f32,
     pub pass: Pass,
 }
 

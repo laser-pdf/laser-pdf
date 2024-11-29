@@ -1,5 +1,3 @@
-use printpdf::CurTransMat;
-
 use crate::*;
 
 /// Shrinks the element to fit within the given `first_height`, as long as that is >= `min_height`.
@@ -8,23 +6,23 @@ use crate::*;
 /// will simply overflow such that the element is never scaled smaller than the `min_height`.
 pub struct ShrinkToFit<'a, E: Element> {
     pub element: &'a E,
-    pub min_height: f64,
+    pub min_height: f32,
 }
 
 struct Layout {
     pre_break: bool,
-    scale_factor: f64,
+    scale_factor: f32,
     size: ElementSize,
     scaled_size: ElementSize,
-    height: f64,
+    height: f32,
 }
 
 impl<'a, E: Element> ShrinkToFit<'a, E> {
     fn layout(
         &self,
         width: WidthConstraint,
-        first_height: f64,
-        full_height: Option<f64>,
+        first_height: f32,
+        full_height: Option<f32>,
     ) -> Layout {
         let pre_break;
 
@@ -127,11 +125,10 @@ impl<'a, E: Element> Element for ShrinkToFit<'a, E> {
             location = ctx.location;
         }
 
-        location.layer.save_graphics_state();
-
         location
-            .layer
-            .set_ctm(CurTransMat::Scale(layout.scale_factor, layout.scale_factor));
+            .layer(ctx.pdf)
+            .save_state()
+            .transform(utils::scale(layout.scale_factor));
 
         location.pos.0 /= layout.scale_factor;
         location.pos.1 /= layout.scale_factor;
@@ -148,7 +145,7 @@ impl<'a, E: Element> Element for ShrinkToFit<'a, E> {
             breakable: None,
         });
 
-        location.layer.restore_graphics_state();
+        location.layer(ctx.pdf).restore_state();
 
         layout.scaled_size
     }
@@ -171,8 +168,8 @@ mod tests {
                 first_height: 10.,
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("TEST", &font, 100.);
                 let text = &text
                     .debug(1)
@@ -201,8 +198,8 @@ mod tests {
                 first_height: -10.,
                 ..TestElementParams::unbreakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("TEST", &font, 100.);
                 let text = &text
                     .debug(1)
@@ -231,8 +228,8 @@ mod tests {
                 first_height: 5.,
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("T E S T", &font, 1024.);
                 let text = &text
                     .debug(1)
@@ -261,8 +258,8 @@ mod tests {
                 first_height: 20.,
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("Test", &font, 20.);
                 let text = &text
                     .debug(1)
@@ -294,8 +291,8 @@ mod tests {
                 first_height: 20.,
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("Test", &font, 100.);
                 let text = &text
                     .debug(1)
@@ -335,8 +332,8 @@ mod tests {
                 first_height: 30.,
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("Test", &font, 100.);
                 let text = &text
                     .debug(1)

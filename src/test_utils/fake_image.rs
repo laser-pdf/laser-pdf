@@ -1,12 +1,12 @@
 use crate::*;
 
 pub struct FakeImage {
-    pub width: f64,
-    pub height: f64,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl FakeImage {
-    fn size(&self, width: WidthConstraint) -> (f64, ElementSize) {
+    fn size(&self, width: WidthConstraint) -> (f32, ElementSize) {
         let width = width.constrain(self.width);
 
         let scale = width / self.width;

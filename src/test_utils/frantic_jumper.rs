@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct FranticJumper {
-    pub jumps: Vec<(u32, Option<f64>)>,
+    pub jumps: Vec<(u32, Option<f32>)>,
     pub size: ElementSize,
 }
 
@@ -37,8 +37,8 @@ impl Element for FranticJumper {
 
                 if let Some(prev) = &previous[jump.0 as usize] {
                     assert_eq!(prev.pos, location.pos);
-                    assert_eq!(prev.layer.page, location.layer.page);
-                    assert_eq!(prev.layer.layer, location.layer.layer);
+                    assert_eq!(prev.page_idx, location.page_idx);
+                    assert_eq!(prev.layer_idx, location.layer_idx);
                 } else {
                     previous[jump.0 as usize] = Some(location);
                 }

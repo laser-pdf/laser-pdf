@@ -1,0 +1,6 @@
+---
+source: src/elements/svg.rs
+expression: bytes
+extension: pdf
+snapshot_kind: binary
+---

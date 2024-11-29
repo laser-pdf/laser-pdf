@@ -1,11 +1,11 @@
-use printpdf::{utils::calculate_points_for_rect, Line};
+use pdf_writer::Name;
 
 use crate::{utils::*, *};
 
 pub struct Rectangle {
-    pub size: (f64, f64),
+    pub size: (f32, f32),
     pub fill: Option<u32>,
-    pub outline: Option<(f64, u32)>,
+    pub outline: Option<(f32, u32)>,
 }
 
 impl Element for Rectangle {
@@ -29,47 +29,78 @@ impl Element for Rectangle {
         let outline_thickness = outline_thickness(self);
         ctx.break_if_appropriate_for_min_height(self.size.1 + outline_thickness);
 
-        let extra_outline_offset = outline_thickness / 2.0;
+        let extra_outline_offset = outline_thickness as f32 / 2.0;
 
-        let points = calculate_points_for_rect(
-            Mm(self.size.0),
-            Mm(self.size.1),
-            Mm(ctx.location.pos.0 + self.size.0 / 2.0 + extra_outline_offset),
-            Mm(ctx.location.pos.1 - self.size.1 / 2.0 - extra_outline_offset),
-        );
+        let resource_id;
 
-        ctx.location.layer.save_graphics_state();
+        let fill_alpha = self
+            .fill
+            .map(|c| u32_to_color_and_alpha(c).1)
+            .filter(|&a| a != 1.);
+
+        let outline_alpha = self
+            .outline
+            .map(|(_, c)| u32_to_color_and_alpha(c).1)
+            .filter(|&a| a != 1.);
+
+        if fill_alpha.is_some() || outline_alpha.is_some() {
+            let ext_graphics_ref = ctx.pdf.alloc();
+
+            let mut ext_graphics = ctx.pdf.pdf.ext_graphics(ext_graphics_ref);
+            fill_alpha.inspect(|&a| {
+                ext_graphics.non_stroking_alpha(a);
+            });
+            outline_alpha.inspect(|&a| {
+                ext_graphics.stroking_alpha(a);
+            });
+
+            resource_id =
+                Some(ctx.pdf.pages[ctx.location.page_idx].add_ext_g_state(ext_graphics_ref));
+        } else {
+            resource_id = None;
+        }
+
+        let layer = ctx.location.layer(ctx.pdf);
+
+        layer.save_state();
 
         if let Some(color) = self.fill {
-            let (color, alpha) = u32_to_color_and_alpha(color);
-            ctx.location.layer.set_fill_color(color);
-            ctx.location.layer.set_fill_alpha(alpha);
+            let (color, _) = u32_to_color_and_alpha(color);
+
+            layer.set_fill_rgb(color[0], color[1], color[2]);
         }
 
         if let Some((thickness, color)) = self.outline {
-            // No outline alpha?
-            let (color, _alpha) = u32_to_color_and_alpha(color);
-            ctx.location.layer.set_outline_color(color);
-            ctx.location
-                .layer
-                .set_outline_thickness(mm_to_pt(thickness));
+            layer.set_line_width(mm_to_pt(thickness) as f32);
+
+            set_fill_color(layer, color);
         }
 
-        ctx.location.layer.add_shape(Line {
-            points,
-            is_closed: true,
-            has_fill: self.fill.is_some(),
-            has_stroke: self.outline.is_some(),
-            is_clipping_path: false,
-        });
+        if let Some(ext_graphics) = resource_id {
+            layer.set_parameters(Name(format!("{}", ext_graphics).as_bytes()));
+        }
 
-        ctx.location.layer.restore_graphics_state();
+        layer.rect(
+            mm_to_pt(ctx.location.pos.0 as f32 + extra_outline_offset),
+            mm_to_pt((ctx.location.pos.1 - self.size.1) as f32 - extra_outline_offset),
+            mm_to_pt(self.size.0 as f32),
+            mm_to_pt(self.size.1 as f32),
+        );
+
+        match (self.fill.is_some(), self.outline.is_some()) {
+            (true, true) => layer.fill_nonzero_and_stroke(),
+            (true, false) => layer.fill_nonzero(),
+            (false, true) => layer.stroke(),
+            (false, false) => layer,
+        };
+
+        layer.restore_state();
 
         size(self)
     }
 }
 
-fn outline_thickness(rectangle: &Rectangle) -> f64 {
+fn outline_thickness(rectangle: &Rectangle) -> f32 {
     rectangle.outline.map(|o| o.0).unwrap_or(0.0)
 }
 

@@ -3,7 +3,7 @@ use crate::{utils::max_optional_size, *};
 use self::utils::add_optional_size_with_gap;
 
 pub struct BreakList<C: Fn(BreakListContent) -> Option<()>> {
-    pub gap: f64,
+    pub gap: f32,
     pub content: C,
 }
 
@@ -84,16 +84,16 @@ impl<C: Fn(BreakListContent) -> Option<()>> Element for BreakList<C> {
 pub struct BreakListContent<'a, 'b, 'c> {
     pass: Pass<'a, 'b, 'c>,
 
-    gap: f64,
+    gap: f32,
 
     width_constraint: WidthConstraint,
 
-    height_available: f64,
+    height_available: f32,
 
-    max_width: &'a mut Option<f64>,
-    x_offset: &'a mut Option<f64>,
-    y_offset: &'a mut Option<f64>,
-    line_height: &'a mut Option<f64>,
+    max_width: &'a mut Option<f32>,
+    x_offset: &'a mut Option<f32>,
+    y_offset: &'a mut Option<f32>,
+    line_height: &'a mut Option<f32>,
 }
 
 enum Pass<'a, 'b, 'c> {
@@ -201,7 +201,6 @@ impl<'a, 'b, 'c> BreakListContent<'a, 'b, 'c> {
                     pdf,
                     location: Location {
                         pos: (location.pos.0 + x_offset, location.pos.1 - y_offset),
-                        layer: location.layer.clone(),
                         ..*location
                     },
 

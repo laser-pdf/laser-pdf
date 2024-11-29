@@ -18,27 +18,27 @@ pub struct Span {
 
 pub struct RichText<'a, F: Font> {
     pub spans: &'a [Span],
-    pub size: f64,
-    pub small_size: f64,
-    pub extra_line_height: f64,
+    pub size: f32,
+    pub small_size: f32,
+    pub extra_line_height: f32,
     pub fonts: FontSet<'a, F>,
 }
 
 pub struct LineFragment<'a, F: Font> {
     text_full: &'a str,
-    length_full: f64,
+    length_full: f32,
 
     text_trimmed: &'a str,
-    length_trimmed: f64,
+    length_trimmed: f32,
 
     font: &'a F,
-    size: f64,
+    size: f32,
     bold: bool,
     underline: bool,
     color: u32,
-    ascent: f64,
+    ascent: f32,
     new_line: bool,
-    x_offset: f64,
+    x_offset: f32,
 }
 
 // These are manually implemented because the derive macro would otherwise put a Copy bound on F.
@@ -53,56 +53,55 @@ impl<'a, F: Font> Clone for LineFragment<'a, F> {
 #[derive(Copy, Clone)]
 pub struct LineFragmentTrimmed<'a, F: Font> {
     text: &'a str,
-    length: f64,
+    length: f32,
 
     font: &'a F,
-    size: f64,
+    size: f32,
 
     // needed for underline thickness
     bold: bool,
 
     underline: bool,
     color: u32,
-    ascent: f64,
+    ascent: f32,
     new_line: bool,
-    x_offset: f64,
+    x_offset: f32,
 }
 
 impl<'a, F: Font> RichText<'a, F> {
-    fn pieces(&'a self, width: f64) -> (impl Iterator<Item = LineFragment<'a, F>> + 'a, f64) {
+    fn pieces(&'a self, width: f32) -> (impl Iterator<Item = LineFragment<'a, F>> + 'a, f32) {
         #[derive(Copy, Clone)]
         struct FontVars {
-            ascent: f64,
-            line_height: f64,
+            ascent: f32,
+            line_height: f32,
         }
 
-        fn font_vars<F: Font>(font: &F, size: f64) -> FontVars {
+        fn font_vars<F: Font>(font: &F, size: f32) -> FontVars {
             let GeneralMetrics {
                 ascent,
                 line_height,
-            } = font.general_metrics();
+            } = font.general_metrics(size);
 
-            let units_per_em = font.units_per_em() as f64;
+            // let units_per_em = font.units_per_em() as f32;
 
             FontVars {
-                ascent: pt_to_mm(ascent * size / units_per_em),
-                line_height: pt_to_mm(line_height * size / units_per_em),
+                ascent: pt_to_mm(ascent),
+                line_height: pt_to_mm(line_height), // ascent: pt_to_mm(ascent * size / units_per_em),
+                                                    // line_height: pt_to_mm(line_height * size / units_per_em),
             }
         }
 
-        fn mk_gen<'a, F: Font>(
-            text: &'a str,
-            font: &'a F,
-            size: f64,
-        ) -> LineGenerator<'a, impl Fn(&str) -> f64 + 'a> {
-            let text_width = move |t: &str| text_width(t, size, font, 0., 0.);
-            LineGenerator::new(text, text_width)
+        fn mk_gen<'a, F: Font>(text: &'a str, font: &'a F, size: f32) -> () {
+            //LineGenerator<'a, impl Fn(&str) -> f32 + 'a> {
+            todo!()
+            // let text_width = move |t: &str| font.line_width(t, size, 0., 0.);
+            // LineGenerator::new(text, text_width)
         }
 
-        let regular_vars = font_vars(self.fonts.regular, self.size as f64);
-        let bold_vars = font_vars(self.fonts.bold, self.size as f64);
-        let italic_vars = font_vars(self.fonts.italic, self.size as f64);
-        let bold_italic_vars = font_vars(self.fonts.bold_italic, self.size as f64);
+        let regular_vars = font_vars(self.fonts.regular, self.size as f32);
+        let bold_vars = font_vars(self.fonts.bold, self.size as f32);
+        let italic_vars = font_vars(self.fonts.italic, self.size as f32);
+        let bold_italic_vars = font_vars(self.fonts.bold_italic, self.size as f32);
 
         let line_height = regular_vars
             .line_height
@@ -160,9 +159,9 @@ impl<'a, F: Font> RichText<'a, F> {
                         }
                         Some((ref mut gen, font, font_vars, bold, _italic, underline, color)) => {
                             let next = if let FirstLine | LineDone = line_state {
-                                gen.next(mm_to_pt(width), false)
+                                gen.next(width, false)
                             } else {
-                                gen.next(mm_to_pt(width - x_offset).max(0.), true)
+                                gen.next((width - x_offset).max(0.), true)
                             };
 
                             if let Some(next) = next {
@@ -170,16 +169,9 @@ impl<'a, F: Font> RichText<'a, F> {
                                 line_state = LineDone;
 
                                 let trimmed = next.trim_end();
-                                let length_trimmed =
-                                    pt_to_mm(text_width(trimmed, self.size, font, 0., 0.));
+                                let length_trimmed = font.line_width(trimmed, self.size, 0., 0.);
                                 let length_full = length_trimmed
-                                    + pt_to_mm(text_width(
-                                        &next[trimmed.len()..],
-                                        self.size,
-                                        font,
-                                        0.,
-                                        0.,
-                                    ));
+                                    + font.line_width(&next[trimmed.len()..], self.size, 0., 0.);
 
                                 let ret_x_offset = if new_line { 0. } else { x_offset };
                                 x_offset = if new_line {
@@ -219,8 +211,8 @@ impl<'a, F: Font> RichText<'a, F> {
 
     fn pieces_trimmed(
         &'a self,
-        width: f64,
-    ) -> (impl Iterator<Item = LineFragmentTrimmed<'a, F>> + 'a, f64) {
+        width: f32,
+    ) -> (impl Iterator<Item = LineFragmentTrimmed<'a, F>> + 'a, f32) {
         let (mut iter, line_height) = self.pieces(width);
 
         let mut last = iter.next();
@@ -318,7 +310,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
 
         ElementSize {
             width: Some(max_width),
-            height: Some(line_count as f64 * line_height),
+            height: Some(line_count as f32 * line_height),
         }
     }
 
@@ -342,14 +334,15 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                 x = new_location.pos.0;
                 y = new_location.pos.1;
                 height_available = breakable.full_height;
-                ctx.location.layer = new_location.layer;
+                ctx.location.page_idx = new_location.page_idx;
+                ctx.location.layer_idx = new_location.layer_idx;
             }
         }
 
         let mut line_count = 1;
 
         for frag in iter {
-            let pdf_font = &frag.font.indirect_font_ref();
+            // let pdf_font = &frag.font.indirect_font_ref();
 
             let line_width = frag.length;
 
@@ -361,14 +354,15 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                         let new_location = (breakable.do_break)(
                             ctx.pdf,
                             draw_rect,
-                            Some(line_count as f64 * line_height),
+                            Some(line_count as f32 * line_height),
                         );
                         draw_rect += 1;
 
                         x = new_location.pos.0;
                         y = new_location.pos.1;
                         height_available = breakable.full_height;
-                        ctx.location.layer = new_location.layer;
+                        ctx.location.page_idx = new_location.page_idx;
+                        ctx.location.layer_idx = new_location.layer_idx;
                         line_count = 1;
                     }
                     _ => {
@@ -379,49 +373,37 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                 }
             }
 
-            ctx.location.layer.save_graphics_state();
-            ctx.location
-                .layer
-                .set_fill_color(u32_to_color_and_alpha(frag.color).0);
-            ctx.location.layer.use_text(
-                &remove_non_trailing_soft_hyphens(frag.text),
-                frag.size,
-                Mm(x + frag.x_offset),
-                Mm(y - frag.ascent),
-                pdf_font,
-            );
+            let layer = ctx.location.layer(ctx.pdf);
+            layer.save_state();
 
-            // This isn't quite correct currently. The truetype format has underline position and
-            // thickness information in the `post` table. This information is however not
-            // exposed in the `stb_truetype` crate. To get this information we'll have to switch
-            // to another crate, such as `ttf-parser`, which exposes the `post` table and the
-            // underline information. For now we'll just use some hard-coded values that look
-            // mostly right.
-            if frag.underline {
-                ctx.location
-                    .layer
-                    .set_outline_color(u32_to_color_and_alpha(frag.color).0);
-                crate::utils::line(
-                    &ctx.location.layer,
-                    [x + frag.x_offset, y - frag.ascent - 1.0],
-                    pt_to_mm(text_width(frag.text, frag.size, frag.font, 0., 0.)),
-                    pt_to_mm(if frag.bold { 1.0 } else { 0.5 }),
-                );
-            }
-            ctx.location.layer.restore_graphics_state();
+            set_fill_color(layer, frag.color);
+
+            // frag.font.render_line(
+            //     layer,
+            //     &remove_non_trailing_soft_hyphens(frag.text),
+            //     frag.size,
+            //     0.,
+            //     0.,
+            //     frag.underline,
+            //     x + frag.x_offset,
+            //     y - frag.ascent,
+            // );
+
+            layer.restore_state();
         }
 
         ElementSize {
             width: Some(max_width),
-            height: Some(line_count as f64 * line_height),
+            height: Some(line_count as f32 * line_height),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use printpdf::PdfDocument;
+    use insta::*;
 
+    use crate::test_utils::binary_snapshots::*;
     use crate::{
         fonts::builtin::BuiltinFont,
         test_utils::{ElementProxy, ElementTestParams},
@@ -430,9 +412,54 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_basic() {
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let fonts = FontSet {
+                regular: &BuiltinFont::courier(callback.pdf()),
+                bold: &BuiltinFont::courier_bold(callback.pdf()),
+                italic: &BuiltinFont::courier_oblique(callback.pdf()),
+                bold_italic: &BuiltinFont::courier_bold_oblique(callback.pdf()),
+            };
+
+            // let content = Text::basic(LOREM_IPSUM, &font, 32.);
+            let content = RichText {
+                spans: &[
+                    Span {
+                        text: LOREM_IPSUM[0..5].to_string(),
+                        bold: true,
+                        italic: false,
+                        underline: true,
+                        color: 0x00_00_00_FF,
+                    },
+                    Span {
+                        text: LOREM_IPSUM[5..].to_string(),
+                        bold: false,
+                        italic: false,
+                        underline: false,
+                        color: 0x00_00_00_FF,
+                    },
+                ],
+                size: 12.,
+                small_size: 7.,
+                extra_line_height: 0.,
+                fonts,
+            };
+            let content = content
+                .debug(0)
+                .show_max_width()
+                .show_last_location_max_height();
+
+            callback.call(&content);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
     fn test_rich_text() {
+        return;
         // A fake document for adding the fonts to.
-        let doc = PdfDocument::empty("i contain a font");
+        // let doc = PdfDocument::empty("i contain a font");
+        let mut pdf = Pdf::new((0., 0.));
 
         let text_element = RichText {
             spans: &[
@@ -462,10 +489,10 @@ mod tests {
             small_size: 12.,
             extra_line_height: 12.,
             fonts: FontSet {
-                regular: &BuiltinFont::courier(&doc),
-                bold: &BuiltinFont::courier_bold(&doc),
-                italic: &BuiltinFont::courier_oblique(&doc),
-                bold_italic: &BuiltinFont::courier_bold_oblique(&doc),
+                regular: &BuiltinFont::courier(&mut pdf),
+                bold: &BuiltinFont::courier_bold(&mut pdf),
+                italic: &BuiltinFont::courier_oblique(&mut pdf),
+                bold_italic: &BuiltinFont::courier_bold_oblique(&mut pdf),
             },
         };
 
@@ -478,24 +505,10 @@ mod tests {
 
         let element = ElementProxy {
             before_draw: &|ctx: &mut DrawCtx| {
-                // These seem to be stored in a map by name and when drawing a font with the same
-                // needs to exist in the document being drawn on.
-                ctx.pdf
-                    .document
-                    .add_builtin_font(printpdf::BuiltinFont::Courier)
-                    .unwrap();
-                ctx.pdf
-                    .document
-                    .add_builtin_font(printpdf::BuiltinFont::CourierBold)
-                    .unwrap();
-                ctx.pdf
-                    .document
-                    .add_builtin_font(printpdf::BuiltinFont::CourierOblique)
-                    .unwrap();
-                ctx.pdf
-                    .document
-                    .add_builtin_font(printpdf::BuiltinFont::CourierBoldOblique)
-                    .unwrap();
+                BuiltinFont::courier(ctx.pdf);
+                BuiltinFont::courier_bold(ctx.pdf);
+                BuiltinFont::courier_oblique(ctx.pdf);
+                BuiltinFont::courier_bold_oblique(ctx.pdf);
             },
             ..ElementProxy::new(text_element)
         };

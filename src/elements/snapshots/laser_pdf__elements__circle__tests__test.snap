@@ -1,0 +1,6 @@
+---
+source: src/elements/circle.rs
+expression: bytes
+extension: pdf
+snapshot_kind: binary
+---

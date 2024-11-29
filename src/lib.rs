@@ -2,14 +2,15 @@ pub mod elements;
 pub mod flex;
 pub mod fonts;
 pub mod image;
-pub mod serde_elements;
 pub mod test_utils;
+// pub mod serde_elements;
 pub mod text;
 pub mod utils;
 
-use elements::padding::Padding;
+use pdf_writer::{Content, Name, Rect, Ref};
+// use elements::padding::Padding;
 use fonts::Font;
-use printpdf::{CurTransMat, Mm, PdfDocumentReference, PdfLayerReference};
+// use printpdf::{CurTransMat, Mm, PdfDocumentReference, PdfLayerReference};
 use serde::{Deserialize, Serialize};
 
 pub const EMPTY_FIELD: &str = "—";
@@ -59,12 +60,12 @@ pub enum LineCapStyle {
     ProjectingSquare,
 }
 
-impl Into<printpdf::LineCapStyle> for LineCapStyle {
-    fn into(self) -> printpdf::LineCapStyle {
+impl Into<pdf_writer::types::LineCapStyle> for LineCapStyle {
+    fn into(self) -> pdf_writer::types::LineCapStyle {
         match self {
-            LineCapStyle::Butt => printpdf::LineCapStyle::Butt,
-            LineCapStyle::Round => printpdf::LineCapStyle::Round,
-            LineCapStyle::ProjectingSquare => printpdf::LineCapStyle::ProjectingSquare,
+            LineCapStyle::Butt => pdf_writer::types::LineCapStyle::ButtCap,
+            LineCapStyle::Round => pdf_writer::types::LineCapStyle::RoundCap,
+            LineCapStyle::ProjectingSquare => pdf_writer::types::LineCapStyle::ProjectingSquareCap,
         }
     }
 }
@@ -85,31 +86,152 @@ pub struct LineDashPattern {
     pub dashes: [u16; 2],
 }
 
-impl Into<printpdf::LineDashPattern> for LineDashPattern {
-    fn into(self) -> printpdf::LineDashPattern {
-        printpdf::LineDashPattern {
-            offset: self.offset as i64,
-            dash_1: Some(self.dashes[0] as i64),
-            gap_1: Some(self.dashes[1] as i64),
-            dash_2: None,
-            gap_2: None,
-            dash_3: None,
-            gap_3: None,
-        }
-    }
-}
-
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct LineStyle {
-    pub thickness: f64,
+    pub thickness: f32,
     pub color: Color,
     pub dash_pattern: Option<LineDashPattern>,
     pub cap_style: LineCapStyle,
 }
 
+pub struct Page {
+    pub ext_g_states: Vec<Ref>, // all objects must be indirect for now
+    pub x_objects: Vec<Ref>,
+    pub layers: Vec<Content>,
+}
+
+impl Page {
+    pub fn add_ext_g_state(&mut self, resource: Ref) -> usize {
+        self.ext_g_states.push(resource);
+        self.ext_g_states.len() - 1
+    }
+
+    pub fn add_x_object(&mut self, resource: Ref) -> String {
+        self.x_objects.push(resource);
+        (self.x_objects.len() - 1).to_string()
+    }
+}
+
 pub struct Pdf {
-    pub document: PdfDocumentReference,
-    pub page_size: (f64, f64),
+    pub alloc: Ref,
+    pub pdf: pdf_writer::Pdf,
+    pub pages: Vec<Page>,
+    pub page_size: (f32, f32),
+    pub fonts: Vec<Ref>,
+    truetype_fonts: Vec<fonts::truetype::TruetypeFontState>,
+}
+
+impl Pdf {
+    pub fn new(page_size: (f32, f32)) -> Self {
+        let pdf = pdf_writer::Pdf::new();
+
+        Pdf {
+            alloc: pdf_writer::Ref::new(1),
+            pdf,
+            pages: vec![Page {
+                ext_g_states: Vec::new(),
+                x_objects: Vec::new(),
+                layers: vec![Content::new()],
+            }],
+            page_size,
+            fonts: Vec::new(),
+            truetype_fonts: Vec::new(),
+        }
+    }
+
+    pub fn alloc(&mut self) -> Ref {
+        self.alloc.bump()
+    }
+
+    pub fn add_page(&mut self) -> Location {
+        self.pages.push(Page {
+            ext_g_states: Vec::new(),
+            x_objects: Vec::new(),
+            layers: vec![Content::new()],
+        });
+
+        Location {
+            page_idx: self.pages.len() - 1,
+            layer_idx: 0,
+            pos: (0., 0.),
+            scale_factor: 1.,
+        }
+    }
+
+    pub fn finish(mut self) -> Vec<u8> {
+        let catalog_ref = self.alloc();
+        let page_tree_ref = self.alloc();
+
+        self.pdf.catalog(catalog_ref).pages(page_tree_ref);
+
+        for mut truetype_font in self.truetype_fonts {
+            truetype_font.finish(&mut self.pdf, &mut self.alloc);
+        }
+
+        let pages = self
+            .pages
+            .iter()
+            .scan(self.alloc, |state, _| Some(state.bump()));
+
+        self.pdf
+            .pages(page_tree_ref)
+            .kids(pages)
+            .count(self.pages.len() as i32);
+
+        let mut page_alloc = dbg!(self.alloc);
+        self.alloc = Ref::new(self.alloc.get() + self.pages.len() as i32);
+
+        for page in self.pages {
+            let mut page_writer = self.pdf.page(page_alloc.bump());
+
+            page_writer
+                .parent(page_tree_ref)
+                .media_box(Rect::new(
+                    0.,
+                    0.,
+                    (self.page_size.0 * 72. / 25.4) as f32,
+                    (self.page_size.1 * 72. / 25.4) as f32,
+                ))
+                .contents_array(
+                    page.layers
+                        .iter()
+                        .scan(self.alloc, |state, _| Some(state.bump())),
+                );
+
+            let mut resources = page_writer.resources();
+
+            let mut ext_g_states = resources.ext_g_states();
+            for (i, ext_g_state) in page.ext_g_states.iter().enumerate() {
+                ext_g_states.pair(Name(format!("{i}").as_bytes()), ext_g_state);
+            }
+            drop(ext_g_states);
+
+            if !page.x_objects.is_empty() {
+                let mut x_objects = resources.x_objects();
+                for (i, x_object) in page.x_objects.iter().enumerate() {
+                    x_objects.pair(Name(format!("{i}").as_bytes()), x_object);
+                }
+            }
+
+            let mut fonts = resources.fonts();
+
+            for (i, &font) in self.fonts.iter().enumerate() {
+                // TODO: inherit or make an indirect object
+                fonts.pair(Name(&format!("F{}", i).as_bytes()), font);
+            }
+
+            drop(fonts);
+            drop(resources);
+            drop(page_writer);
+
+            for layer in page.layers {
+                // This adds up as long as it's not bumped between the contents_array call and here.
+                self.pdf.stream(self.alloc.bump(), &layer.finish());
+            }
+        }
+
+        self.pdf.finish()
+    }
 }
 
 /// A position for an element to render at.
@@ -119,36 +241,43 @@ pub struct Pdf {
 /// doesn't have to recalculate them on a page break.
 #[derive(Clone, Debug)]
 pub struct Location {
-    pub layer: PdfLayerReference,
-    pub pos: (f64, f64),
-    pub scale_factor: f64,
+    pub page_idx: usize,
+    pub layer_idx: usize,
+    pub pos: (f32, f32),
+    pub scale_factor: f32,
 }
 
 impl Location {
+    pub fn layer<'a>(&self, pdf: &'a mut Pdf) -> &'a mut Content {
+        &mut pdf.pages[self.page_idx].layers[self.layer_idx]
+    }
+
     pub fn next_layer(&self, pdf: &mut Pdf) -> Location {
-        let page = pdf.document.get_page(self.layer.page);
+        let page = &mut pdf.pages[self.page_idx];
+
+        let mut content = Content::new();
+        content.transform(utils::scale(self.scale_factor));
 
         // The issue is some of the layers are scaled. That's why we currently can't reuse them.
         // TODO: Find a better solution that doesn't require adding so many layers, but also doesn't
         // lead to unbalances saves/restores (which is not allowed by the spec).
-        let layer = page.add_layer(format!("Layer {}", page.layers_len()));
+        page.layers.push(content);
 
-        if self.scale_factor != 1. {
-            layer.set_ctm(CurTransMat::Scale(self.scale_factor, self.scale_factor));
+        Location {
+            layer_idx: page.layers.len() - 1,
+            ..*self
         }
-
-        Location { layer, ..*self }
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WidthConstraint {
-    pub max: f64,
+    pub max: f32,
     pub expand: bool,
 }
 
 impl WidthConstraint {
-    pub fn constrain(&self, width: f64) -> f64 {
+    pub fn constrain(&self, width: f32) -> f32 {
         if self.expand {
             self.max
         } else {
@@ -157,8 +286,8 @@ impl WidthConstraint {
     }
 }
 
-pub type Pos = (f64, f64);
-pub type Size = (f64, f64);
+pub type Pos = (f32, f32);
+pub type Size = (f32, f32);
 
 /// This returns a new [Location] because some collection elements need to keep multiple
 /// [Location]s at once (e.g. for page breaking inside of a horizontal list)
@@ -168,7 +297,7 @@ pub type Size = (f64, f64);
 /// performed twice in a row.
 ///
 /// The third parameter is the height of the location.
-pub type Break<'a> = &'a mut dyn FnMut(&mut Pdf, u32, Option<f64>) -> Location;
+pub type Break<'a> = &'a mut dyn FnMut(&mut Pdf, u32, Option<f32>) -> Location;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum FirstLocationUsage {
@@ -182,7 +311,7 @@ pub enum FirstLocationUsage {
 
 pub struct FirstLocationUsageCtx {
     pub width: WidthConstraint,
-    pub first_height: f64,
+    pub first_height: f32,
 
     // is this needed?
     // one could argue that the parent should know to not even ask if full height isn't more
@@ -190,17 +319,17 @@ pub struct FirstLocationUsageCtx {
     // full-height is less than the height needed, but available-height might still be even less
     // than that and in that case text might still use the first one (though the correctness of that
     // is also questionable)
-    pub full_height: f64,
+    pub full_height: f32,
 }
 
 impl FirstLocationUsageCtx {
-    pub fn break_appropriate_for_min_height(&self, height: f64) -> bool {
+    pub fn break_appropriate_for_min_height(&self, height: f32) -> bool {
         height > self.first_height && self.full_height > self.first_height
     }
 }
 
 pub struct BreakableMeasure<'a> {
-    pub full_height: f64,
+    pub full_height: f32,
     pub break_count: &'a mut u32,
 
     /// The minimum height required for any extra locations added to the end. If, for example,
@@ -212,18 +341,18 @@ pub struct BreakableMeasure<'a> {
     /// `None` here means the element does not use extra locations. This means it is not possible
     /// to have an element that does use extra locations, but returns a `None` height on the last
     /// one. Should that ever become necessary we'll probably have to change this to an
-    /// `Option<Option<f64>>`.
-    pub extra_location_min_height: &'a mut Option<f64>,
+    /// `Option<Option<f32>>`.
+    pub extra_location_min_height: &'a mut Option<f32>,
 }
 
 pub struct MeasureCtx<'a> {
     pub width: WidthConstraint,
-    pub first_height: f64,
+    pub first_height: f32,
     pub breakable: Option<BreakableMeasure<'a>>,
 }
 
 impl<'a> MeasureCtx<'a> {
-    pub fn break_if_appropriate_for_min_height(&mut self, height: f64) -> bool {
+    pub fn break_if_appropriate_for_min_height(&mut self, height: f32) -> bool {
         if let Some(ref mut breakable) = self.breakable {
             if height > self.first_height && breakable.full_height > self.first_height {
                 *breakable.break_count = 1;
@@ -236,7 +365,7 @@ impl<'a> MeasureCtx<'a> {
 }
 
 pub struct BreakableDraw<'a> {
-    pub full_height: f64,
+    pub full_height: f32,
     pub preferred_height_break_count: u32,
     pub do_break: Break<'a>,
 }
@@ -246,15 +375,15 @@ pub struct DrawCtx<'a, 'b> {
     pub location: Location,
 
     pub width: WidthConstraint,
-    pub first_height: f64,
+    pub first_height: f32,
 
-    pub preferred_height: Option<f64>,
+    pub preferred_height: Option<f32>,
 
     pub breakable: Option<BreakableDraw<'b>>,
 }
 
 impl<'a, 'b> DrawCtx<'a, 'b> {
-    pub fn break_if_appropriate_for_min_height(&mut self, height: f64) -> bool {
+    pub fn break_if_appropriate_for_min_height(&mut self, height: f32) -> bool {
         if let Some(ref mut breakable) = self.breakable {
             if height > self.first_height && breakable.full_height > self.first_height {
                 // TODO: Make sure this is correct. Maybe this function needs to be renamed to make
@@ -270,17 +399,17 @@ impl<'a, 'b> DrawCtx<'a, 'b> {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ElementSize {
-    pub width: Option<f64>,
+    pub width: Option<f32>,
 
     /// None here means that this element doesn't need any space on it's last page. This is useful
     /// for things like collapsing gaps after a forced break. This in combination with no breaks
     /// means the element is completely hidden. This can be used to trigger collapsing of gaps even
     /// hiding certain parent containers, like titled, in turn.
-    pub height: Option<f64>,
+    pub height: Option<f32>,
 }
 
 impl ElementSize {
-    pub fn new(width: Option<f64>, height: Option<f64>) -> Self {
+    pub fn new(width: Option<f32>, height: Option<f32>) -> Self {
         ElementSize { width, height }
     }
 }
@@ -298,31 +427,31 @@ pub trait Element {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize;
 
-    fn with_padding_top(&self, padding: f64) -> Padding<Self>
-    where
-        Self: Sized,
-    {
-        Padding {
-            left: 0.,
-            right: 0.,
-            top: padding,
-            bottom: 0.,
-            element: self,
-        }
-    }
+    // fn with_padding_top(&self, padding: f32) -> Padding<Self>
+    // where
+    //     Self: Sized,
+    // {
+    //     Padding {
+    //         left: 0.,
+    //         right: 0.,
+    //         top: padding,
+    //         bottom: 0.,
+    //         element: self,
+    //     }
+    // }
 
-    fn with_vertical_padding(&self, padding: f64) -> Padding<Self>
-    where
-        Self: Sized,
-    {
-        Padding {
-            left: 0.,
-            right: 0.,
-            top: padding,
-            bottom: padding,
-            element: self,
-        }
-    }
+    // fn with_vertical_padding(&self, padding: f32) -> Padding<Self>
+    // where
+    //     Self: Sized,
+    // {
+    //     Padding {
+    //         left: 0.,
+    //         right: 0.,
+    //         top: padding,
+    //         bottom: padding,
+    //         element: self,
+    //     }
+    // }
 
     fn debug(&self, color: u8) -> elements::debug::Debug<Self>
     where
@@ -412,88 +541,88 @@ impl<C: CompositeElement> Element for C {
 
 // -------------------------------------------------------------------------------------------------
 
-pub trait BuildElement<'a, F: 'static> {
-    type R: Element + 'a;
+// pub trait BuildElement<'a, F: 'static> {
+//     type R: Element + 'a;
 
-    fn call(self, fonts: &'a F) -> Self::R;
-}
+//     fn call(self, fonts: &'a F) -> Self::R;
+// }
 
-impl<'a, F: 'static, R: Element + 'a, O: FnOnce(&'a F) -> R> BuildElement<'a, F> for O {
-    type R = R;
+// impl<'a, F: 'static, R: Element + 'a, O: FnOnce(&'a F) -> R> BuildElement<'a, F> for O {
+//     type R = R;
 
-    #[inline]
-    fn call(self, fonts: &'a F) -> Self::R {
-        self(fonts)
-    }
-}
+//     #[inline]
+//     fn call(self, fonts: &'a F) -> Self::R {
+//         self(fonts)
+//     }
+// }
 
-pub fn build_pdf<F: 'static>(
-    name: &str,
-    page_size: (f64, f64),
-    build_fonts: impl FnOnce(&PdfDocumentReference) -> F,
-    build_element: impl for<'a> BuildElement<'a, F>,
-) -> printpdf::PdfDocumentReference {
-    use printpdf::{
-        indices::{PdfLayerIndex, PdfPageIndex},
-        PdfDocument,
-    };
+// pub fn build_pdf<F: 'static>(
+//     name: &str,
+//     page_size: (f32, f32),
+//     build_fonts: impl FnOnce(&PdfDocumentReference) -> F,
+//     build_element: impl for<'a> BuildElement<'a, F>,
+// ) -> printpdf::PdfDocumentReference {
+//     use printpdf::{
+//         indices::{PdfLayerIndex, PdfPageIndex},
+//         PdfDocument,
+//     };
 
-    let (doc, page, layer) = PdfDocument::new(name, Mm(page_size.0), Mm(page_size.1), "Layer 0");
-    let mut page_idx = 0;
+//     let (doc, page, layer) = PdfDocument::new(name, Mm(page_size.0), Mm(page_size.1), "Layer 0");
+//     let mut page_idx = 0;
 
-    let mut pdf = Pdf {
-        document: doc,
-        page_size,
-    };
+//     let mut pdf = Pdf {
+//         document: doc,
+//         page_size,
+//     };
 
-    let do_break = &mut |pdf: &mut Pdf, location_idx, size| {
-        while page_idx <= location_idx {
-            pdf.document
-                .add_page(Mm(page_size.0), Mm(page_size.1), "Layer 0");
-            page_idx += 1;
-        }
+//     let do_break = &mut |pdf: &mut Pdf, location_idx, size| {
+//         while page_idx <= location_idx {
+//             pdf.document
+//                 .add_page(Mm(page_size.0), Mm(page_size.1), "Layer 0");
+//             page_idx += 1;
+//         }
 
-        let layer = pdf
-            .document
-            .get_page(PdfPageIndex((location_idx + 1) as usize))
-            .get_layer(PdfLayerIndex(0));
+//         let layer = pdf
+//             .document
+//             .get_page(PdfPageIndex((location_idx + 1) as usize))
+//             .get_layer(PdfLayerIndex(0));
 
-        Location {
-            layer,
-            pos: (0., page_size.1),
-            scale_factor: 1.,
-        }
-    };
+//         Location {
+//             layer,
+//             pos: (0., page_size.1),
+//             scale_factor: 1.,
+//         }
+//     };
 
-    let layer = pdf.document.get_page(page).get_layer(layer);
+//     let layer = pdf.document.get_page(page).get_layer(layer);
 
-    let fonts = build_fonts(&pdf.document);
+//     let fonts = build_fonts(&pdf.document);
 
-    let element = build_element.call(&fonts);
+//     let element = build_element.call(&fonts);
 
-    let ctx = DrawCtx {
-        pdf: &mut pdf,
-        width: WidthConstraint {
-            max: page_size.0,
-            expand: true,
-        },
-        location: Location {
-            layer,
-            pos: (0., page_size.1),
-            scale_factor: 1.,
-        },
+//     let ctx = DrawCtx {
+//         pdf: &mut pdf,
+//         width: WidthConstraint {
+//             max: page_size.0,
+//             expand: true,
+//         },
+//         location: Location {
+//             layer,
+//             pos: (0., page_size.1),
+//             scale_factor: 1.,
+//         },
 
-        first_height: page_size.1,
-        preferred_height: None,
+//         first_height: page_size.1,
+//         preferred_height: None,
 
-        breakable: Some(BreakableDraw {
-            full_height: page_size.1,
-            preferred_height_break_count: 0,
-            do_break,
-        }),
-    };
+//         breakable: Some(BreakableDraw {
+//             full_height: page_size.1,
+//             preferred_height_break_count: 0,
+//             do_break,
+//         }),
+//     };
 
-    element.draw(ctx);
+//     element.draw(ctx);
 
-    pdf.document
-}
+//     pdf.document
+// }

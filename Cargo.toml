@@ -1,7 +1,7 @@
 [package]
 name = "laser-pdf"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,9 +9,9 @@ edition = "2021"
 # printpdf = { path = "../printpdf", version = "0.3.2" }
 printpdf = { git = "https://github.com/escola-ch/printpdf-fork.git" }
 stb_truetype = "0.3.1"
-lopdf = { version = "0.27", default_features = false }
+lopdf = { version = "0.27", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
-usvg = { version = "0.11.0", default-features = false }
+usvg = { version = "0.43.0", default-features = false }
 svgtypes = "0.5.0"
 kurbo = "0.8.1"
 serde_json = "1.0.103"
@@ -19,6 +19,15 @@ itertools = "0.11.0"
 pdf-core-14-font-afms = "0.1.0"
 afm = "0.1.2"
 pom = "1.1.0"
+pdf-writer = "0.12.0"
+ttf-parser = "0.25.0"
+subsetter = "0.2.0"
+typst-utils = "0.12.0"
+miniz_oxide = "0.8.0"
+rustybuzz = "0.20.1"
+svg2pdf = "0.12.0"
+icu_segmenter = "1.5.0"
+icu_properties = "1.5.1"
 
 [dev-dependencies]
 insta = "1.41.1"

@@ -5,7 +5,7 @@ use std::{ops::Index, rc::Rc};
 use crate::{fonts::truetype::TruetypeFont, CompositeElement, CompositeElementCallback};
 use elements::*;
 
-pub type Font = Rc<TruetypeFont<Vec<u8>>>;
+pub type Font = Rc<TruetypeFont<'static>>;
 
 pub trait SerdeElement {
     fn element(

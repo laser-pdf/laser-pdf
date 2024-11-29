@@ -1,13 +1,13 @@
 use crate::*;
 
 pub struct VListHandler<'a, 'b> {
-    max_width: Option<f64>,
+    max_width: Option<f32>,
     render: Option<DrawCtx<'a, 'b>>,
-    width: f64,
-    height: f64,
+    width: f32,
+    height: f32,
     break_page: bool,
-    line: Option<f64>,
-    gap: f64,
+    line: Option<f32>,
+    gap: f32,
 }
 
 impl<'a, 'b> VListHandler<'a, 'b> {
@@ -52,18 +52,17 @@ impl<'a, 'b> VListHandler<'a, 'b> {
                         location: *location,
                         full_height,
                         breakable: Some(BreakableDraw {
-                          get_location: &mut |pdf| {
-                              *location = next_location(pdf);
-                              *height = 0.0;
-                        
-                              location.height_available =
-                                  (location.height_available - 2.0 * gap).max(0.0);
-                        
-                              *location
-                          },
-                          ..break_ctx
-                        })
-                        ,
+                            get_location: &mut |pdf| {
+                                *location = next_location(pdf);
+                                *height = 0.0;
+
+                                location.height_available =
+                                    (location.height_available - 2.0 * gap).max(0.0);
+
+                                *location
+                            },
+                            ..break_ctx
+                        }),
                     }),
                 )
             }
@@ -111,12 +110,12 @@ impl<'a, 'b> VListHandler<'a, 'b> {
 pub struct VList<F: Fn(&mut VListHandler)> {
     pub list: F,
     pub break_page: bool,
-    pub line: Option<f64>,
-    pub gap: f64,
+    pub line: Option<f32>,
+    pub gap: f32,
 }
 
 impl<F: Fn(&mut VListHandler)> VList<F> {
-    pub fn new(list: F, break_page: bool, line: Option<f64>, gap: f64) -> Self {
+    pub fn new(list: F, break_page: bool, line: Option<f32>, gap: f32) -> Self {
         VList {
             list,
             break_page,
@@ -127,7 +126,7 @@ impl<F: Fn(&mut VListHandler)> VList<F> {
 }
 
 impl<F: Fn(&mut VListHandler)> Widget for VList<F> {
-    fn widget(&self, width: Option<f64>, mut render: Option<DrawCtx>) -> [f64; 2] {
+    fn widget(&self, width: Option<f32>, mut render: Option<DrawCtx>) -> [f32; 2] {
         if let Some(context) = &mut render {
             context.location.pos[1] -= self.gap;
             if let Some(line) = self.line {
@@ -155,15 +154,17 @@ impl<F: Fn(&mut VListHandler)> Widget for VList<F> {
 
         (self.list)(&mut handler);
 
-        Some(ElementSize { width: handler.width, height: Some(handler.height) })
-        
+        Some(ElementSize {
+            width: handler.width,
+            height: Some(handler.height),
+        })
     }
 }
 
 pub struct HListHandler<'a, 'b> {
     draw: Option<DrawCtx<'a, 'b>>,
-    width: f64,
-    height: f64,
+    width: f32,
+    height: f32,
 }
 
 impl<'a, 'b> HListHandler<'a, 'b> {
@@ -199,7 +200,7 @@ impl<'a, 'b> HListHandler<'a, 'b> {
 pub struct HList<F: Fn(&mut HListHandler)>(pub F);
 
 impl<F: Fn(&mut HListHandler)> Widget for HList<F> {
-    fn widget(&self, _width: Option<f64>, draw: Option<DrawCtx>) -> [f64; 2] {
+    fn widget(&self, _width: Option<f32>, draw: Option<DrawCtx>) -> [f32; 2] {
         let mut handler = HListHandler {
             draw,
             width: 0.0,
@@ -208,21 +209,23 @@ impl<F: Fn(&mut HListHandler)> Widget for HList<F> {
 
         self.0(&mut handler);
 
-        Some(ElementSize { width: handler.width, height: Some(handler.height) })
-        
+        Some(ElementSize {
+            width: handler.width,
+            height: Some(handler.height),
+        })
     }
 }
 
 // pub enum FlexMode {
 //     Expand,
 //     SelfSized,
-//     Fixed(f64),
+//     Fixed(f32),
 // }
 
 // pub struct FlexList<F: Fn(&mut dyn FnMut(&dyn Widget, FlexMode))>(pub F);
 
 // impl<F: Fn(&mut dyn FnMut(&dyn Widget, FlexMode))> Widget for FlexList<F> {
-//     fn widget(&self, width: Option<f64>, mut render: Option<DrawCtx>) -> [f64; 2] {
+//     fn widget(&self, width: Option<f32>, mut render: Option<DrawCtx>) -> [f32; 2] {
 //         use FlexMode::*;
 
 //         let mut no_expand_width = 0.0;
@@ -248,8 +251,8 @@ impl<F: Fn(&mut HListHandler)> Widget for HList<F> {
 //         let remaining_width = width.map(|w| (w - no_expand_width).max(0.0)).unwrap_or(0.0);
 //         let expand_width = remaining_width / expand_count;
 
-//         let mut width: f64 = 0.0;
-//         let mut height: f64 = 0.0;
+//         let mut width: f32 = 0.0;
+//         let mut height: f32 = 0.0;
 
 //         self.0(&mut |w, expand| {
 //             let expand = match expand { Expand => Some(expand_width), Fixed(width) => Some(width), _ => None };

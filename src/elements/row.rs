@@ -7,7 +7,7 @@ use crate::{
 use super::none::NoneElement;
 
 pub struct Row<F: Fn(&mut RowContent)> {
-    pub gap: f64,
+    pub gap: f32,
     pub expand: bool,
     pub collapse: bool,
     pub content: F,
@@ -193,14 +193,14 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
 
 pub struct RowContent<'a, 'b, 'c> {
     width: WidthConstraint,
-    first_height: f64,
+    first_height: f32,
     pass: Pass<'a, 'b, 'c>,
 }
 
 enum Pass<'a, 'b, 'c> {
     MeasureNonExpanded {
         layout: &'a mut MeasureLayout,
-        max_height: Option<&'a mut Option<f64>>,
+        max_height: Option<&'a mut Option<f32>>,
         breakable: Option<&'a mut BreakableMeasure<'b>>,
     },
 
@@ -208,25 +208,25 @@ enum Pass<'a, 'b, 'c> {
 
     MeasureExpanded {
         layout: &'a DrawLayout,
-        max_height: &'a mut Option<f64>,
-        width: Option<&'a mut Option<f64>>,
+        max_height: &'a mut Option<f32>,
+        width: Option<&'a mut Option<f32>>,
         width_expand: bool,
-        gap: f64,
+        gap: f32,
         breakable: Option<&'a mut BreakableMeasure<'b>>,
     },
 
     Draw {
         layout: &'a DrawLayout,
-        max_height: &'a mut Option<f64>,
-        width: &'a mut Option<f64>,
+        max_height: &'a mut Option<f32>,
+        width: &'a mut Option<f32>,
         width_expand: bool,
 
-        gap: f64,
+        gap: f32,
 
         pdf: &'c mut Pdf,
         location: Location,
 
-        preferred_height: Option<f64>,
+        preferred_height: Option<f32>,
         break_count: u32,
         breakable: Option<&'a mut BreakableDraw<'b>>,
     },
@@ -236,15 +236,15 @@ enum Pass<'a, 'b, 'c> {
 pub enum Flex {
     Expand(u8),
     SelfSized,
-    Fixed(f64),
+    Fixed(f32),
 }
 
 fn add_height(
-    max_height: &mut Option<f64>,
+    max_height: &mut Option<f32>,
     breakable: Option<&mut BreakableMeasure>,
     size: ElementSize,
     break_count: u32,
-    extra_location_min_height: Option<f64>,
+    extra_location_min_height: Option<f32>,
 ) {
     if let Some(b) = breakable {
         *b.extra_location_min_height =

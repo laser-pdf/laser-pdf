@@ -65,15 +65,18 @@ pub fn deserialize_svg_from_path<'de, D: Deserializer<'de>>(
         }
 
         fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
-            usvg::Tree::from_file(v, &Default::default()).map_err(|e| E::custom(e))
+            let data = std::fs::read(v).map_err(|e| E::custom(e))?;
+            usvg::Tree::from_data(&data, &Default::default()).map_err(|e| E::custom(e))
         }
 
         fn visit_borrowed_str<E: serde::de::Error>(self, v: &'de str) -> Result<Self::Value, E> {
-            usvg::Tree::from_file(v, &Default::default()).map_err(|e| E::custom(e))
+            let data = std::fs::read(v).map_err(|e| E::custom(e))?;
+            usvg::Tree::from_data(&data, &Default::default()).map_err(|e| E::custom(e))
         }
 
         fn visit_string<E: serde::de::Error>(self, v: String) -> Result<Self::Value, E> {
-            usvg::Tree::from_file(&v, &Default::default()).map_err(|e| E::custom(e))
+            let data = std::fs::read(v).map_err(|e| E::custom(e))?;
+            usvg::Tree::from_data(&data, &Default::default()).map_err(|e| E::custom(e))
         }
     }
 
@@ -91,9 +94,10 @@ pub fn deserialize_image<'de, D: Deserializer<'de>>(deserializer: D) -> Result<I
 
     fn visit<E: serde::de::Error>(path: impl AsRef<std::path::Path>) -> Result<Image, E> {
         if path.as_ref().extension().map_or(false, |e| e == "svg") {
-            Ok(Image::Svg(
-                usvg::Tree::from_file(path, &Default::default()).map_err(E::custom)?,
-            ))
+            Ok(Image::Svg({
+                let data = std::fs::read(path).map_err(|e| E::custom(e))?;
+                usvg::Tree::from_data(&data, &Default::default()).map_err(|e| E::custom(e))?
+            }))
         } else {
             Ok(Image::Pixel(
                 printpdf::image::open(path).map_err(E::custom)?,
