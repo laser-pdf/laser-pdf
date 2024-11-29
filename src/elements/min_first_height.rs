@@ -263,32 +263,29 @@ mod tests {
         use crate::test_utils::binary_snapshots::*;
         use insta::*;
 
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: 9.,
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: 9.,
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
 
-                    let content = Text::basic(LOREM_IPSUM, &font, 12.);
-                    let content = &content.debug(1).show_max_width();
+                let content = Text::basic(LOREM_IPSUM, &font, 12.);
+                let content = &content.debug(1).show_max_width();
 
-                    callback.call(
-                        &MinFirstHeight {
-                            element: content,
-                            min_first_height: 10.,
-                        }
-                        .debug(0)
-                        .show_max_width()
-                        .show_last_location_max_height(),
-                    );
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(
+                    &MinFirstHeight {
+                        element: content,
+                        min_first_height: 10.,
+                    }
+                    .debug(0)
+                    .show_max_width()
+                    .show_last_location_max_height(),
+                );
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]

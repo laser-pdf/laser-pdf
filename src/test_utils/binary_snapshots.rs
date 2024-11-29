@@ -283,11 +283,7 @@ impl<'a> Callback<'a> {
     }
 }
 
-pub fn test_element_file(
-    params: TestElementParams,
-    build_element: impl Fn(Callback),
-    file: &mut File,
-) {
+pub fn test_element_bytes(params: TestElementParams, build_element: impl Fn(Callback)) -> Vec<u8> {
     let measure = Doc::new(params).measure(&build_element);
 
     let mut draw_doc = Doc::new(params);
@@ -374,9 +370,13 @@ pub fn test_element_file(
         }
     }
 
+    let mut bytes = Vec::new();
+
     draw_doc
         .pdf
         .document
-        .save(&mut BufWriter::new(file))
+        .save(&mut BufWriter::new(&mut bytes))
         .unwrap();
+
+    bytes
 }

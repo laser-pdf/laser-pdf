@@ -166,239 +166,221 @@ mod tests {
 
     #[test]
     fn test_basic() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: 10.,
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
-                    let text = Text::basic("TEST", &font, 100.);
-                    let text = &text
-                        .debug(1)
-                        .show_max_width()
-                        .show_last_location_max_height();
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: 10.,
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
+                let text = Text::basic("TEST", &font, 100.);
+                let text = &text
+                    .debug(1)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    let shrink_to_fit = ShrinkToFit {
-                        element: text,
-                        min_height: 9.,
-                    };
-                    let shrink_to_fit = &shrink_to_fit
-                        .debug(0)
-                        .show_max_width()
-                        .show_last_location_max_height();
+                let shrink_to_fit = ShrinkToFit {
+                    element: text,
+                    min_height: 9.,
+                };
+                let shrink_to_fit = &shrink_to_fit
+                    .debug(0)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    callback.call(shrink_to_fit);
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(shrink_to_fit);
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_unbreakable_negative_first_height() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: -10.,
-                    ..TestElementParams::unbreakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
-                    let text = Text::basic("TEST", &font, 100.);
-                    let text = &text
-                        .debug(1)
-                        .show_max_width()
-                        .show_last_location_max_height();
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: -10.,
+                ..TestElementParams::unbreakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
+                let text = Text::basic("TEST", &font, 100.);
+                let text = &text
+                    .debug(1)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    let shrink_to_fit = ShrinkToFit {
-                        element: text,
-                        min_height: 9.,
-                    };
-                    let shrink_to_fit = &shrink_to_fit
-                        .debug(0)
-                        .show_max_width()
-                        .show_last_location_max_height();
+                let shrink_to_fit = ShrinkToFit {
+                    element: text,
+                    min_height: 9.,
+                };
+                let shrink_to_fit = &shrink_to_fit
+                    .debug(0)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    callback.call(shrink_to_fit);
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(shrink_to_fit);
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_pre_break() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: 5.,
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
-                    let text = Text::basic("T E S T", &font, 1024.);
-                    let text = &text
-                        .debug(1)
-                        .show_max_width()
-                        .show_last_location_max_height();
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: 5.,
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
+                let text = Text::basic("T E S T", &font, 1024.);
+                let text = &text
+                    .debug(1)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    let shrink_to_fit = ShrinkToFit {
-                        element: text,
-                        min_height: 10.,
-                    };
-                    let shrink_to_fit = &shrink_to_fit
-                        .debug(0)
-                        .show_max_width()
-                        .show_last_location_max_height();
+                let shrink_to_fit = ShrinkToFit {
+                    element: text,
+                    min_height: 10.,
+                };
+                let shrink_to_fit = &shrink_to_fit
+                    .debug(0)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    callback.call(shrink_to_fit);
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(shrink_to_fit);
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_align_location_bottom() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: 20.,
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
-                    let text = Text::basic("Test", &font, 20.);
-                    let text = &text
-                        .debug(1)
-                        .show_max_width()
-                        .show_last_location_max_height();
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: 20.,
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
+                let text = Text::basic("Test", &font, 20.);
+                let text = &text
+                    .debug(1)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    let bottom = AlignLocationBottom(text);
-                    let bottom = &bottom.debug(2);
+                let bottom = AlignLocationBottom(text);
+                let bottom = &bottom.debug(2);
 
-                    let shrink_to_fit = ShrinkToFit {
-                        element: bottom,
-                        min_height: 10.,
-                    };
-                    let shrink_to_fit = &shrink_to_fit
-                        .debug(0)
-                        .show_max_width()
-                        .show_last_location_max_height();
+                let shrink_to_fit = ShrinkToFit {
+                    element: bottom,
+                    min_height: 10.,
+                };
+                let shrink_to_fit = &shrink_to_fit
+                    .debug(0)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    callback.call(shrink_to_fit);
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(shrink_to_fit);
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_layers() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: 20.,
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
-                    let text = Text::basic("Test", &font, 100.);
-                    let text = &text
-                        .debug(1)
-                        .show_max_width()
-                        .show_last_location_max_height();
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: 20.,
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
+                let text = Text::basic("Test", &font, 100.);
+                let text = &text
+                    .debug(1)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    let wrapper = StyledBox {
-                        outline: Some(LineStyle {
-                            thickness: 12.,
-                            color: 0x00_00_00_FF,
-                            dash_pattern: None,
-                            cap_style: LineCapStyle::Round,
-                        }),
-                        ..StyledBox::new(text)
-                    };
-                    let wrapper = &wrapper.debug(2);
+                let wrapper = StyledBox {
+                    outline: Some(LineStyle {
+                        thickness: 12.,
+                        color: 0x00_00_00_FF,
+                        dash_pattern: None,
+                        cap_style: LineCapStyle::Round,
+                    }),
+                    ..StyledBox::new(text)
+                };
+                let wrapper = &wrapper.debug(2);
 
-                    let shrink_to_fit = ShrinkToFit {
-                        element: wrapper,
-                        min_height: 10.,
-                    };
-                    let shrink_to_fit = &shrink_to_fit
-                        .debug(0)
-                        .show_max_width()
-                        .show_last_location_max_height();
+                let shrink_to_fit = ShrinkToFit {
+                    element: wrapper,
+                    min_height: 10.,
+                };
+                let shrink_to_fit = &shrink_to_fit
+                    .debug(0)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    callback.call(shrink_to_fit);
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(shrink_to_fit);
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_nested_layers() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: 30.,
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
-                    let text = Text::basic("Test", &font, 100.);
-                    let text = &text
-                        .debug(1)
-                        .show_max_width()
-                        .show_last_location_max_height();
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: 30.,
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
+                let text = Text::basic("Test", &font, 100.);
+                let text = &text
+                    .debug(1)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    let wrapper = StyledBox {
-                        outline: Some(LineStyle {
-                            thickness: 10.,
-                            color: 0x00_00_00_FF,
-                            dash_pattern: None,
-                            cap_style: LineCapStyle::Round,
-                        }),
-                        ..StyledBox::new(text)
-                    };
-                    let wrapper = &wrapper.debug(2);
-                    let shrink_to_fit = ShrinkToFit {
-                        element: wrapper,
-                        min_height: 10.,
-                    };
+                let wrapper = StyledBox {
+                    outline: Some(LineStyle {
+                        thickness: 10.,
+                        color: 0x00_00_00_FF,
+                        dash_pattern: None,
+                        cap_style: LineCapStyle::Round,
+                    }),
+                    ..StyledBox::new(text)
+                };
+                let wrapper = &wrapper.debug(2);
+                let shrink_to_fit = ShrinkToFit {
+                    element: wrapper,
+                    min_height: 10.,
+                };
 
-                    let wrapper_1 = StyledBox {
-                        outline: Some(LineStyle {
-                            thickness: 10.,
-                            color: 0xAA_00_00_FF,
-                            dash_pattern: None,
-                            cap_style: LineCapStyle::Round,
-                        }),
-                        ..StyledBox::new(&shrink_to_fit)
-                    };
-                    let wrapper_1 = &wrapper_1.debug(3);
+                let wrapper_1 = StyledBox {
+                    outline: Some(LineStyle {
+                        thickness: 10.,
+                        color: 0xAA_00_00_FF,
+                        dash_pattern: None,
+                        cap_style: LineCapStyle::Round,
+                    }),
+                    ..StyledBox::new(&shrink_to_fit)
+                };
+                let wrapper_1 = &wrapper_1.debug(3);
 
-                    let shrink_to_fit_1 = ShrinkToFit {
-                        element: wrapper_1,
-                        min_height: 10.,
-                    };
-                    let shrink_to_fit = &shrink_to_fit_1
-                        .debug(0)
-                        .show_max_width()
-                        .show_last_location_max_height();
+                let shrink_to_fit_1 = ShrinkToFit {
+                    element: wrapper_1,
+                    min_height: 10.,
+                };
+                let shrink_to_fit = &shrink_to_fit_1
+                    .debug(0)
+                    .show_max_width()
+                    .show_last_location_max_height();
 
-                    callback.call(shrink_to_fit);
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(shrink_to_fit);
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 }

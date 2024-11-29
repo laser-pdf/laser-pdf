@@ -290,239 +290,203 @@ mod tests {
 
     #[test]
     fn test() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::breakable(),
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
+            let font = BuiltinFont::courier(callback.document());
 
-                    let content = Text::basic(LOREM_IPSUM, &font, 32.);
-                    let content = content.debug(1);
+            let content = Text::basic(LOREM_IPSUM, &font, 32.);
+            let content = content.debug(1);
 
-                    let bottom = Text::basic("bottom", &font, 12.);
-                    let bottom = bottom.debug(2);
+            let bottom = Text::basic("bottom", &font, 12.);
+            let bottom = bottom.debug(2);
 
-                    callback.call(
-                        &RepeatBottom {
-                            content: &content,
-                            bottom: &bottom,
-                            gap: 5.,
-                            collapse: true,
-                        }
-                        .debug(0),
-                    );
-                },
-                file,
+            callback.call(
+                &RepeatBottom {
+                    content: &content,
+                    bottom: &bottom,
+                    gap: 5.,
+                    collapse: true,
+                }
+                .debug(0),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_collapse() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::breakable(),
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
+            let font = BuiltinFont::courier(callback.document());
 
-                    let content = NoneElement;
-                    let content = content.debug(1);
+            let content = NoneElement;
+            let content = content.debug(1);
 
-                    let bottom = Text::basic("bottom", &font, 12.);
-                    let bottom = bottom.debug(2);
+            let bottom = Text::basic("bottom", &font, 12.);
+            let bottom = bottom.debug(2);
 
-                    callback.call(
-                        &RepeatBottom {
-                            content: &content,
-                            bottom: &bottom,
-                            gap: 5.,
-                            collapse: true,
-                        }
-                        .debug(0),
-                    );
-                },
-                file,
+            callback.call(
+                &RepeatBottom {
+                    content: &content,
+                    bottom: &bottom,
+                    gap: 5.,
+                    collapse: true,
+                }
+                .debug(0),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_no_collapse() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::breakable(),
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
+            let font = BuiltinFont::courier(callback.document());
 
-                    let content = NoneElement;
-                    let content = content.debug(1);
+            let content = NoneElement;
+            let content = content.debug(1);
 
-                    let bottom = Text::basic("bottom", &font, 12.);
-                    let bottom = bottom.debug(2);
+            let bottom = Text::basic("bottom", &font, 12.);
+            let bottom = bottom.debug(2);
 
-                    callback.call(
-                        &RepeatBottom {
-                            content: &content,
-                            bottom: &bottom,
-                            gap: 5.,
-                            collapse: false,
-                        }
-                        .debug(0),
-                    );
-                },
-                file,
+            callback.call(
+                &RepeatBottom {
+                    content: &content,
+                    bottom: &bottom,
+                    gap: 5.,
+                    collapse: false,
+                }
+                .debug(0),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_no_collapse_bottom_overflow() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: 1.,
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: 1.,
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
 
-                    let content = NoneElement;
-                    let content = content.debug(1);
+                let content = NoneElement;
+                let content = content.debug(1);
 
-                    let bottom = Text::basic("bottom", &font, 12.);
-                    let bottom = bottom.debug(2);
+                let bottom = Text::basic("bottom", &font, 12.);
+                let bottom = bottom.debug(2);
 
-                    callback.call(
-                        &RepeatBottom {
-                            content: &content,
-                            bottom: &bottom,
-                            gap: 5.,
-                            collapse: false,
-                        }
-                        .debug(0),
-                    );
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(
+                    &RepeatBottom {
+                        content: &content,
+                        bottom: &bottom,
+                        gap: 5.,
+                        collapse: false,
+                    }
+                    .debug(0),
+                );
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_multipage_no_collapse() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::breakable(),
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
+            let font = BuiltinFont::courier(callback.document());
 
-                    let content = FranticJumper {
-                        jumps: vec![(0, None), (0, None), (2, Some(32.)), (3, Some(55.))],
-                        size: ElementSize {
-                            width: Some(12.),
-                            height: None,
-                        },
-                    };
-                    let content = content.debug(1);
-
-                    let bottom = Text::basic("bottom", &font, 12.);
-                    let bottom = bottom.debug(2);
-
-                    callback.call(
-                        &RepeatBottom {
-                            content: &content,
-                            bottom: &bottom,
-                            gap: 10.,
-                            collapse: false,
-                        }
-                        .debug(0),
-                    );
+            let content = FranticJumper {
+                jumps: vec![(0, None), (0, None), (2, Some(32.)), (3, Some(55.))],
+                size: ElementSize {
+                    width: Some(12.),
+                    height: None,
                 },
-                file,
+            };
+            let content = content.debug(1);
+
+            let bottom = Text::basic("bottom", &font, 12.);
+            let bottom = bottom.debug(2);
+
+            callback.call(
+                &RepeatBottom {
+                    content: &content,
+                    bottom: &bottom,
+                    gap: 10.,
+                    collapse: false,
+                }
+                .debug(0),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_multipage_collapse() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::breakable(),
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
+            let font = BuiltinFont::courier(callback.document());
 
-                    let content = FranticJumper {
-                        jumps: vec![(1, None), (1, None), (3, Some(32.)), (4, None)],
-                        size: ElementSize {
-                            width: Some(12.),
-                            height: None,
-                        },
-                    };
-                    let content = content.debug(1);
-
-                    let bottom = Text::basic("bottom", &font, 12.);
-                    let bottom = bottom.debug(2);
-
-                    callback.call(
-                        &RepeatBottom {
-                            content: &content,
-                            bottom: &bottom,
-                            gap: 10.,
-                            collapse: true,
-                        }
-                        .debug(0),
-                    );
+            let content = FranticJumper {
+                jumps: vec![(1, None), (1, None), (3, Some(32.)), (4, None)],
+                size: ElementSize {
+                    width: Some(12.),
+                    height: None,
                 },
-                file,
+            };
+            let content = content.debug(1);
+
+            let bottom = Text::basic("bottom", &font, 12.);
+            let bottom = bottom.debug(2);
+
+            callback.call(
+                &RepeatBottom {
+                    content: &content,
+                    bottom: &bottom,
+                    gap: 10.,
+                    collapse: true,
+                }
+                .debug(0),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_titled() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: 10.,
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
-                    let title = Text::basic("title", &font, 12.);
-                    let title = &title.debug(1);
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: 10.,
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
+                let title = Text::basic("title", &font, 12.);
+                let title = &title.debug(1);
 
-                    let content = Text::basic("content", &font, 32.);
-                    let content = &content.debug(3);
+                let content = Text::basic("content", &font, 32.);
+                let content = &content.debug(3);
 
-                    let bottom = Text::basic("bottom", &font, 12.);
-                    let bottom = &bottom.debug(4);
+                let bottom = Text::basic("bottom", &font, 12.);
+                let bottom = &bottom.debug(4);
 
-                    let repeat_bottom = RepeatBottom {
-                        content,
-                        bottom,
+                let repeat_bottom = RepeatBottom {
+                    content,
+                    bottom,
+                    gap: 5.,
+                    collapse: true,
+                };
+                let repeat_bottom = &repeat_bottom.debug(2);
+
+                callback.call(
+                    &Titled {
+                        title,
+                        content: repeat_bottom,
                         gap: 5.,
-                        collapse: true,
-                    };
-                    let repeat_bottom = &repeat_bottom.debug(2);
-
-                    callback.call(
-                        &Titled {
-                            title,
-                            content: repeat_bottom,
-                            gap: 5.,
-                            collapse_on_empty_content: true,
-                        }
-                        .debug(0),
-                    );
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                        collapse_on_empty_content: true,
+                    }
+                    .debug(0),
+                );
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 }

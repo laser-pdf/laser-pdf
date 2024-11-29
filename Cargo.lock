@@ -290,8 +290,9 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.39.0"
-source = "git+https://github.com/lasernoises/insta.git?branch=binary-snapshots#edfabf3d8e4de853e52150e2925703122320cbc4"
+version = "1.41.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e9ffc4d4892617c50a928c52b2961cb5174b6fc6ebf252b2fac9d21955c48b8"
 dependencies = [
  "console",
  "lazy_static",

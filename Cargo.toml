@@ -21,8 +21,7 @@ afm = "0.1.2"
 pom = "1.1.0"
 
 [dev-dependencies]
-# insta = "1.35.1"
-insta = { git = "https://github.com/lasernoises/insta.git", branch = "binary-snapshots" }
+insta = "1.41.1"
 
 [profile.dev.package]
 insta.opt-level = 3

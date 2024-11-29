@@ -370,234 +370,204 @@ mod tests {
 
     #[test]
     fn test() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::breakable(),
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
+            let font = BuiltinFont::courier(callback.document());
 
-                    let first = Text::basic("first", &font, 12.);
-                    let first = first.debug(1);
+            let first = Text::basic("first", &font, 12.);
+            let first = first.debug(1);
 
-                    let remaining = Text::basic("remaining\nremaining", &font, 12.);
-                    let remaining = remaining.debug(2);
+            let remaining = Text::basic("remaining\nremaining", &font, 12.);
+            let remaining = remaining.debug(2);
 
-                    let content = Text::basic(LOREM_IPSUM, &font, 32.);
-                    let content = content.debug(3);
+            let content = Text::basic(LOREM_IPSUM, &font, 32.);
+            let content = content.debug(3);
 
-                    callback.call(
-                        &ChangingTitle {
-                            first_title: &first,
-                            remaining_title: &remaining,
-                            content: &content,
-                            gap: 5.,
-                            collapse: true,
-                        }
-                        .debug(0),
-                    );
-                },
-                file,
+            callback.call(
+                &ChangingTitle {
+                    first_title: &first,
+                    remaining_title: &remaining,
+                    content: &content,
+                    gap: 5.,
+                    collapse: true,
+                }
+                .debug(0),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_first_height_not_greater_than_full_height() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: TestElementParams::DEFAULT_FULL_HEIGHT,
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: TestElementParams::DEFAULT_FULL_HEIGHT,
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
 
-                    let first = Text::basic("first", &font, 12.);
-                    let first = first.debug(1);
+                let first = Text::basic("first", &font, 12.);
+                let first = first.debug(1);
 
-                    let remaining = Text::basic("remaining\nremaining", &font, 12.);
-                    let remaining = remaining.debug(2);
+                let remaining = Text::basic("remaining\nremaining", &font, 12.);
+                let remaining = remaining.debug(2);
 
-                    let content = Text::basic(LOREM_IPSUM, &font, 48.);
-                    let content = content.debug(3);
+                let content = Text::basic(LOREM_IPSUM, &font, 48.);
+                let content = content.debug(3);
 
-                    callback.call(
-                        &ChangingTitle {
-                            first_title: &first,
-                            remaining_title: &remaining,
-                            content: &content,
-                            gap: 5.,
-                            collapse: true,
-                        }
-                        .debug(0),
-                    );
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(
+                    &ChangingTitle {
+                        first_title: &first,
+                        remaining_title: &remaining,
+                        content: &content,
+                        gap: 5.,
+                        collapse: true,
+                    }
+                    .debug(0),
+                );
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_collapse() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::unbreakable(),
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::unbreakable(), |callback| {
+            let font = BuiltinFont::courier(callback.document());
 
-                    let first = Text::basic("first", &font, 12.);
-                    let first = first.debug(1);
+            let first = Text::basic("first", &font, 12.);
+            let first = first.debug(1);
 
-                    let remaining = Text::basic("remaining\nremaining", &font, 12.);
-                    let remaining = remaining.debug(2);
+            let remaining = Text::basic("remaining\nremaining", &font, 12.);
+            let remaining = remaining.debug(2);
 
-                    let content = NoneElement;
-                    let content = content.debug(3);
+            let content = NoneElement;
+            let content = content.debug(3);
 
-                    callback.call(
-                        &ChangingTitle {
-                            first_title: &first,
-                            remaining_title: &remaining,
-                            content: &content,
-                            gap: 5.,
-                            collapse: true,
-                        }
-                        .debug(0),
-                    );
-                },
-                file,
+            callback.call(
+                &ChangingTitle {
+                    first_title: &first,
+                    remaining_title: &remaining,
+                    content: &content,
+                    gap: 5.,
+                    collapse: true,
+                }
+                .debug(0),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_no_collapse() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::unbreakable(),
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::unbreakable(), |callback| {
+            let font = BuiltinFont::courier(callback.document());
 
-                    let first = Text::basic("first", &font, 12.);
-                    let first = first.debug(1);
+            let first = Text::basic("first", &font, 12.);
+            let first = first.debug(1);
 
-                    let remaining = Text::basic("remaining\nremaining", &font, 12.);
-                    let remaining = remaining.debug(2);
+            let remaining = Text::basic("remaining\nremaining", &font, 12.);
+            let remaining = remaining.debug(2);
 
-                    let content = NoneElement;
-                    let content = content.debug(3);
+            let content = NoneElement;
+            let content = content.debug(3);
 
-                    callback.call(
-                        &ChangingTitle {
-                            first_title: &first,
-                            remaining_title: &remaining,
-                            content: &content,
-                            gap: 5.,
-                            collapse: false,
-                        }
-                        .debug(0),
-                    );
-                },
-                file,
+            callback.call(
+                &ChangingTitle {
+                    first_title: &first,
+                    remaining_title: &remaining,
+                    content: &content,
+                    gap: 5.,
+                    collapse: false,
+                }
+                .debug(0),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_multipage_collapse() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::breakable(),
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
+            let font = BuiltinFont::courier(callback.document());
 
-                    let first = Text::basic("first", &font, 12.);
-                    let first = first.debug(1);
+            let first = Text::basic("first", &font, 12.);
+            let first = first.debug(1);
 
-                    let remaining = Text::basic("remaining\nremaining", &font, 12.);
-                    let remaining = remaining.debug(2);
+            let remaining = Text::basic("remaining\nremaining", &font, 12.);
+            let remaining = remaining.debug(2);
 
-                    let content = FranticJumper {
-                        jumps: vec![(1, None), (1, None), (3, Some(32.)), (4, None)],
-                        size: ElementSize {
-                            width: Some(44.),
-                            height: None,
-                        },
-                    };
-                    let content = content.debug(3);
-
-                    callback.call(
-                        &ChangingTitle {
-                            first_title: &first,
-                            remaining_title: &remaining,
-                            content: &content,
-                            gap: 5.,
-                            collapse: true,
-                        }
-                        .debug(0),
-                    );
+            let content = FranticJumper {
+                jumps: vec![(1, None), (1, None), (3, Some(32.)), (4, None)],
+                size: ElementSize {
+                    width: Some(44.),
+                    height: None,
                 },
-                file,
+            };
+            let content = content.debug(3);
+
+            callback.call(
+                &ChangingTitle {
+                    first_title: &first,
+                    remaining_title: &remaining,
+                    content: &content,
+                    gap: 5.,
+                    collapse: true,
+                }
+                .debug(0),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_titled() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    first_height: 27.,
-                    width: WidthConstraint {
-                        max: TestElementParams::DEFAULT_MAX_WIDTH,
-                        expand: false,
-                    },
-                    ..TestElementParams::breakable()
+        let bytes = test_element_bytes(
+            TestElementParams {
+                first_height: 27.,
+                width: WidthConstraint {
+                    max: TestElementParams::DEFAULT_MAX_WIDTH,
+                    expand: false,
                 },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
 
-                    let title = Text::basic("title", &font, 12.);
-                    let title = &title.debug(1);
+                let title = Text::basic("title", &font, 12.);
+                let title = &title.debug(1);
 
-                    let first = Text::basic("first", &font, 12.);
-                    let first = &first.debug(3);
+                let first = Text::basic("first", &font, 12.);
+                let first = &first.debug(3);
 
-                    let remaining = Text::basic("remaining\nremaining", &font, 12.);
-                    let remaining = &remaining.debug(4);
+                let remaining = Text::basic("remaining\nremaining", &font, 12.);
+                let remaining = &remaining.debug(4);
 
-                    let content = Text::basic(LOREM_IPSUM, &font, 32.);
-                    let content = &content.debug(5);
+                let content = Text::basic(LOREM_IPSUM, &font, 32.);
+                let content = &content.debug(5);
 
-                    let changing_title = ChangingTitle {
-                        first_title: first,
-                        remaining_title: remaining,
-                        content,
-                        gap: 5.,
-                        collapse: true,
-                    };
-                    let changing_title = &changing_title.debug(2);
+                let changing_title = ChangingTitle {
+                    first_title: first,
+                    remaining_title: remaining,
+                    content,
+                    gap: 5.,
+                    collapse: true,
+                };
+                let changing_title = &changing_title.debug(2);
 
-                    callback.call(
-                        &Titled {
-                            title,
-                            content: changing_title,
-                            gap: 2.,
-                            collapse_on_empty_content: true,
-                        }
-                        .debug(0)
-                        .show_max_width()
-                        .show_last_location_max_height(),
-                    );
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(
+                    &Titled {
+                        title,
+                        content: changing_title,
+                        gap: 2.,
+                        collapse_on_empty_content: true,
+                    }
+                    .debug(0)
+                    .show_max_width()
+                    .show_last_location_max_height(),
+                );
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 }

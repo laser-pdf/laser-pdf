@@ -300,21 +300,15 @@ mod tests {
 
     #[test]
     fn test_multi_page() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::breakable(),
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
+            let font = BuiltinFont::courier(callback.document());
 
-                    let content = Text::basic(LOREM_IPSUM, &font, 32.);
-                    let content = content.debug(0);
+            let content = Text::basic(LOREM_IPSUM, &font, 32.);
+            let content = content.debug(0);
 
-                    callback.call(&content);
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+            callback.call(&content);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
