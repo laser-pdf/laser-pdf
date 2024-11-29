@@ -135,8 +135,8 @@ impl<E: Element> Element for RecordPasses<E> {
         let first_height = ctx.first_height;
         let preferred_height = ctx.preferred_height;
 
-        let page = ctx.location.layer.page.0;
-        let layer = ctx.location.layer.layer.0;
+        let page = ctx.location.page_idx;
+        let layer = ctx.location.layer_idx;
         let pos = ctx.location.pos;
 
         let result;
@@ -153,8 +153,8 @@ impl<E: Element> Element for RecordPasses<E> {
                         let location = (breakable.do_break)(pdf, location_idx, height);
 
                         breaks.push(Break {
-                            page: location.layer.page.0,
-                            layer: location.layer.layer.0,
+                            page: location.page_idx,
+                            layer: location.layer_idx,
                             pos: location.pos,
                         });
 

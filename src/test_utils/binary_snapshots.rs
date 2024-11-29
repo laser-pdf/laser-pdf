@@ -87,26 +87,25 @@ struct Doc {
 
 impl Doc {
     fn new(params: TestElementParams) -> Self {
-        let (document, ..) = PdfDocument::new(
-            "test",
-            Mm(params.page_size.0),
-            Mm(params.page_size.1),
-            "Layer 0",
-        );
+        // let (document, ..) = PdfDocument::new(
+        //     "test",
+        //     Mm(params.page_size.0),
+        //     Mm(params.page_size.1),
+        //     "Layer 0",
+        // );
 
-        let document = document
-            .with_document_id("0000".to_string())
-            .with_instance_id("0000".to_string())
-            .with_xmp_document_id("0000".to_string())
-            .with_xmp_instance_id("0000".to_string())
-            .with_creation_date(OffsetDateTime::unix_epoch())
-            .with_mod_date(OffsetDateTime::unix_epoch())
-            .with_metadata_date(OffsetDateTime::unix_epoch());
+        // let document = document
+        //     .with_document_id("0000".to_string())
+        //     .with_instance_id("0000".to_string())
+        //     .with_xmp_document_id("0000".to_string())
+        //     .with_xmp_instance_id("0000".to_string())
+        //     .with_creation_date(OffsetDateTime::unix_epoch())
+        //     .with_mod_date(OffsetDateTime::unix_epoch())
+        //     .with_metadata_date(OffsetDateTime::unix_epoch());
 
-        let pdf = Pdf {
-            document,
-            page_size: params.page_size,
-        };
+        // TODO??
+
+        let pdf = Pdf::new(params.page_size);
 
         Doc { params, pdf }
     }
@@ -171,9 +170,9 @@ pub struct Callback<'a> {
 }
 
 impl<'a> Callback<'a> {
-    pub fn document(&self) -> &PdfDocumentReference {
-        &self.doc.pdf.document
-    }
+    // pub fn document(&self) -> &PdfDocumentReference {
+    //     &self.doc.pdf.document
+    // }
 
     pub fn call(self, element: &impl Element) {
         match self.pass {
@@ -221,30 +220,17 @@ impl<'a> Callback<'a> {
 
                 let next_draw_pos = &mut |pdf: &mut Pdf, location_idx, _height| {
                     while page_idx <= location_idx {
-                        pdf.document.add_page(
-                            Mm(params.page_size.0),
-                            Mm(params.page_size.1),
-                            "Layer 0",
-                        );
+                        pdf.add_page();
                         page_idx += 1;
                     }
 
-                    let layer = pdf
-                        .document
-                        .get_page(PdfPageIndex((location_idx + 1) as usize))
-                        .get_layer(PdfLayerIndex(0));
-
                     Location {
-                        layer,
+                        page_idx: location_idx as usize + 1,
+                        layer_idx: 0,
                         pos: params.pos,
                         scale_factor: 1.,
                     }
                 };
-
-                let layer = pdf
-                    .document
-                    .get_page(PdfPageIndex(0))
-                    .get_layer(PdfLayerIndex(0));
 
                 let first_pos = (
                     params.pos.0,
@@ -257,7 +243,8 @@ impl<'a> Callback<'a> {
                     pdf,
                     width: params.width,
                     location: Location {
-                        layer,
+                        page_idx: 0,
+                        layer_idx: 0,
                         pos: first_pos,
                         scale_factor: 1.,
                     },
@@ -370,13 +357,5 @@ pub fn test_element_bytes(params: TestElementParams, build_element: impl Fn(Call
         }
     }
 
-    let mut bytes = Vec::new();
-
-    draw_doc
-        .pdf
-        .document
-        .save(&mut BufWriter::new(&mut bytes))
-        .unwrap();
-
-    bytes
+    draw_doc.pdf.finish()
 }

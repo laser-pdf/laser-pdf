@@ -28,10 +28,11 @@ impl<'a> TruetypeFont<'a> {
         // let pdf_font = doc.add_external_font(font_reader).unwrap();
         // let font_info = FontInfo::new(bytes, 0).unwrap();
 
-        TruetypeFont {
-            font_ref: pdf_font,
-            font: font_info,
-        }
+        // TruetypeFont {
+        //     font_ref: pdf_font,
+        //     font: font_info,
+        // }
+        todo!()
     }
 }
 

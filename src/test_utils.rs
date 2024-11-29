@@ -15,11 +15,6 @@ pub use fake_text::FakeText;
 pub use frantic_jumper::FranticJumper;
 pub use old::*;
 
-use printpdf::{
-    indices::{PdfLayerIndex, PdfPageIndex},
-    PdfDocument,
-};
-
 use crate::{utils::max_optional_size, *};
 
 use self::build_element::{BuildElementCallback, BuildElementReturnToken};
@@ -265,13 +260,9 @@ fn draw_element<E: Element>(
     page_size: (f64, f64),
     breakable: Option<BreakableDrawConfig>,
 ) -> DrawStats {
-    let (doc, page, layer) = PdfDocument::new("test", Mm(page_size.0), Mm(page_size.1), "Layer 0");
     let mut page_idx = 0;
 
-    let mut pdf = Pdf {
-        document: doc,
-        page_size,
-    };
+    let mut pdf = Pdf::new(page_size);
 
     let mut breaks = vec![];
 
@@ -279,30 +270,24 @@ fn draw_element<E: Element>(
         breaks.push(location_idx);
 
         while page_idx <= location_idx {
-            pdf.document
-                .add_page(Mm(page_size.0), Mm(page_size.1), "Layer 0");
+            pdf.add_page();
             page_idx += 1;
         }
 
-        let layer = pdf
-            .document
-            .get_page(PdfPageIndex((location_idx + 1) as usize))
-            .get_layer(PdfLayerIndex(0));
-
         Location {
-            layer,
+            page_idx: location_idx as usize + 1,
+            layer_idx: 0,
             pos: breakable.as_ref().unwrap().pos,
             scale_factor: 1.,
         }
     };
 
-    let layer = pdf.document.get_page(page).get_layer(layer);
-
     let ctx = DrawCtx {
         pdf: &mut pdf,
         width,
         location: Location {
-            layer,
+            page_idx: 0,
+            layer_idx: 0,
             pos: first_pos,
             scale_factor: 1.,
         },

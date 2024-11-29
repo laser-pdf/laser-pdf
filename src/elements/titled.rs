@@ -151,7 +151,6 @@ impl<'a, T: Element, C: Element> Element for Titled<'a, T, C> {
             content_size = self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location: Location {
-                    layer: location.layer.clone(),
                     pos: (location.pos.0, location.pos.1 - y_offset),
                     ..location
                 },
@@ -181,7 +180,6 @@ impl<'a, T: Element, C: Element> Element for Titled<'a, T, C> {
             content_size = self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location: Location {
-                    layer: location.layer.clone(),
                     pos: (location.pos.0, location.pos.1 - y_offset),
                     ..location
                 },

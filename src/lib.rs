@@ -1,30 +1,20 @@
-// pub mod elements;
+pub mod elements;
 pub mod fonts;
-// pub mod image;
+pub mod image;
 // pub mod serde_elements;
 pub mod text;
-// pub mod utils;
+pub mod utils;
 
-// #[cfg(test)]
-// pub mod test_utils;
+#[cfg(test)]
+pub mod test_utils;
 
 pub(crate) mod flex;
 
-use std::{collections::HashMap, ops::Range};
-
-use pdf_writer::{
-    types::{FontFlags, SystemInfo, UnicodeCmap},
-    writers::{FontDescriptor, WMode},
-    Chunk, Content, Filter, Name, Ref, Str,
-};
-use rustybuzz::{Direction, UnicodeBuffer};
+use pdf_writer::{Chunk, Content, Ref};
 // use elements::padding::Padding;
 // use fonts::Font;
 // use printpdf::{CurTransMat, Mm, PdfDocumentReference, PdfLayerReference};
 use serde::{Deserialize, Serialize};
-use subsetter::GlyphRemapper;
-use ttf_parser::{Face, GlyphId};
-use typst_utils::SliceExt;
 
 pub const EMPTY_FIELD: &str = "—";
 
@@ -121,9 +111,63 @@ pub struct LineStyle {
     pub cap_style: LineCapStyle,
 }
 
+pub struct Page {
+    pub resources: Vec<Ref>, // all objects must be indirect for now
+    pub layers: Vec<Content>,
+}
+
+impl Page {
+    pub fn add_resource(&mut self, resource: Ref) -> usize {
+        self.resources.push(resource);
+        self.resources.len() - 1
+    }
+}
+
 pub struct Pdf {
-    // pub document: PdfDocumentReference,
+    pub alloc: Ref,
+    pub pdf: pdf_writer::Pdf,
+    pub pages: Vec<Page>,
     pub page_size: (f64, f64),
+}
+
+impl Pdf {
+    pub fn new(page_size: (f64, f64)) -> Self {
+        let pdf = pdf_writer::Pdf::new();
+
+        Pdf {
+            alloc: pdf_writer::Ref::new(1),
+            pdf,
+            pages: vec![Page {
+                resources: Vec::new(),
+                layers: vec![Content::new()],
+            }],
+            page_size,
+        }
+    }
+
+    pub fn alloc(&mut self) -> Ref {
+        self.alloc.bump()
+    }
+
+    pub fn add_page(&mut self) -> Location {
+        self.pages.push(Page {
+            resources: Vec::new(),
+            layers: vec![Content::new()],
+        });
+
+        Location {
+            page_idx: self.pages.len() - 1,
+            layer_idx: 0,
+            pos: (0., 0.),
+            scale_factor: 1.,
+        }
+    }
+
+    pub fn finish(self) -> Vec<u8> {
+        // TODO: write pages and stuff
+
+        self.pdf.finish()
+    }
 }
 
 /// A position for an element to render at.
@@ -133,26 +177,32 @@ pub struct Pdf {
 /// doesn't have to recalculate them on a page break.
 #[derive(Clone, Debug)]
 pub struct Location {
-    // pub layer: PdfLayerReference,
+    pub page_idx: usize,
+    pub layer_idx: usize,
     pub pos: (f64, f64),
-    pub scale_factor: f64,
+    pub scale_factor: f32,
 }
 
 impl Location {
+    pub fn layer<'a>(&self, pdf: &'a mut Pdf) -> &'a mut Content {
+        &mut pdf.pages[self.page_idx].layers[self.layer_idx]
+    }
+
     pub fn next_layer(&self, pdf: &mut Pdf) -> Location {
-        // let page = pdf.document.get_page(self.layer.page);
+        let page = &mut pdf.pages[self.page_idx];
 
-        // // The issue is some of the layers are scaled. That's why we currently can't reuse them.
-        // // TODO: Find a better solution that doesn't require adding so many layers, but also doesn't
-        // // lead to unbalances saves/restores (which is not allowed by the spec).
-        // let layer = page.add_layer(format!("Layer {}", page.layers_len()));
+        let mut content = Content::new();
+        content.transform(utils::scale(self.scale_factor));
 
-        // if self.scale_factor != 1. {
-        //     layer.set_ctm(CurTransMat::Scale(self.scale_factor, self.scale_factor));
-        // }
+        // The issue is some of the layers are scaled. That's why we currently can't reuse them.
+        // TODO: Find a better solution that doesn't require adding so many layers, but also doesn't
+        // lead to unbalances saves/restores (which is not allowed by the spec).
+        page.layers.push(content);
 
-        // Location { layer, ..*self }
-        todo!()
+        Location {
+            layer_idx: page.layers.len() - 1,
+            ..*self
+        }
     }
 }
 
