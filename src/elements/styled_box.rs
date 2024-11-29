@@ -492,45 +492,39 @@ mod tests {
         use crate::test_utils::binary_snapshots::*;
         use insta::*;
 
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::breakable(),
-                |callback| {
-                    // let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
+            // let font = BuiltinFont::courier(callback.document());
 
-                    // // let first = Text::basic("test", &font, 12.);
-                    let first = Rectangle {
-                        size: (12., 12.),
-                        fill: Some(0x00_00_77_FF),
-                        outline: Some((2., 0x00_00_00_FF)),
-                    };
-                    let first = first.debug(1).show_max_width();
+            // // let first = Text::basic("test", &font, 12.);
+            let first = Rectangle {
+                size: (12., 12.),
+                fill: Some(0x00_00_77_FF),
+                outline: Some((2., 0x00_00_00_FF)),
+            };
+            let first = first.debug(1).show_max_width();
 
-                    callback.call(
-                        &StyledBox {
-                            element: &first,
-                            padding_left: 1.,
-                            padding_right: 2.,
-                            padding_top: 3.,
-                            padding_bottom: 4.,
-                            border_radius: 1.,
-                            fill: None,
-                            outline: Some(LineStyle {
-                                thickness: 1.,
-                                color: 0x00_00_00_FF,
-                                dash_pattern: None,
-                                cap_style: LineCapStyle::Butt,
-                            }),
-                        }
-                        .debug(0)
-                        .show_max_width()
-                        .show_last_location_max_height(),
-                    );
-                },
-                file,
+            callback.call(
+                &StyledBox {
+                    element: &first,
+                    padding_left: 1.,
+                    padding_right: 2.,
+                    padding_top: 3.,
+                    padding_bottom: 4.,
+                    border_radius: 1.,
+                    fill: None,
+                    outline: Some(LineStyle {
+                        thickness: 1.,
+                        color: 0x00_00_00_FF,
+                        dash_pattern: None,
+                        cap_style: LineCapStyle::Butt,
+                    }),
+                }
+                .debug(0)
+                .show_max_width()
+                .show_last_location_max_height(),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
@@ -538,35 +532,29 @@ mod tests {
         use crate::test_utils::binary_snapshots::*;
         use insta::*;
 
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams::breakable(),
-                |callback| {
-                    let first = Rectangle {
-                        size: (12., 12.),
-                        fill: Some(0x00_00_77_FF),
-                        outline: None,
-                    };
-                    let first = first.debug(1).show_max_width();
+        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
+            let first = Rectangle {
+                size: (12., 12.),
+                fill: Some(0x00_00_77_FF),
+                outline: None,
+            };
+            let first = first.debug(1).show_max_width();
 
-                    callback.call(
-                        &StyledBox {
-                            outline: Some(LineStyle {
-                                thickness: 32.,
-                                color: 0x00_00_00_FF,
-                                dash_pattern: None,
-                                cap_style: LineCapStyle::Butt,
-                            }),
-                            ..StyledBox::new(&first)
-                        }
-                        .debug(0)
-                        .show_max_width()
-                        .show_last_location_max_height(),
-                    );
-                },
-                file,
+            callback.call(
+                &StyledBox {
+                    outline: Some(LineStyle {
+                        thickness: 32.,
+                        color: 0x00_00_00_FF,
+                        dash_pattern: None,
+                        cap_style: LineCapStyle::Butt,
+                    }),
+                    ..StyledBox::new(&first)
+                }
+                .debug(0)
+                .show_max_width()
+                .show_last_location_max_height(),
             );
-        };
-        assert_binary_snapshot!("pdf", write);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 }

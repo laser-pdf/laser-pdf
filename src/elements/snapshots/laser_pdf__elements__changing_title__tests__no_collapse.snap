@@ -1,6 +1,6 @@
 ---
 source: src/elements/changing_title.rs
-expression: write
+expression: bytes
 extension: pdf
-snapshot_type: binary
+snapshot_kind: binary
 ---

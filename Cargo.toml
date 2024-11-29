@@ -27,8 +27,7 @@ miniz_oxide = "0.8.0"
 rustybuzz = "0.20.1"
 
 [dev-dependencies]
-# insta = "1.35.1"
-insta = { git = "https://github.com/lasernoises/insta.git", branch = "binary-snapshots" }
+insta = "1.41.1"
 
 [profile.dev.package]
 insta.opt-level = 3

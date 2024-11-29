@@ -1,6 +1,6 @@
 ---
 source: src/elements/styled_box.rs
-expression: write
+expression: bytes
 extension: pdf
-snapshot_type: binary
+snapshot_kind: binary
 ---

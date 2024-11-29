@@ -91,54 +91,48 @@ mod tests {
 
     #[test]
     fn test_basic() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    preferred_height: Some(12.),
-                    breakable: Some(TestElementParamsBreakable {
-                        preferred_height_break_count: 7,
-                        full_height: TestElementParams::DEFAULT_FULL_HEIGHT,
-                    }),
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(
+            TestElementParams {
+                preferred_height: Some(12.),
+                breakable: Some(TestElementParamsBreakable {
+                    preferred_height_break_count: 7,
+                    full_height: TestElementParams::DEFAULT_FULL_HEIGHT,
+                }),
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
 
-                    let content = Text::basic(LOREM_IPSUM, &font, 32.);
-                    let content = content.debug(1);
+                let content = Text::basic(LOREM_IPSUM, &font, 32.);
+                let content = content.debug(1);
 
-                    callback.call(&ExpandToPreferredHeight(&content).debug(0));
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(&ExpandToPreferredHeight(&content).debug(0));
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     #[test]
     fn test_single_location_content() {
-        let mut write = |file: &mut std::fs::File| {
-            test_element_file(
-                TestElementParams {
-                    preferred_height: Some(32.),
-                    breakable: Some(TestElementParamsBreakable {
-                        preferred_height_break_count: 3,
-                        full_height: TestElementParams::DEFAULT_FULL_HEIGHT,
-                    }),
-                    ..TestElementParams::breakable()
-                },
-                |callback| {
-                    let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(
+            TestElementParams {
+                preferred_height: Some(32.),
+                breakable: Some(TestElementParamsBreakable {
+                    preferred_height_break_count: 3,
+                    full_height: TestElementParams::DEFAULT_FULL_HEIGHT,
+                }),
+                ..TestElementParams::breakable()
+            },
+            |callback| {
+                let font = BuiltinFont::courier(callback.document());
 
-                    let content = Text::basic(LOREM_IPSUM, &font, 12.);
-                    let content = content.debug(1);
+                let content = Text::basic(LOREM_IPSUM, &font, 12.);
+                let content = content.debug(1);
 
-                    callback.call(&ExpandToPreferredHeight(&content).debug(0));
-                },
-                file,
-            );
-        };
-        assert_binary_snapshot!("pdf", write);
+                callback.call(&ExpandToPreferredHeight(&content).debug(0));
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
     }
 
     // TODO: Figure out what makes sense here.
