@@ -206,7 +206,6 @@ impl<'a> DecorationElements<'a> {
         element.draw(DrawCtx {
             pdf: self.pdf,
             location: Location {
-                layer: self.location.layer.clone(),
                 pos: (
                     match pos.0 {
                         X::Left(left) => self.location.pos.0 + left,

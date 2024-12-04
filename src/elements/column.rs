@@ -221,7 +221,6 @@ impl<'a, 'b, 'r> ColumnContent<'a, 'b, 'r> {
                 let draw_ctx = DrawCtx {
                     pdf,
                     location: Location {
-                        layer: location.layer.clone(),
                         pos: if height.is_some() {
                             (location.pos.0, location.pos.1 - self.gap)
                         } else {
