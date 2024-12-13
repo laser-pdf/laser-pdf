@@ -10,7 +10,7 @@ pub mod test_utils;
 
 pub(crate) mod flex;
 
-use pdf_writer::{Content, Ref};
+use pdf_writer::{Content, Name, Rect, Ref};
 // use elements::padding::Padding;
 // use fonts::Font;
 // use printpdf::{CurTransMat, Mm, PdfDocumentReference, PdfLayerReference};
@@ -112,14 +112,14 @@ pub struct LineStyle {
 }
 
 pub struct Page {
-    pub resources: Vec<Ref>, // all objects must be indirect for now
+    pub ext_g_states: Vec<Ref>, // all objects must be indirect for now
     pub layers: Vec<Content>,
 }
 
 impl Page {
-    pub fn add_resource(&mut self, resource: Ref) -> usize {
-        self.resources.push(resource);
-        self.resources.len() - 1
+    pub fn add_ext_g_state(&mut self, resource: Ref) -> usize {
+        self.ext_g_states.push(resource);
+        self.ext_g_states.len() - 1
     }
 }
 
@@ -128,6 +128,7 @@ pub struct Pdf {
     pub pdf: pdf_writer::Pdf,
     pub pages: Vec<Page>,
     pub page_size: (f64, f64),
+    pub fonts: Vec<Ref>,
 }
 
 impl Pdf {
@@ -138,10 +139,11 @@ impl Pdf {
             alloc: pdf_writer::Ref::new(1),
             pdf,
             pages: vec![Page {
-                resources: Vec::new(),
+                ext_g_states: Vec::new(),
                 layers: vec![Content::new()],
             }],
             page_size,
+            fonts: Vec::new(),
         }
     }
 
@@ -151,7 +153,7 @@ impl Pdf {
 
     pub fn add_page(&mut self) -> Location {
         self.pages.push(Page {
-            resources: Vec::new(),
+            ext_g_states: Vec::new(),
             layers: vec![Content::new()],
         });
 
@@ -163,8 +165,66 @@ impl Pdf {
         }
     }
 
-    pub fn finish(self) -> Vec<u8> {
-        // TODO: write pages and stuff
+    pub fn finish(mut self) -> Vec<u8> {
+        let catalog_ref = self.alloc();
+        let page_tree_ref = self.alloc();
+
+        self.pdf.catalog(catalog_ref).pages(page_tree_ref);
+
+        let pages = self
+            .pages
+            .iter()
+            .scan(self.alloc, |state, _| Some(state.bump()));
+
+        self.pdf
+            .pages(page_tree_ref)
+            .kids(pages)
+            .count(self.pages.len() as i32);
+
+        let mut page_alloc = self.alloc;
+        self.alloc = Ref::new(self.alloc.get() + self.pages.len() as i32);
+
+        for page in self.pages {
+            let mut page_writer = self.pdf.page(page_alloc.bump());
+
+            page_writer
+                .parent(page_tree_ref)
+                .media_box(Rect::new(
+                    0.,
+                    0.,
+                    self.page_size.0 as f32,
+                    self.page_size.1 as f32,
+                ))
+                .contents_array(
+                    page.layers
+                        .iter()
+                        .scan(self.alloc, |state, _| Some(state.bump())),
+                );
+
+            let mut resources = page_writer.resources();
+            let mut ext_g_states = resources.ext_g_states();
+
+            for (i, ext_g_state) in page.ext_g_states.iter().enumerate() {
+                ext_g_states.pair(Name(format!("{i}").as_bytes()), ext_g_state);
+            }
+            drop(ext_g_states);
+
+            let mut fonts = resources.fonts();
+
+            for (i, &font) in self.fonts.iter().enumerate() {
+                // TODO: inherit or make an indirect object
+                fonts.pair(Name(&format!("F{}", i).as_bytes()), font);
+            }
+
+            drop(fonts);
+            drop(resources);
+            drop(page_writer);
+
+            for layer in page.layers {
+                // This adds up as long as it's not bumped between the contents_array call and here.
+                self.pdf.stream(self.alloc.bump(), &layer.finish());
+            }
+        }
 
         self.pdf.finish()
     }
@@ -389,17 +449,17 @@ pub trait Element {
     //     }
     // }
 
-    // fn debug(&self, color: u8) -> elements::debug::Debug<Self>
-    // where
-    //     Self: Sized,
-    // {
-    //     elements::debug::Debug {
-    //         element: self,
-    //         color,
-    //         show_max_width: false,
-    //         show_last_location_max_height: false,
-    //     }
-    // }
+    fn debug(&self, color: u8) -> elements::debug::Debug<Self>
+    where
+        Self: Sized,
+    {
+        elements::debug::Debug {
+            element: self,
+            color,
+            show_max_width: false,
+            show_last_location_max_height: false,
+        }
+    }
 }
 
 pub trait CompositeElementCallback {

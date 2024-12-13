@@ -41,21 +41,31 @@ impl<'a> Font for TruetypeFont<'a> {
         &self,
         text: &'b str,
         max_width: f64,
-    ) -> impl Iterator<Item = &'b str> {
+        size: f64,
+        character_spacing: f64,
+        word_spacing: f64,
+    ) -> impl Iterator<Item = &'b str> + Clone {
         crate::text::break_text_into_lines(text, max_width, |_| todo!())
     }
 
-    fn line_height(&self) -> f64 {
+    fn line_width(&self, line: &str, size: f64, character_spacing: f64, word_spacing: f64) -> f64 {
         todo!()
     }
 
-    fn line_width(&self, line: &str) -> f64 {
+    fn render_line(
+        &self,
+        content: &mut Content,
+        line: &str,
+        size: f64,
+        character_spacing: f64,
+        word_spacing: f64,
+        underline: bool,
+        x: f32,
+        y: f32,
+    ) {
         todo!()
     }
 
-    fn render_line(&self, pdf: &mut Pdf, line: &str) -> f64 {
-        todo!()
-    }
     // fn resource_name<'b>(&'b self) -> pdf_writer::Name<'b> {
     //     Name(&self.name)
     // }
@@ -72,16 +82,17 @@ impl<'a> Font for TruetypeFont<'a> {
     //     self.font.units_per_em()
     // }
 
-    // fn general_metrics(&self) -> super::GeneralMetrics {
-    //     let v_metrics = self.font.get_v_metrics();
+    fn general_metrics(&self, size: f64) -> super::GeneralMetrics {
+        // let v_metrics = self.font.get_v_metrics();
 
-    //     super::GeneralMetrics {
-    //         ascent: v_metrics.ascent as f64,
+        // super::GeneralMetrics {
+        //     ascent: v_metrics.ascent as f64,
 
-    //         // It seems that descent is positive in some fonts and negative in others.
-    //         line_height: (v_metrics.ascent + v_metrics.descent.abs() + v_metrics.line_gap) as f64,
-    //     }
-    // }
+        //     // It seems that descent is positive in some fonts and negative in others.
+        //     line_height: (v_metrics.ascent + v_metrics.descent.abs() + v_metrics.line_gap) as f64,
+        // }
+        todo!()
+    }
 }
 
 #[test]

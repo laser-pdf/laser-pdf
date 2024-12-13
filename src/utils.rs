@@ -1,3 +1,4 @@
+use pdf_writer::Content;
 use printpdf::*;
 
 // pub fn circle(layer: &PdfLayerReference, pos: [f64; 2], radius: f64) {
@@ -12,19 +13,13 @@ use printpdf::*;
 //     });
 // }
 
-// pub fn line(layer: &PdfLayerReference, pos: [f64; 2], width: f64, thickness: f64) {
-//     layer.set_outline_thickness(mm_to_pt(thickness));
-//     layer.add_shape(printpdf::Line {
-//         points: vec![
-//             (Point::new(Mm(pos[0]), Mm(pos[1])), false),
-//             (Point::new(Mm(pos[0] + width), Mm(pos[1])), false),
-//         ],
-//         is_closed: false,
-//         has_fill: false,
-//         has_stroke: true,
-//         is_clipping_path: false,
-//     });
-// }
+pub fn line(layer: &mut Content, pos: (f32, f32), width: f32, thickness: f32) {
+    layer
+        .set_line_width(thickness)
+        .move_to(pos.0, pos.1)
+        .line_to(pos.0 + width, pos.1)
+        .stroke();
+}
 
 pub fn mm_to_pt(mm: f64) -> f64 {
     // TODO

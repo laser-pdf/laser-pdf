@@ -54,7 +54,8 @@ impl Element for Rectangle {
                 ext_graphics.stroking_alpha(a);
             });
 
-            resource_id = Some(ctx.pdf.pages[ctx.location.page_idx].add_resource(ext_graphics_ref));
+            resource_id =
+                Some(ctx.pdf.pages[ctx.location.page_idx].add_ext_g_state(ext_graphics_ref));
         } else {
             resource_id = None;
         }

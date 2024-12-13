@@ -28,7 +28,7 @@ pub mod stack;
 // pub mod styled_box;
 // pub mod svg;
 // pub mod table_row;
-// pub mod text;
+pub mod text;
 pub mod title_or_break;
 pub mod titled;
 pub mod v_gap;
