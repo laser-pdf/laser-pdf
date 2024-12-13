@@ -181,7 +181,7 @@ fn draw_box(pdf: &mut Pdf, location: Location, size: (f64, f64), color: [f32; 3]
     layer
         .save_state()
         .set_line_width(0.)
-        .set_stroke_color(color);
+        .set_stroke_rgb(color[0], color[1], color[2]);
 
     if dashed {
         layer.set_dash_pattern([2., 2.], 0.);
