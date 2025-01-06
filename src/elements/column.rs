@@ -4,7 +4,7 @@ use self::utils::add_optional_size_with_gap;
 
 pub struct Column<C: Fn(ColumnContent) -> Option<()>> {
     pub content: C,
-    pub gap: f64,
+    pub gap: f32,
     pub collapse: bool,
 }
 
@@ -96,7 +96,7 @@ impl<C: Fn(ColumnContent) -> Option<()>> Element for Column<C> {
 
 pub struct ColumnContent<'a, 'b, 'r> {
     pass: Pass<'a, 'b, 'r>,
-    gap: f64,
+    gap: f32,
 }
 
 enum Pass<'a, 'b, 'r> {
@@ -109,9 +109,9 @@ enum Pass<'a, 'b, 'r> {
         breakable: Option<BreakableMeasure<'a>>,
 
         /// this is initially first_height and when breaking we set it to full height
-        height_available: f64,
-        width: &'r mut Option<f64>,
-        height: &'r mut Option<f64>,
+        height_available: f32,
+        width: &'r mut Option<f32>,
+        height: &'r mut Option<f32>,
     },
     Draw {
         pdf: &'a mut Pdf,
@@ -121,9 +121,9 @@ enum Pass<'a, 'b, 'r> {
         breakable: Option<BreakableDraw<'b>>,
 
         /// this is initially first_height and when breaking we set it to full height
-        height_available: f64,
-        width: &'r mut Option<f64>,
-        height: &'r mut Option<f64>,
+        height_available: f32,
+        width: &'r mut Option<f32>,
+        height: &'r mut Option<f32>,
     },
 }
 

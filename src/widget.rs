@@ -103,7 +103,7 @@ impl<W: Element> Element for Debug<W> {
 // TODO
 // pub fn debug_available_space() -> impl Element {
 //     debug(
-//         |width: Option<f64>, draw: Option<DrawCtx>| {
+//         |width: Option<f32>, draw: Option<DrawCtx>| {
 //             Some(ElementSize {
 //                 width: width.unwrap_or(0.),
 //                 height: Some(draw.map(|c| c.location.height_available).unwrap_or(0.)),

@@ -9,7 +9,7 @@ pub struct Svg<'a> {
 }
 
 impl<'a> Widget for Svg<'a> {
-    fn widget(&self, width: Option<f64>, draw: Option<DrawCtx>) -> [f64; 2] {
+    fn widget(&self, width: Option<f32>, draw: Option<DrawCtx>) -> [f32; 2] {
         if let Some(context) = draw {
             let pos = context.location.pos;
             context
@@ -33,7 +33,7 @@ impl<'a> Widget for Svg<'a> {
 //     pdf: &mut Pdf,
 //     location: &DrawPos,
 //     node: &usvg::Node,
-// ) -> Option<[f64; 2]> {
+// ) -> Option<[f32; 2]> {
 //     match *node.borrow() {
 //         usvg::NodeKind::Svg(_) => render_group(pdf, location, node),
 //         usvg::NodeKind::Path(ref path) => render_path(pdf, location, path),
@@ -52,7 +52,7 @@ impl<'a> Widget for Svg<'a> {
 //     pdf: &mut Pdf,
 //     location: &DrawPos,
 //     parent: &usvg::Node,
-// ) -> Option<[f64; 2]> {
+// ) -> Option<[f32; 2]> {
 //     for node in parent.children() {
 //         render_node(pdf, location, &node);
 //     }
@@ -72,13 +72,13 @@ impl<'a> Widget for Svg<'a> {
 //     ]));
 // }
 
-// fn render_path(pdf: &mut Pdf, location: &DrawPos, path: &usvg::Path) -> Option<[f64; 2]> {
+// fn render_path(pdf: &mut Pdf, location: &DrawPos, path: &usvg::Path) -> Option<[f32; 2]> {
 //     location.layer.save_graphics_state();
 //     if let Some(usvg::Fill { paint: usvg::Paint::Color(color), ref opacity, ref rule }) = path.fill {
 //         location.layer.set_fill_color(printpdf::Color::Rgb(printpdf::Rgb::new(
-//             color.red as f64 / 255.0,
-//             color.green as f64 / 255.0,
-//             color.blue as f64 / 255.0,
+//             color.red as f32 / 255.0,
+//             color.green as f32 / 255.0,
+//             color.blue as f32 / 255.0,
 //             None,
 //         )));
 

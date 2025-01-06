@@ -8,23 +8,23 @@ use crate::*;
 /// will simply overflow such that the element is never scaled smaller than the `min_height`.
 pub struct ShrinkToFit<'a, E: Element> {
     pub element: &'a E,
-    pub min_height: f64,
+    pub min_height: f32,
 }
 
 struct Layout {
     pre_break: bool,
-    scale_factor: f64,
+    scale_factor: f32,
     size: ElementSize,
     scaled_size: ElementSize,
-    height: f64,
+    height: f32,
 }
 
 impl<'a, E: Element> ShrinkToFit<'a, E> {
     fn layout(
         &self,
         width: WidthConstraint,
-        first_height: f64,
-        full_height: Option<f64>,
+        first_height: f32,
+        full_height: Option<f32>,
     ) -> Layout {
         let pre_break;
 

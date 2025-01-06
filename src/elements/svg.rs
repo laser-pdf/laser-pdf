@@ -65,7 +65,7 @@ impl<'a> Element for Svg<'a> {
 }
 
 #[inline]
-fn calculate_size(data: &usvg::Tree, width: WidthConstraint) -> (f64, f64, ElementSize) {
+fn calculate_size(data: &usvg::Tree, width: WidthConstraint) -> (f32, f32, ElementSize) {
     let svg = data.svg_node();
     let svg_size = svg.size;
     let svg_width = pt_to_mm(svg_size.width());

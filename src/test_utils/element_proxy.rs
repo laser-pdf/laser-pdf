@@ -4,7 +4,7 @@ use crate::*;
 pub struct ElementProxy<'a, E: Element> {
     pub element: E,
     pub before_draw: &'a dyn Fn(&mut DrawCtx),
-    pub after_break: &'a dyn Fn(u32, &Location, WidthConstraint, f64),
+    pub after_break: &'a dyn Fn(u32, &Location, WidthConstraint, f32),
 }
 
 impl<'a, E: Element> ElementProxy<'a, E> {

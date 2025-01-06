@@ -92,7 +92,7 @@ impl<'a, E: Element> Element for AlignLocationBottom<'a, E> {
 #[derive(Debug)]
 struct Layout {
     breaks: u32,
-    y_offset: f64,
+    y_offset: f32,
     size: ElementSize,
 }
 
@@ -100,8 +100,8 @@ impl<'a, E: Element> AlignLocationBottom<'a, E> {
     fn layout(
         &self,
         width: WidthConstraint,
-        first_height: f64,
-        full_height: Option<f64>,
+        first_height: f32,
+        full_height: Option<f32>,
         preferred_breaks: u32,
     ) -> Layout {
         let height_available = full_height.unwrap_or(first_height);

@@ -18,27 +18,27 @@ pub struct Span {
 
 pub struct RichText<'a, F: Font> {
     pub spans: &'a [Span],
-    pub size: f64,
-    pub small_size: f64,
-    pub extra_line_height: f64,
+    pub size: f32,
+    pub small_size: f32,
+    pub extra_line_height: f32,
     pub fonts: FontSet<'a, F>,
 }
 
 pub struct LineFragment<'a, F: Font> {
     text_full: &'a str,
-    length_full: f64,
+    length_full: f32,
 
     text_trimmed: &'a str,
-    length_trimmed: f64,
+    length_trimmed: f32,
 
     font: &'a F,
-    size: f64,
+    size: f32,
     bold: bool,
     underline: bool,
     color: u32,
-    ascent: f64,
+    ascent: f32,
     new_line: bool,
-    x_offset: f64,
+    x_offset: f32,
 }
 
 // These are manually implemented because the derive macro would otherwise put a Copy bound on F.
@@ -53,36 +53,36 @@ impl<'a, F: Font> Clone for LineFragment<'a, F> {
 #[derive(Copy, Clone)]
 pub struct LineFragmentTrimmed<'a, F: Font> {
     text: &'a str,
-    length: f64,
+    length: f32,
 
     font: &'a F,
-    size: f64,
+    size: f32,
 
     // needed for underline thickness
     bold: bool,
 
     underline: bool,
     color: u32,
-    ascent: f64,
+    ascent: f32,
     new_line: bool,
-    x_offset: f64,
+    x_offset: f32,
 }
 
 impl<'a, F: Font> RichText<'a, F> {
-    fn pieces(&'a self, width: f64) -> (impl Iterator<Item = LineFragment<'a, F>> + 'a, f64) {
+    fn pieces(&'a self, width: f32) -> (impl Iterator<Item = LineFragment<'a, F>> + 'a, f32) {
         #[derive(Copy, Clone)]
         struct FontVars {
-            ascent: f64,
-            line_height: f64,
+            ascent: f32,
+            line_height: f32,
         }
 
-        fn font_vars<F: Font>(font: &F, size: f64) -> FontVars {
+        fn font_vars<F: Font>(font: &F, size: f32) -> FontVars {
             let GeneralMetrics {
                 ascent,
                 line_height,
             } = font.general_metrics();
 
-            let units_per_em = font.units_per_em() as f64;
+            let units_per_em = font.units_per_em() as f32;
 
             FontVars {
                 ascent: pt_to_mm(ascent * size / units_per_em),
@@ -93,16 +93,16 @@ impl<'a, F: Font> RichText<'a, F> {
         fn mk_gen<'a, F: Font>(
             text: &'a str,
             font: &'a F,
-            size: f64,
-        ) -> LineGenerator<'a, impl Fn(&str) -> f64 + 'a> {
+            size: f32,
+        ) -> LineGenerator<'a, impl Fn(&str) -> f32 + 'a> {
             let text_width = move |t: &str| text_width(t, size, font, 0., 0.);
             LineGenerator::new(text, text_width)
         }
 
-        let regular_vars = font_vars(self.fonts.regular, self.size as f64);
-        let bold_vars = font_vars(self.fonts.bold, self.size as f64);
-        let italic_vars = font_vars(self.fonts.italic, self.size as f64);
-        let bold_italic_vars = font_vars(self.fonts.bold_italic, self.size as f64);
+        let regular_vars = font_vars(self.fonts.regular, self.size as f32);
+        let bold_vars = font_vars(self.fonts.bold, self.size as f32);
+        let italic_vars = font_vars(self.fonts.italic, self.size as f32);
+        let bold_italic_vars = font_vars(self.fonts.bold_italic, self.size as f32);
 
         let line_height = regular_vars
             .line_height
@@ -219,8 +219,8 @@ impl<'a, F: Font> RichText<'a, F> {
 
     fn pieces_trimmed(
         &'a self,
-        width: f64,
-    ) -> (impl Iterator<Item = LineFragmentTrimmed<'a, F>> + 'a, f64) {
+        width: f32,
+    ) -> (impl Iterator<Item = LineFragmentTrimmed<'a, F>> + 'a, f32) {
         let (mut iter, line_height) = self.pieces(width);
 
         let mut last = iter.next();
@@ -318,7 +318,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
 
         ElementSize {
             width: Some(max_width),
-            height: Some(line_count as f64 * line_height),
+            height: Some(line_count as f32 * line_height),
         }
     }
 
@@ -361,7 +361,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                         let new_location = (breakable.do_break)(
                             ctx.pdf,
                             draw_rect,
-                            Some(line_count as f64 * line_height),
+                            Some(line_count as f32 * line_height),
                         );
                         draw_rect += 1;
 
@@ -413,7 +413,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
 
         ElementSize {
             width: Some(max_width),
-            height: Some(line_count as f64 * line_height),
+            height: Some(line_count as f32 * line_height),
         }
     }
 }

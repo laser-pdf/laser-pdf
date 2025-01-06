@@ -1,7 +1,7 @@
 use pdf_writer::Content;
-use printpdf::*;
+// use printpdf::*;
 
-// pub fn circle(layer: &PdfLayerReference, pos: [f64; 2], radius: f64) {
+// pub fn circle(layer: &PdfLayerReference, pos: [f32; 2], radius: f32) {
 //     let circle = printpdf::utils::calculate_points_for_circle(Pt(radius), Pt(pos[0]), Pt(pos[1]));
 
 //     layer.add_shape(Line {
@@ -14,6 +14,7 @@ use printpdf::*;
 // }
 
 pub fn line(layer: &mut Content, pos: (f32, f32), width: f32, thickness: f32) {
+    // TODO: mm_to_pt
     layer
         .set_line_width(thickness)
         .move_to(pos.0, pos.1)
@@ -21,14 +22,12 @@ pub fn line(layer: &mut Content, pos: (f32, f32), width: f32, thickness: f32) {
         .stroke();
 }
 
-pub fn mm_to_pt(mm: f64) -> f64 {
-    // TODO
-    Into::<Pt>::into(Mm(mm)).0
+pub fn mm_to_pt(mm: f32) -> f32 {
+    mm * 72. / 25.4
 }
 
-pub fn pt_to_mm(pt: f64) -> f64 {
-    // TODO
-    Into::<Mm>::into(Pt(pt)).0
+pub fn pt_to_mm(pt: f32) -> f32 {
+    pt * 25.4 / 72.
 }
 
 pub fn u32_to_color_and_alpha(color: u32) -> ([f32; 3], f32) {
@@ -54,7 +53,7 @@ pub fn rgb_color_array_to_u32(color: [u8; 3]) -> u32 {
     ((color[0] as u32) << 24) | ((color[1] as u32) << 16) | ((color[2] as u32) << 8) | 0xFF
 }
 
-pub fn max_optional_size(a: Option<f64>, b: Option<f64>) -> Option<f64> {
+pub fn max_optional_size(a: Option<f32>, b: Option<f32>) -> Option<f32> {
     match (a, b) {
         (None, None) => None,
         (None, Some(x)) | (Some(x), None) => Some(x),
@@ -62,7 +61,7 @@ pub fn max_optional_size(a: Option<f64>, b: Option<f64>) -> Option<f64> {
     }
 }
 
-pub fn add_optional_size(a: Option<f64>, b: Option<f64>) -> Option<f64> {
+pub fn add_optional_size(a: Option<f32>, b: Option<f32>) -> Option<f32> {
     match (a, b) {
         (None, None) => None,
         (None, Some(x)) | (Some(x), None) => Some(x),
@@ -70,7 +69,7 @@ pub fn add_optional_size(a: Option<f64>, b: Option<f64>) -> Option<f64> {
     }
 }
 
-pub fn add_optional_size_with_gap(a: Option<f64>, b: Option<f64>, gap: f64) -> Option<f64> {
+pub fn add_optional_size_with_gap(a: Option<f32>, b: Option<f32>, gap: f32) -> Option<f32> {
     match (a, b) {
         (None, None) => None,
         (None, Some(x)) | (Some(x), None) => Some(x),

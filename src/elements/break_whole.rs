@@ -107,7 +107,7 @@ enum Layout {
 }
 
 impl<'a, E: Element> BreakWhole<'a, E> {
-    fn layout(&self, width: WidthConstraint, first_height: f64, full_height: f64) -> Layout {
+    fn layout(&self, width: WidthConstraint, first_height: f32, full_height: f32) -> Layout {
         if first_height == full_height {
             return Layout::NoPreBreak;
         }

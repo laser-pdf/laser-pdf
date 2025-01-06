@@ -103,8 +103,8 @@ impl<'a, E: Element> CenterInPreferredHeight<'a, E> {
     fn layout(
         &self,
         width: WidthConstraint,
-        first_height: f64,
-        full_height: Option<f64>,
+        first_height: f32,
+        full_height: Option<f32>,
     ) -> Layout {
         let height_available = full_height.unwrap_or(first_height);
 

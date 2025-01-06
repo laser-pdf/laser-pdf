@@ -5,7 +5,10 @@ use pdf_core_14_font_afms::*;
 use pdf_writer::{Name, Str};
 
 use super::Font;
-use crate::{utils::pt_to_mm, Pdf};
+use crate::{
+    utils::{mm_to_pt, pt_to_mm},
+    Pdf,
+};
 
 pub struct BuiltinFont {
     resource_name: String,
@@ -122,29 +125,29 @@ impl Font for BuiltinFont {
     fn break_text_into_lines<'a>(
         &self,
         text: &'a str,
-        max_width: f64,
-        size: f64,
-        character_spacing: f64,
-        word_spacing: f64,
+        max_width: f32,
+        size: f32,
+        character_spacing: f32,
+        word_spacing: f32,
     ) -> impl Iterator<Item = &'a str> + Clone {
-        crate::text::break_text_into_lines(text, pt_to_mm(max_width), move |text| {
+        crate::text::break_text_into_lines(text, mm_to_pt(max_width), move |text| {
             crate::text::text_width(
                 text,
                 size,
                 1000.,
-                |c| self.char_metrics_by_codepoint[&c].wx,
+                |c| self.char_metrics_by_codepoint[&c].wx as f32,
                 character_spacing,
                 word_spacing,
             )
         })
     }
 
-    fn line_width(&self, line: &str, size: f64, character_spacing: f64, word_spacing: f64) -> f64 {
+    fn line_width(&self, line: &str, size: f32, character_spacing: f32, word_spacing: f32) -> f32 {
         crate::text::text_width(
             line,
             size,
             1000.,
-            |c| self.char_metrics_by_codepoint[&c].wx,
+            |c| self.char_metrics_by_codepoint[&c].wx as f32,
             character_spacing,
             word_spacing,
         )
@@ -154,9 +157,9 @@ impl Font for BuiltinFont {
         &self,
         layer: &mut pdf_writer::Content,
         line: &str,
-        size: f64,
-        character_spacing: f64,
-        word_spacing: f64,
+        size: f32,
+        character_spacing: f32,
+        word_spacing: f32,
         underline: bool,
         x: f32,
         y: f32,
@@ -167,7 +170,7 @@ impl Font for BuiltinFont {
 
         layer.set_font(Name(self.resource_name.as_bytes()), size as f32);
 
-        layer.begin_text().next_line(x, y);
+        layer.begin_text().next_line(mm_to_pt(x), mm_to_pt(y));
 
         if word_spacing != 0. {
             let word_spacing = word_spacing * 1000. / size;
@@ -209,7 +212,8 @@ impl Font for BuiltinFont {
     //     1000
     // }
 
-    fn general_metrics(&self, size: f64) -> super::GeneralMetrics {
+    // TODO: This API needs some very serious thought.
+    fn general_metrics(&self, size: f32) -> super::GeneralMetrics {
         let bbox = self.metrics.font_bbox;
 
         // This should be bbox.ymax - bbox.ymin, but it seems that the afm is parsed incorrectly.
@@ -219,8 +223,8 @@ impl Font for BuiltinFont {
 
         // TODO: pt to mm???
         super::GeneralMetrics {
-            ascent: ascent * size,
-            line_height: line_height * size,
+            ascent: ascent as f32 * size / 1000.,
+            line_height: line_height as f32 * size / 1000.,
         }
     }
 }

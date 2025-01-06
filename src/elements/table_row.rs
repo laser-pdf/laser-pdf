@@ -188,14 +188,14 @@ impl<F: Fn(&mut RowContent)> Element for TableRow<F> {
 
 pub struct RowContent<'a, 'b, 'c> {
     width: WidthConstraint,
-    first_height: f64,
+    first_height: f32,
     pass: Pass<'a, 'b, 'c>,
 }
 
 enum Pass<'a, 'b, 'c> {
     MeasureNonExpanded {
         layout: &'a mut MeasureLayout,
-        max_height: Option<&'a mut Option<f64>>,
+        max_height: Option<&'a mut Option<f32>>,
         breakable: Option<&'a mut BreakableMeasure<'b>>,
     },
 
@@ -203,31 +203,31 @@ enum Pass<'a, 'b, 'c> {
 
     MeasureExpanded {
         layout: &'a DrawLayout,
-        max_height: &'a mut Option<f64>,
-        width: Option<&'a mut Option<f64>>,
-        gap: f64,
+        max_height: &'a mut Option<f32>,
+        width: Option<&'a mut Option<f32>>,
+        gap: f32,
         breakable: Option<&'a mut BreakableMeasure<'b>>,
     },
 
     Draw {
         layout: &'a DrawLayout,
-        max_height: &'a mut Option<f64>,
-        width: &'a mut Option<f64>,
+        max_height: &'a mut Option<f32>,
+        width: &'a mut Option<f32>,
 
-        gap: f64,
+        gap: f32,
 
         pdf: &'c mut Pdf,
         location: Location,
 
-        preferred_height: Option<f64>,
+        preferred_height: Option<f32>,
         break_count: &'a mut u32,
         breakable: Option<&'a mut BreakableDraw<'b>>,
     },
 
     DrawLines {
         layout: &'a DrawLayout,
-        height: f64,
-        width: Option<f64>,
+        height: f32,
+        width: Option<f32>,
         break_count: u32,
 
         line_style: LineStyle,
@@ -240,15 +240,15 @@ enum Pass<'a, 'b, 'c> {
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub enum Flex {
     Expand(u8),
-    Fixed(f64),
+    Fixed(f32),
 }
 
 fn add_height(
-    max_height: &mut Option<f64>,
+    max_height: &mut Option<f32>,
     breakable: Option<&mut BreakableMeasure>,
     size: ElementSize,
     break_count: u32,
-    extra_location_min_height: Option<f64>,
+    extra_location_min_height: Option<f32>,
 ) {
     if let Some(b) = breakable {
         *b.extra_location_min_height =
@@ -481,7 +481,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                 };
 
                 if let Some(width) = width {
-                    let draw_line = |location: &Location, height: f64| {
+                    let draw_line = |location: &Location, height: f32| {
                         let x = location.pos.0 + *width;
                         let y = location.pos.1;
 

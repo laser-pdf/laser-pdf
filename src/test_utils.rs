@@ -21,16 +21,16 @@ use self::build_element::{BuildElementCallback, BuildElementReturnToken};
 
 pub struct TestElementParams {
     pub width: WidthConstraint,
-    pub first_height: f64,
-    pub preferred_height: Option<f64>,
+    pub first_height: f32,
+    pub preferred_height: Option<f32>,
     pub breakable: Option<TestElementParamsBreakable>,
-    pub pos: (f64, f64),
-    pub page_size: (f64, f64),
+    pub pos: (f32, f32),
+    pub page_size: (f32, f32),
 }
 
 pub struct TestElementParamsBreakable {
     pub preferred_height_break_count: u32,
-    pub full_height: f64,
+    pub full_height: f32,
 }
 
 impl Default for TestElementParams {
@@ -67,7 +67,7 @@ pub struct ElementTestOutput {
 #[derive(Debug)]
 pub struct ElementTestOutputBreakable {
     pub break_count: u32,
-    pub extra_location_min_height: Option<f64>,
+    pub extra_location_min_height: Option<f32>,
 
     pub first_location_usage: FirstLocationUsage,
 }
@@ -95,7 +95,7 @@ impl ElementTestOutputBreakable {
 
     pub fn assert_extra_location_min_height(
         &self,
-        extra_location_min_height: Option<f64>,
+        extra_location_min_height: Option<f32>,
     ) -> &Self {
         assert_eq!(self.extra_location_min_height, extra_location_min_height);
         self
@@ -167,7 +167,7 @@ pub fn test_element(
         let measured = (measure.break_count, measure.size.height);
         let drawn = (draw.break_count, draw.size.height);
 
-        type Thing = (u32, Option<f64>);
+        type Thing = (u32, Option<f32>);
 
         fn max(a: Thing, b: Thing) -> Thing {
             // Beware of wild NaNs, they bite!
@@ -246,18 +246,18 @@ pub struct DrawStats {
 }
 
 struct BreakableDrawConfig {
-    pos: (f64, f64),
-    full_height: f64,
+    pos: (f32, f32),
+    full_height: f32,
     preferred_height_break_count: u32,
 }
 
 fn draw_element<E: Element>(
     element: &E,
     width: WidthConstraint,
-    first_height: f64,
-    preferred_height: Option<f64>,
-    first_pos: (f64, f64),
-    page_size: (f64, f64),
+    first_height: f32,
+    preferred_height: Option<f32>,
+    first_pos: (f32, f32),
+    page_size: (f32, f32),
     breakable: Option<BreakableDrawConfig>,
 ) -> DrawStats {
     let mut page_idx = 0;
@@ -313,15 +313,15 @@ fn draw_element<E: Element>(
 
 pub struct MeasureStats {
     break_count: u32,
-    extra_location_min_height: Option<f64>,
+    extra_location_min_height: Option<f32>,
     size: ElementSize,
 }
 
 pub fn measure_element<E: Element>(
     element: &E,
     width: WidthConstraint,
-    first_height: f64,
-    full_height: Option<f64>,
+    first_height: f32,
+    full_height: Option<f32>,
 ) -> MeasureStats {
     let mut break_count = 0;
     let mut extra_location_min_height = None;

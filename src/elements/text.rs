@@ -1,4 +1,5 @@
 use fonts::GeneralMetrics;
+use utils::pt_to_mm;
 
 use crate::{
     fonts::Font, text::remove_non_trailing_soft_hyphens, utils::u32_to_color_and_alpha, *,
@@ -14,22 +15,22 @@ pub enum TextAlign {
 pub struct Text<'a, F: Font> {
     pub text: &'a str,
     pub font: &'a F,
-    pub size: f64,
+    pub size: f32,
     pub color: u32,
     pub underline: bool,
-    pub extra_character_spacing: f64,
-    pub extra_word_spacing: f64,
-    pub extra_line_height: f64,
+    pub extra_character_spacing: f32,
+    pub extra_word_spacing: f32,
+    pub extra_line_height: f32,
     pub align: TextAlign,
 }
 
 struct FontMetrics {
-    ascent: f64,
-    line_height: f64,
+    ascent: f32,
+    line_height: f32,
 }
 
 impl<'a, F: Font> Text<'a, F> {
-    pub fn basic(text: &'a str, font: &'a F, size: f64) -> Self {
+    pub fn basic(text: &'a str, font: &'a F, size: f32) -> Self {
         Text {
             text,
             font,
@@ -49,7 +50,7 @@ impl<'a, F: Font> Text<'a, F> {
             line_height,
         } = self.font.general_metrics(self.size);
 
-        // let units_per_em = self.font.units_per_em() as f64;
+        // let units_per_em = self.font.units_per_em() as f32;
 
         // FontMetrics {
         //     ascent: pt_to_mm(ascent * self.size / units_per_em),
@@ -57,8 +58,8 @@ impl<'a, F: Font> Text<'a, F> {
         // }
 
         FontMetrics {
-            ascent,
-            line_height,
+            ascent: pt_to_mm(ascent),
+            line_height: pt_to_mm(line_height),
         }
     }
 
@@ -67,10 +68,10 @@ impl<'a, F: Font> Text<'a, F> {
         &self,
         lines: L,
         mut ctx: DrawCtx,
-        ascent: f64,
-        line_height: f64,
-        width: f64,
-    ) -> (f64, f64) {
+        ascent: f32,
+        line_height: f32,
+        width: f32,
+    ) -> (f32, f32) {
         let mut max_width = width;
 
         let mut x = ctx.location.pos.0;
@@ -103,7 +104,7 @@ impl<'a, F: Font> Text<'a, F> {
                         if line_count == 0 {
                             None
                         } else {
-                            Some(line_count as f64 * line_height)
+                            Some(line_count as f32 * line_height)
                         },
                     );
                     draw_rect += 1;
@@ -148,17 +149,17 @@ impl<'a, F: Font> Text<'a, F> {
 
         ctx.location.layer(ctx.pdf).restore_state();
 
-        (max_width, line_count as f64 * line_height)
+        (max_width, line_count as f32 * line_height)
     }
 
     #[inline(always)]
     fn layout_lines<'b, L: Iterator<Item = &'b str>>(
         &self,
         lines: L,
-        line_height: f64,
+        line_height: f32,
         measure_ctx: Option<&mut MeasureCtx>,
-    ) -> (f64, f64) {
-        let mut max_width: f64 = 0.;
+    ) -> (f32, f32) {
+        let mut max_width: f32 = 0.;
         let mut line_count = 0;
 
         // This function is a bit hacky because it's both used for measure and for determining the
@@ -166,7 +167,7 @@ impl<'a, F: Font> Text<'a, F> {
         let mut height_available = if let Some(&mut MeasureCtx { first_height, .. }) = measure_ctx {
             first_height
         } else {
-            f64::INFINITY
+            f32::INFINITY
         };
 
         for line in lines {
@@ -193,10 +194,10 @@ impl<'a, F: Font> Text<'a, F> {
             line_count += 1;
         }
 
-        (max_width, line_count as f64 * line_height)
+        (max_width, line_count as f32 * line_height)
     }
 
-    fn break_into_lines(&'a self, width: f64) -> impl Iterator<Item = &'a str> + Clone {
+    fn break_into_lines(&'a self, width: f32) -> impl Iterator<Item = &'a str> + Clone {
         self.font.break_text_into_lines(
             self.text,
             width,

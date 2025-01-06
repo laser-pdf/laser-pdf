@@ -1,12 +1,12 @@
 /// Calculates the width needed for a given string, font and size (in pt).
 pub fn text_width(
     text: &str,
-    size: f64,
-    units_per_em: f64,
-    codepoint_advance_width: impl Fn(u32) -> f64,
-    character_spacing: f64,
-    word_spacing: f64,
-) -> f64 {
+    size: f32,
+    units_per_em: f32,
+    codepoint_advance_width: impl Fn(u32) -> f32,
+    character_spacing: f32,
+    word_spacing: f32,
+) -> f32 {
     use itertools::{Itertools, Position};
 
     let scale = units_per_em;
@@ -23,11 +23,11 @@ pub fn text_width(
             Some((ch, codepoint_advance_width(ch as u32)))
         })
         .fold(0., |acc, (ch, advance_width)| {
-            acc + advance_width as f64
+            acc + advance_width as f32
                 + character_spacing
                 + if ch == ' ' { word_spacing } else { 0. }
         });
-    total_width as f64 * size as f64 / scale
+    total_width as f32 * size as f32 / scale
 }
 
 pub fn remove_non_trailing_soft_hyphens(text: &str) -> String {
@@ -46,12 +46,12 @@ pub fn remove_non_trailing_soft_hyphens(text: &str) -> String {
 }
 
 #[derive(Clone)]
-pub struct BreakTextIntoLines<'a, F: Fn(&str) -> f64> {
+pub struct BreakTextIntoLines<'a, F: Fn(&str) -> f32> {
     line_generator: LineGenerator<'a, F>,
-    max_width: f64,
+    max_width: f32,
 }
 
-impl<'a, F: Fn(&str) -> f64> Iterator for BreakTextIntoLines<'a, F> {
+impl<'a, F: Fn(&str) -> f32> Iterator for BreakTextIntoLines<'a, F> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -59,9 +59,9 @@ impl<'a, F: Fn(&str) -> f64> Iterator for BreakTextIntoLines<'a, F> {
     }
 }
 
-pub fn break_text_into_lines<'a, F: Fn(&str) -> f64>(
+pub fn break_text_into_lines<'a, F: Fn(&str) -> f32>(
     text: &'a str,
-    max_width: f64,
+    max_width: f32,
     text_width: F,
 ) -> BreakTextIntoLines<'a, F> {
     BreakTextIntoLines {
@@ -71,13 +71,13 @@ pub fn break_text_into_lines<'a, F: Fn(&str) -> f64>(
 }
 
 #[derive(Clone)]
-pub struct LineGenerator<'a, F: Fn(&str) -> f64> {
+pub struct LineGenerator<'a, F: Fn(&str) -> f32> {
     text: Option<&'a str>,
     text_width: F,
-    soft_hyphen_width: f64,
+    soft_hyphen_width: f32,
 }
 
-impl<'a, F: Fn(&str) -> f64> LineGenerator<'a, F> {
+impl<'a, F: Fn(&str) -> f32> LineGenerator<'a, F> {
     pub fn new(text: &'a str, text_width: F) -> Self {
         let soft_hyphen_width = text_width("\u{00ad}");
 
@@ -92,7 +92,7 @@ impl<'a, F: Fn(&str) -> f64> LineGenerator<'a, F> {
         self.text.is_none()
     }
 
-    pub fn next(&mut self, max_width: f64, incomplete: bool) -> Option<&'a str> {
+    pub fn next(&mut self, max_width: f32, incomplete: bool) -> Option<&'a str> {
         if let Some(slice) = self.text {
             let mut current_width = 0.0;
             let mut last_break = 0;
@@ -203,7 +203,7 @@ mod tests {
         let mut generator = LineGenerator::new(
             "Amet consequatur facilis necessitatibus sed quia numquam reiciendis. \
                 Id impedit quo quaerat enim amet. ",
-            |s| s.len() as f64,
+            |s| s.len() as f32,
         );
 
         assert_eq!(generator.next(16., false), Some("Amet consequatur"));
@@ -221,7 +221,7 @@ mod tests {
     fn test_trailing_whitespace() {
         let mut generator =
             LineGenerator::new("Id impedit quo quaerat enim amet.                  ", |s| {
-                s.len() as f64
+                s.len() as f32
             });
 
         assert_eq!(generator.next(16., false), Some("Id impedit quo"));
@@ -236,7 +236,7 @@ mod tests {
     fn test_pre_newline_whitespace() {
         let mut generator =
             LineGenerator::new("Id impedit quo \nquaerat enimmmmm    \namet.", |s| {
-                s.len() as f64
+                s.len() as f32
             });
 
         assert_eq!(generator.next(16., false), Some("Id impedit quo "));
@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_newline() {
-        let mut generator = LineGenerator::new("\n", |s| s.len() as f64);
+        let mut generator = LineGenerator::new("\n", |s| s.len() as f32);
 
         assert_eq!(generator.next(16., false), Some(""));
         assert_eq!(generator.next(16., false), Some(""));
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_empty_str() {
-        let mut generator = LineGenerator::new("", |s| s.len() as f64);
+        let mut generator = LineGenerator::new("", |s| s.len() as f32);
 
         assert_eq!(generator.next(16., false), Some(""));
         assert_eq!(generator.next(16., false), None);
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_space() {
-        let mut generator = LineGenerator::new("  ", |s| s.len() as f64);
+        let mut generator = LineGenerator::new("  ", |s| s.len() as f32);
 
         assert_eq!(generator.next(16., false), Some("  "));
         assert_eq!(generator.next(16., false), None);
@@ -272,18 +272,18 @@ mod tests {
 
     #[test]
     fn test_word_longer_than_line() {
-        let mut generator = LineGenerator::new("Averylongword", |s| s.len() as f64);
+        let mut generator = LineGenerator::new("Averylongword", |s| s.len() as f32);
 
         assert_eq!(generator.next(8., false), Some("Averylongword"));
         assert_eq!(generator.next(8., false), None);
 
-        let mut generator = LineGenerator::new("Averylongword test.", |s| s.len() as f64);
+        let mut generator = LineGenerator::new("Averylongword test.", |s| s.len() as f32);
 
         assert_eq!(generator.next(8., false), Some("Averylongword"));
         assert_eq!(generator.next(8., false), Some("test."));
         assert_eq!(generator.next(8., false), None);
 
-        let mut generator = LineGenerator::new("A verylongword test.", |s| s.len() as f64);
+        let mut generator = LineGenerator::new("A verylongword test.", |s| s.len() as f32);
 
         assert_eq!(generator.next(8., false), Some("A"));
         assert_eq!(generator.next(8., false), Some("verylongword"));
@@ -291,13 +291,13 @@ mod tests {
         assert_eq!(generator.next(8., false), None);
     }
 
-    fn len_without_soft_hyphens(s: &str) -> f64 {
+    fn len_without_soft_hyphens(s: &str) -> f32 {
         use itertools::{Itertools, Position};
 
         s.chars()
             .with_position()
             .filter(|&(p, c)| c != '\u{00ad}' || matches!(p, Position::Last | Position::Only))
-            .count() as f64
+            .count() as f32
     }
 
     #[test]

@@ -5,8 +5,8 @@ use super::*;
 /// constraint or [Self::width] if unconstrained.
 pub struct FakeText {
     pub lines: u32,
-    pub line_height: f64,
-    pub width: f64,
+    pub line_height: f32,
+    pub width: f32,
 }
 
 struct Layout {
@@ -17,7 +17,7 @@ struct Layout {
 }
 
 impl FakeText {
-    fn lines_and_breaks(&self, first_height: f64, full_height: f64) -> Layout {
+    fn lines_and_breaks(&self, first_height: f32, full_height: f32) -> Layout {
         let first_lines = (first_height / self.line_height).floor() as u32;
 
         if self.lines <= first_lines {
@@ -68,7 +68,7 @@ impl Element for FakeText {
 
         ElementSize {
             width: Some(ctx.width.constrain(self.width)),
-            height: Some(lines as f64 * self.line_height),
+            height: Some(lines as f32 * self.line_height),
         }
     }
 
@@ -81,9 +81,9 @@ impl Element for FakeText {
                     ctx.pdf,
                     i,
                     Some(if i == 0 {
-                        self.line_height * layout.first_lines as f64
+                        self.line_height * layout.first_lines as f32
                     } else {
-                        self.line_height * layout.full_height_lines as f64
+                        self.line_height * layout.full_height_lines as f32
                     }),
                 );
             }
@@ -95,7 +95,7 @@ impl Element for FakeText {
 
         ElementSize {
             width: Some(ctx.width.constrain(self.width)),
-            height: Some(lines as f64 * self.line_height),
+            height: Some(lines as f32 * self.line_height),
         }
     }
 }

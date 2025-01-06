@@ -40,15 +40,15 @@ impl<'a> Font for TruetypeFont<'a> {
     fn break_text_into_lines<'b>(
         &self,
         text: &'b str,
-        max_width: f64,
-        size: f64,
-        character_spacing: f64,
-        word_spacing: f64,
+        max_width: f32,
+        size: f32,
+        character_spacing: f32,
+        word_spacing: f32,
     ) -> impl Iterator<Item = &'b str> + Clone {
         crate::text::break_text_into_lines(text, max_width, |_| todo!())
     }
 
-    fn line_width(&self, line: &str, size: f64, character_spacing: f64, word_spacing: f64) -> f64 {
+    fn line_width(&self, line: &str, size: f32, character_spacing: f32, word_spacing: f32) -> f32 {
         todo!()
     }
 
@@ -56,9 +56,9 @@ impl<'a> Font for TruetypeFont<'a> {
         &self,
         content: &mut Content,
         line: &str,
-        size: f64,
-        character_spacing: f64,
-        word_spacing: f64,
+        size: f32,
+        character_spacing: f32,
+        word_spacing: f32,
         underline: bool,
         x: f32,
         y: f32,
@@ -74,7 +74,7 @@ impl<'a> Font for TruetypeFont<'a> {
     //     let h_metrics = self.font.get_codepoint_h_metrics(codepoint);
 
     //     super::HMetrics {
-    //         advance_width: h_metrics.advance_width as f64,
+    //         advance_width: h_metrics.advance_width as f32,
     //     }
     // }
 
@@ -82,14 +82,14 @@ impl<'a> Font for TruetypeFont<'a> {
     //     self.font.units_per_em()
     // }
 
-    fn general_metrics(&self, size: f64) -> super::GeneralMetrics {
+    fn general_metrics(&self, size: f32) -> super::GeneralMetrics {
         // let v_metrics = self.font.get_v_metrics();
 
         // super::GeneralMetrics {
-        //     ascent: v_metrics.ascent as f64,
+        //     ascent: v_metrics.ascent as f32,
 
         //     // It seems that descent is positive in some fonts and negative in others.
-        //     line_height: (v_metrics.ascent + v_metrics.descent.abs() + v_metrics.line_gap) as f64,
+        //     line_height: (v_metrics.ascent + v_metrics.descent.abs() + v_metrics.line_gap) as f32,
         // }
         todo!()
     }
@@ -195,7 +195,7 @@ fn make_a_pdf() {
     cid.font_descriptor(descriptor_ref);
     cid.default_width(0.0);
 
-    let units_per_em = ttf.units_per_em() as f64;
+    let units_per_em = ttf.units_per_em() as f32;
 
     // Extract the widths of all glyphs.
     // `remapped_gids` returns an iterator over the old GIDs in their new sorted
@@ -205,7 +205,7 @@ fn make_a_pdf() {
         .map(|gid| {
             let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
 
-            (width as f64 / units_per_em * 1000.) as f32
+            (width as f32 / units_per_em * 1000.) as f32
         })
         .collect::<Vec<_>>();
 

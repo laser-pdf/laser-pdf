@@ -3,9 +3,9 @@ use printpdf::{utils::calculate_points_for_circle, Line};
 use crate::{utils::*, *};
 
 pub struct Circle {
-    pub radius: f64,
+    pub radius: f32,
     pub fill: Option<u32>,
-    pub outline: Option<(f64, u32)>,
+    pub outline: Option<(f32, u32)>,
 }
 
 impl Element for Circle {
@@ -59,7 +59,7 @@ impl Element for Circle {
     }
 }
 
-fn outline_thickness(circle: &Circle) -> f64 {
+fn outline_thickness(circle: &Circle) -> f32 {
     circle.outline.map(|o| o.0).unwrap_or(0.0)
 }
 

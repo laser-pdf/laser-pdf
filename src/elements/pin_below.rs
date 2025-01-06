@@ -5,15 +5,15 @@ use self::utils::{add_optional_size, max_optional_size};
 pub struct PinBelow<'a, C: Element, B: Element> {
     pub content: &'a C,
     pub pinned_element: &'a B,
-    pub gap: f64,
+    pub gap: f32,
     pub collapse: bool,
 }
 
 struct Common {
-    first_height: f64,
-    full_height: Option<f64>,
+    first_height: f32,
+    full_height: Option<f32>,
     bottom_size: ElementSize,
-    bottom_height: f64,
+    bottom_height: f32,
     pre_break: bool,
     content_first_location_usage: Option<FirstLocationUsage>,
 }
@@ -22,8 +22,8 @@ impl<'a, C: Element, B: Element> PinBelow<'a, C, B> {
     fn common(
         &self,
         width: WidthConstraint,
-        first_height: f64,
-        full_height: Option<f64>,
+        first_height: f32,
+        full_height: Option<f32>,
     ) -> Common {
         let bottom_first_height = full_height.unwrap_or(first_height);
 

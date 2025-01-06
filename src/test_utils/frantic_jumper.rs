@@ -1,7 +1,7 @@
 use crate::*;
 
 pub struct FranticJumper {
-    pub jumps: Vec<(u32, Option<f64>)>,
+    pub jumps: Vec<(u32, Option<f32>)>,
     pub size: ElementSize,
 }
 

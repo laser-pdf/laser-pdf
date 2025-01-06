@@ -17,23 +17,23 @@ pub const LOREM_IPSUM: &str =
 #[derive(Clone, Copy)]
 pub struct TestElementParams {
     pub width: WidthConstraint,
-    pub first_height: f64,
-    pub preferred_height: Option<f64>,
+    pub first_height: f32,
+    pub preferred_height: Option<f32>,
     pub breakable: Option<TestElementParamsBreakable>,
-    pub pos: (f64, f64),
-    pub page_size: (f64, f64),
+    pub pos: (f32, f32),
+    pub page_size: (f32, f32),
 }
 
 #[derive(Clone, Copy)]
 pub struct TestElementParamsBreakable {
     pub preferred_height_break_count: u32,
-    pub full_height: f64,
+    pub full_height: f32,
 }
 
 impl TestElementParams {
-    pub const DEFAULT_MAX_WIDTH: f64 = 210. - 2. * 8.;
-    pub const DEFAULT_FULL_HEIGHT: f64 = 297. - 2. * 16.;
-    pub const DEFAULT_REDUCED_HEIGHT: f64 = 100.;
+    pub const DEFAULT_MAX_WIDTH: f32 = 210. - 2. * 8.;
+    pub const DEFAULT_FULL_HEIGHT: f32 = 297. - 2. * 16.;
+    pub const DEFAULT_REDUCED_HEIGHT: f32 = 100.;
 
     pub fn unbreakable() -> Self {
         TestElementParams {
@@ -70,7 +70,7 @@ impl TestElementParams {
 #[derive(Debug)]
 struct MeasureStats {
     break_count: u32,
-    extra_location_min_height: Option<f64>,
+    extra_location_min_height: Option<f32>,
     size: ElementSize,
 }
 
@@ -105,8 +105,7 @@ impl Doc {
 
         // TODO??
 
-        let mut pdf = Pdf::new(params.page_size);
-        pdf.add_page();
+        let pdf = Pdf::new(params.page_size);
 
         Doc { params, pdf }
     }
@@ -298,7 +297,7 @@ pub fn test_element_bytes(params: TestElementParams, build_element: impl Fn(Call
         let measured = (measure.break_count, measure.size.height);
         let drawn = (draw.break_count, draw.size.height);
 
-        type Thing = (u32, Option<f64>);
+        type Thing = (u32, Option<f32>);
 
         fn max(a: Thing, b: Thing) -> Thing {
             // Beware of wild NaNs, they bite!

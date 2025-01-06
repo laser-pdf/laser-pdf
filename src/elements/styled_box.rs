@@ -5,11 +5,11 @@ use crate::{
 
 pub struct StyledBox<'a, E: Element> {
     pub element: &'a E,
-    pub padding_left: f64,
-    pub padding_right: f64,
-    pub padding_top: f64,
-    pub padding_bottom: f64,
-    pub border_radius: f64,
+    pub padding_left: f32,
+    pub padding_right: f32,
+    pub padding_top: f32,
+    pub padding_bottom: f32,
+    pub border_radius: f32,
     pub fill: Option<u32>,
     pub outline: Option<LineStyle>,
 }
@@ -30,13 +30,13 @@ impl<'a, E: Element> StyledBox<'a, E> {
 }
 
 struct Common {
-    top: f64,
-    bottom: f64,
-    left: f64,
-    right: f64,
+    top: f32,
+    bottom: f32,
+    left: f32,
+    right: f32,
 
     inner_width_constraint: WidthConstraint,
-    width: Option<f64>,
+    width: Option<f32>,
 }
 
 impl Common {
@@ -47,7 +47,7 @@ impl Common {
         }
     }
 
-    fn height(&self, input: f64) -> f64 {
+    fn height(&self, input: f32) -> f32 {
         input - self.top - self.bottom
     }
 }
@@ -88,7 +88,7 @@ impl<'a, E: Element> StyledBox<'a, E> {
         }
     }
 
-    fn draw_box(&self, location: &Location, size: (f64, f64)) {
+    fn draw_box(&self, location: &Location, size: (f32, f32)) {
         use kurbo::{PathEl, RoundedRect, Shape};
         use lopdf::content::Operation;
         use printpdf::LineDashPattern;

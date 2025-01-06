@@ -3,9 +3,9 @@ use pdf_writer::Name;
 use crate::{utils::*, *};
 
 pub struct Rectangle {
-    pub size: (f64, f64),
+    pub size: (f32, f32),
     pub fill: Option<u32>,
-    pub outline: Option<(f64, u32)>,
+    pub outline: Option<(f32, u32)>,
 }
 
 impl Element for Rectangle {
@@ -102,7 +102,7 @@ impl Element for Rectangle {
     }
 }
 
-fn outline_thickness(rectangle: &Rectangle) -> f64 {
+fn outline_thickness(rectangle: &Rectangle) -> f32 {
     rectangle.outline.map(|o| o.0).unwrap_or(0.0)
 }
 

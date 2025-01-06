@@ -1,3 +1,5 @@
+use utils::mm_to_pt;
+
 use crate::*;
 
 pub struct Debug<'a, E: Element + ?Sized> {
@@ -175,7 +177,7 @@ fn calculate_color(input: u8) -> [f32; 3] {
     hue_to_rgb(input.reverse_bits()).map(|c| c as f32 / 255.)
 }
 
-fn draw_box(pdf: &mut Pdf, location: Location, size: (f64, f64), color: [f32; 3], dashed: bool) {
+fn draw_box(pdf: &mut Pdf, location: Location, size: (f32, f32), color: [f32; 3], dashed: bool) {
     let layer = location.layer(pdf);
 
     layer
@@ -189,10 +191,10 @@ fn draw_box(pdf: &mut Pdf, location: Location, size: (f64, f64), color: [f32; 3]
 
     layer
         .rect(
-            location.pos.0 as f32,
-            (location.pos.1 - size.1) as f32,
-            size.0 as f32,
-            size.1 as f32,
+            mm_to_pt(location.pos.0),
+            mm_to_pt(location.pos.1 - size.1),
+            mm_to_pt(size.0),
+            mm_to_pt(size.1),
         )
         .stroke()
         .restore_state();

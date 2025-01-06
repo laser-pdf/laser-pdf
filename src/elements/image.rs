@@ -4,7 +4,7 @@ use crate::{image::Image, *};
 
 use super::svg::Svg;
 
-const INCH_TO_MM: f64 = 25.4;
+const INCH_TO_MM: f32 = 25.4;
 
 pub struct ImageElement<'a> {
     pub image: &'a Image,
@@ -66,10 +66,10 @@ impl<'a> Element for ImageElement<'a> {
 }
 
 #[inline]
-fn calculate_size(image: &DynamicImage, width: WidthConstraint) -> (f64, f64, ElementSize) {
+fn calculate_size(image: &DynamicImage, width: WidthConstraint) -> (f32, f32, ElementSize) {
     let dimensions = {
         let (x, y) = image.dimensions();
-        (x as f64 * INCH_TO_MM, y as f64 * INCH_TO_MM)
+        (x as f32 * INCH_TO_MM, y as f32 * INCH_TO_MM)
     };
 
     let width = width.constrain(dimensions.0);

@@ -6,12 +6,12 @@ use crate::*;
 pub struct Break {
     pub page: usize,
     pub layer: usize,
-    pub pos: (f64, f64),
+    pub pos: (f32, f32),
 }
 
 #[derive(PartialEq, Debug)]
 pub struct BreakableDraw {
-    pub full_height: f64,
+    pub full_height: f32,
     pub preferred_height_break_count: u32,
     pub breaks: Vec<Break>,
 }
@@ -20,15 +20,15 @@ pub struct BreakableDraw {
 pub enum Pass {
     FirstLocationUsage {
         width: WidthConstraint,
-        first_height: f64,
-        full_height: f64,
+        first_height: f32,
+        full_height: f32,
     },
     Measure {
         width: WidthConstraint,
-        first_height: f64,
+        first_height: f32,
 
         /// Some implies a breakable context.
-        full_height: Option<f64>,
+        full_height: Option<f32>,
     },
     Draw(DrawPass),
 }
@@ -36,11 +36,11 @@ pub enum Pass {
 #[derive(PartialEq, Debug)]
 pub struct DrawPass {
     pub width: WidthConstraint,
-    pub first_height: f64,
-    pub preferred_height: Option<f64>,
+    pub first_height: f32,
+    pub preferred_height: Option<f32>,
     pub page: usize,
     pub layer: usize,
-    pub pos: (f64, f64),
+    pub pos: (f32, f32),
     pub breakable: Option<BreakableDraw>,
 }
 

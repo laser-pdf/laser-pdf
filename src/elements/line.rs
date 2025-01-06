@@ -7,7 +7,7 @@ pub struct Line {
 }
 
 impl Line {
-    pub fn new(thickness: f64) -> Self {
+    pub fn new(thickness: f32) -> Self {
         Line {
             style: LineStyle {
                 thickness,

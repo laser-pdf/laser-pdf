@@ -105,7 +105,7 @@ impl Into<printpdf::LineDashPattern> for LineDashPattern {
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct LineStyle {
-    pub thickness: f64,
+    pub thickness: f32,
     pub color: Color,
     pub dash_pattern: Option<LineDashPattern>,
     pub cap_style: LineCapStyle,
@@ -127,12 +127,12 @@ pub struct Pdf {
     pub alloc: Ref,
     pub pdf: pdf_writer::Pdf,
     pub pages: Vec<Page>,
-    pub page_size: (f64, f64),
+    pub page_size: (f32, f32),
     pub fonts: Vec<Ref>,
 }
 
 impl Pdf {
-    pub fn new(page_size: (f64, f64)) -> Self {
+    pub fn new(page_size: (f32, f32)) -> Self {
         let pdf = pdf_writer::Pdf::new();
 
         Pdf {
@@ -192,8 +192,8 @@ impl Pdf {
                 .media_box(Rect::new(
                     0.,
                     0.,
-                    self.page_size.0 as f32,
-                    self.page_size.1 as f32,
+                    (self.page_size.0 * 72. / 25.4) as f32,
+                    (self.page_size.1 * 72. / 25.4) as f32,
                 ))
                 .contents_array(
                     page.layers
@@ -239,7 +239,7 @@ impl Pdf {
 pub struct Location {
     pub page_idx: usize,
     pub layer_idx: usize,
-    pub pos: (f64, f64),
+    pub pos: (f32, f32),
     pub scale_factor: f32,
 }
 
@@ -268,12 +268,12 @@ impl Location {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WidthConstraint {
-    pub max: f64,
+    pub max: f32,
     pub expand: bool,
 }
 
 impl WidthConstraint {
-    pub fn constrain(&self, width: f64) -> f64 {
+    pub fn constrain(&self, width: f32) -> f32 {
         if self.expand {
             self.max
         } else {
@@ -282,8 +282,8 @@ impl WidthConstraint {
     }
 }
 
-pub type Pos = (f64, f64);
-pub type Size = (f64, f64);
+pub type Pos = (f32, f32);
+pub type Size = (f32, f32);
 
 /// This returns a new [Location] because some collection elements need to keep multiple
 /// [Location]s at once (e.g. for page breaking inside of a horizontal list)
@@ -293,7 +293,7 @@ pub type Size = (f64, f64);
 /// performed twice in a row.
 ///
 /// The third parameter is the height of the location.
-pub type Break<'a> = &'a mut dyn FnMut(&mut Pdf, u32, Option<f64>) -> Location;
+pub type Break<'a> = &'a mut dyn FnMut(&mut Pdf, u32, Option<f32>) -> Location;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum FirstLocationUsage {
@@ -307,7 +307,7 @@ pub enum FirstLocationUsage {
 
 pub struct FirstLocationUsageCtx {
     pub width: WidthConstraint,
-    pub first_height: f64,
+    pub first_height: f32,
 
     // is this needed?
     // one could argue that the parent should know to not even ask if full height isn't more
@@ -315,17 +315,17 @@ pub struct FirstLocationUsageCtx {
     // full-height is less than the height needed, but available-height might still be even less
     // than that and in that case text might still use the first one (though the correctness of that
     // is also questionable)
-    pub full_height: f64,
+    pub full_height: f32,
 }
 
 impl FirstLocationUsageCtx {
-    pub fn break_appropriate_for_min_height(&self, height: f64) -> bool {
+    pub fn break_appropriate_for_min_height(&self, height: f32) -> bool {
         height > self.first_height && self.full_height > self.first_height
     }
 }
 
 pub struct BreakableMeasure<'a> {
-    pub full_height: f64,
+    pub full_height: f32,
     pub break_count: &'a mut u32,
 
     /// The minimum height required for any extra locations added to the end. If, for example,
@@ -337,18 +337,18 @@ pub struct BreakableMeasure<'a> {
     /// `None` here means the element does not use extra locations. This means it is not possible
     /// to have an element that does use extra locations, but returns a `None` height on the last
     /// one. Should that ever become necessary we'll probably have to change this to an
-    /// `Option<Option<f64>>`.
-    pub extra_location_min_height: &'a mut Option<f64>,
+    /// `Option<Option<f32>>`.
+    pub extra_location_min_height: &'a mut Option<f32>,
 }
 
 pub struct MeasureCtx<'a> {
     pub width: WidthConstraint,
-    pub first_height: f64,
+    pub first_height: f32,
     pub breakable: Option<BreakableMeasure<'a>>,
 }
 
 impl<'a> MeasureCtx<'a> {
-    pub fn break_if_appropriate_for_min_height(&mut self, height: f64) -> bool {
+    pub fn break_if_appropriate_for_min_height(&mut self, height: f32) -> bool {
         if let Some(ref mut breakable) = self.breakable {
             if height > self.first_height && breakable.full_height > self.first_height {
                 *breakable.break_count = 1;
@@ -361,7 +361,7 @@ impl<'a> MeasureCtx<'a> {
 }
 
 pub struct BreakableDraw<'a> {
-    pub full_height: f64,
+    pub full_height: f32,
     pub preferred_height_break_count: u32,
     pub do_break: Break<'a>,
 }
@@ -371,15 +371,15 @@ pub struct DrawCtx<'a, 'b> {
     pub location: Location,
 
     pub width: WidthConstraint,
-    pub first_height: f64,
+    pub first_height: f32,
 
-    pub preferred_height: Option<f64>,
+    pub preferred_height: Option<f32>,
 
     pub breakable: Option<BreakableDraw<'b>>,
 }
 
 impl<'a, 'b> DrawCtx<'a, 'b> {
-    pub fn break_if_appropriate_for_min_height(&mut self, height: f64) -> bool {
+    pub fn break_if_appropriate_for_min_height(&mut self, height: f32) -> bool {
         if let Some(ref mut breakable) = self.breakable {
             if height > self.first_height && breakable.full_height > self.first_height {
                 // TODO: Make sure this is correct. Maybe this function needs to be renamed to make
@@ -395,17 +395,17 @@ impl<'a, 'b> DrawCtx<'a, 'b> {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ElementSize {
-    pub width: Option<f64>,
+    pub width: Option<f32>,
 
     /// None here means that this element doesn't need any space on it's last page. This is useful
     /// for things like collapsing gaps after a forced break. This in combination with no breaks
     /// means the element is completely hidden. This can be used to trigger collapsing of gaps even
     /// hiding certain parent containers, like titled, in turn.
-    pub height: Option<f64>,
+    pub height: Option<f32>,
 }
 
 impl ElementSize {
-    pub fn new(width: Option<f64>, height: Option<f64>) -> Self {
+    pub fn new(width: Option<f32>, height: Option<f32>) -> Self {
         ElementSize { width, height }
     }
 }
@@ -423,7 +423,7 @@ pub trait Element {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize;
 
-    // fn with_padding_top(&self, padding: f64) -> Padding<Self>
+    // fn with_padding_top(&self, padding: f32) -> Padding<Self>
     // where
     //     Self: Sized,
     // {
@@ -436,7 +436,7 @@ pub trait Element {
     //     }
     // }
 
-    // fn with_vertical_padding(&self, padding: f64) -> Padding<Self>
+    // fn with_vertical_padding(&self, padding: f32) -> Padding<Self>
     // where
     //     Self: Sized,
     // {
@@ -554,7 +554,7 @@ impl<C: CompositeElement> Element for C {
 
 // pub fn build_pdf<F: 'static>(
 //     name: &str,
-//     page_size: (f64, f64),
+//     page_size: (f32, f32),
 //     build_fonts: impl FnOnce(&PdfDocumentReference) -> F,
 //     build_element: impl for<'a> BuildElement<'a, F>,
 // ) -> printpdf::PdfDocumentReference {

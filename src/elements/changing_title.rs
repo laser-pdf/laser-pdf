@@ -6,22 +6,22 @@ pub struct ChangingTitle<'a, F: Element, R: Element, C: Element> {
     pub first_title: &'a F,
     pub remaining_title: &'a R,
     pub content: &'a C,
-    pub gap: f64,
+    pub gap: f32,
     pub collapse: bool,
 }
 
 struct CommonBreakable {
-    full_height: f64,
+    full_height: f32,
     pre_break: bool,
     remaining_title_size: ElementSize,
-    total_remaining_title_height: f64,
+    total_remaining_title_height: f32,
     content_first_location_usage: Option<FirstLocationUsage>,
 }
 
 struct Common {
-    first_height: f64,
+    first_height: f32,
     first_title_size: ElementSize,
-    total_first_title_height: f64,
+    total_first_title_height: f32,
     breakable: Option<CommonBreakable>,
 }
 
@@ -29,8 +29,8 @@ impl<'a, F: Element, R: Element, C: Element> ChangingTitle<'a, F, R, C> {
     fn common(
         &self,
         width: WidthConstraint,
-        first_height: f64,
-        full_height: Option<f64>,
+        first_height: f32,
+        full_height: Option<f32>,
     ) -> Common {
         let bottom_first_height = full_height.unwrap_or(first_height);
 
@@ -94,7 +94,7 @@ impl<'a, F: Element, R: Element, C: Element> ChangingTitle<'a, F, R, C> {
         }
     }
 
-    fn height(&self, title_height: Option<f64>, height: Option<f64>) -> Option<f64> {
+    fn height(&self, title_height: Option<f32>, height: Option<f32>) -> Option<f32> {
         height
             .map(|h| h + self.gap)
             .or((!self.collapse).then_some(0.))

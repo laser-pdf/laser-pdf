@@ -6,7 +6,7 @@ use crate::{
 pub struct TitleOrBreak<'a, T: Element, C: Element> {
     pub title: &'a T,
     pub content: &'a C,
-    pub gap: f64,
+    pub gap: f32,
     pub collapse_on_empty_content: bool,
 }
 
@@ -187,7 +187,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
 }
 
 impl<'a, T: Element, C: Element> TitleOrBreak<'a, T, C> {
-    fn y_offset(&self, title_size: ElementSize) -> f64 {
+    fn y_offset(&self, title_size: ElementSize) -> f32 {
         title_size.height.map(|h| h + self.gap).unwrap_or(0.)
     }
 
