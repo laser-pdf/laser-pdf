@@ -19,7 +19,7 @@ pub mod page;
 pub mod pin_below;
 pub mod rectangle;
 pub mod repeat_after_break;
-// pub mod repeat_bottom;
+pub mod repeat_bottom;
 // pub mod rich_text;
 // pub mod rotate;
 pub mod row;
