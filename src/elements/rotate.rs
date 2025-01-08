@@ -1,4 +1,4 @@
-use printpdf::CurTransMat;
+use utils::mm_to_pt;
 
 use crate::*;
 
@@ -95,18 +95,20 @@ impl<'a, E: Element> Element for Rotate<'a, E> {
             _ => location = ctx.location,
         }
 
-        let layer = location.layer;
-
         if let (Some(width), Some(height)) = (size.width, size.height) {
-            layer.save_graphics_state();
+            let layer = location.layer(ctx.pdf);
+            layer.save_state();
 
-            let (x, y, rotation) = match self.rotation {
-                Rotation::QuarterLeft => (location.pos.0, location.pos.1 - width, 90.),
-                Rotation::QuarterRight => (location.pos.0 + height, location.pos.1, 270.),
+            let (x, y, rotation): (_, _, f32) = match self.rotation {
+                Rotation::QuarterLeft => (location.pos.0, location.pos.1 - width, 270.),
+                Rotation::QuarterRight => (location.pos.0 + height, location.pos.1, 90.),
             };
 
-            layer.set_ctm(CurTransMat::Translate(Mm(x), Mm(y)));
-            layer.set_ctm(CurTransMat::Rotate(rotation));
+            let rad = rotation.to_radians();
+
+            // TODO: test
+            layer.transform([1., 0., 0., 1., mm_to_pt(x), mm_to_pt(y)]);
+            layer.transform([rad.cos(), rad.sin(), -rad.sin(), -rad.cos(), 0., 0.]);
 
             // TODO: Make layers work inside here. Maybe this could be done when we migrate to
             // pdfwriter.
@@ -114,7 +116,6 @@ impl<'a, E: Element> Element for Rotate<'a, E> {
             self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location: Location {
-                    layer: layer.clone(),
                     pos: (0., 0.),
                     ..location
                 },
@@ -124,7 +125,7 @@ impl<'a, E: Element> Element for Rotate<'a, E> {
                 breakable: None,
             });
 
-            layer.restore_graphics_state();
+            location.layer(ctx.pdf).restore_state();
         }
 
         ElementSize {
