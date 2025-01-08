@@ -202,7 +202,6 @@ impl<'a, F: Element, R: Element, C: Element> Element for ChangingTitle<'a, F, R,
             self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location: Location {
-                    layer: location.layer,
                     pos: (
                         location.pos.0,
                         location.pos.1 - common.total_first_title_height,
@@ -296,7 +295,6 @@ impl<'a, F: Element, R: Element, C: Element> Element for ChangingTitle<'a, F, R,
                         };
 
                         Location {
-                            layer: location.layer,
                             pos: (
                                 location.pos.0,
                                 location.pos.1 - common_breakable.total_remaining_title_height,
@@ -310,7 +308,6 @@ impl<'a, F: Element, R: Element, C: Element> Element for ChangingTitle<'a, F, R,
             self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location: Location {
-                    layer: ctx.location.layer,
                     pos: (
                         ctx.location.pos.0,
                         ctx.location.pos.1 - common.total_first_title_height,
@@ -370,8 +367,8 @@ mod tests {
 
     #[test]
     fn test() {
-        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let first = Text::basic("first", &font, 12.);
             let first = first.debug(1);
@@ -403,8 +400,8 @@ mod tests {
                 first_height: TestElementParams::DEFAULT_FULL_HEIGHT,
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
 
                 let first = Text::basic("first", &font, 12.);
                 let first = first.debug(1);
@@ -432,8 +429,8 @@ mod tests {
 
     #[test]
     fn test_collapse() {
-        let bytes = test_element_bytes(TestElementParams::unbreakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::unbreakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let first = Text::basic("first", &font, 12.);
             let first = first.debug(1);
@@ -460,8 +457,8 @@ mod tests {
 
     #[test]
     fn test_no_collapse() {
-        let bytes = test_element_bytes(TestElementParams::unbreakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::unbreakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let first = Text::basic("first", &font, 12.);
             let first = first.debug(1);
@@ -488,8 +485,8 @@ mod tests {
 
     #[test]
     fn test_multipage_collapse() {
-        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let first = Text::basic("first", &font, 12.);
             let first = first.debug(1);
@@ -531,8 +528,8 @@ mod tests {
                 },
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
 
                 let title = Text::basic("title", &font, 12.);
                 let title = &title.debug(1);

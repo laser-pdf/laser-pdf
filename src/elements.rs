@@ -3,7 +3,7 @@ pub mod align_preferred_height_bottom;
 pub mod break_list;
 pub mod break_whole;
 pub mod center_in_preferred_height;
-// pub mod changing_title;
+pub mod changing_title;
 // pub mod circle;
 pub mod column;
 pub mod debug;

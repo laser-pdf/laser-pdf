@@ -143,14 +143,14 @@ impl Font for BuiltinFont {
     }
 
     fn line_width(&self, line: &str, size: f32, character_spacing: f32, word_spacing: f32) -> f32 {
-        crate::text::text_width(
+        pt_to_mm(crate::text::text_width(
             line,
             size,
             1000.,
             |c| self.char_metrics_by_codepoint[&c].wx as f32,
             character_spacing,
             word_spacing,
-        )
+        ))
     }
 
     fn render_line(

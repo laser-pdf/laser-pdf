@@ -241,7 +241,7 @@ fn make_a_pdf() {
     drop(font_descriptor);
 
     // Finish with cross-reference table and trailer and write to file.
-    std::fs::write("test.pdf", pdf.finish()).unwrap();
+    // std::fs::write("test.pdf", pdf.finish()).unwrap();
 }
 
 fn create_cmap(glyph_set: &HashMap<u16, String>, glyph_remapper: &GlyphRemapper) -> Vec<u8> {
