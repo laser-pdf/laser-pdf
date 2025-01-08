@@ -197,7 +197,6 @@ impl<'a, C: Element, B: Element> Element for PinBelow<'a, C, B> {
             self.pinned_element.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location: Location {
-                    layer: current_location.layer.clone(),
                     pos: (current_location.pos.0, current_location.pos.1 - y_offset),
                     ..current_location
                 },
@@ -224,8 +223,8 @@ mod tests {
 
     #[test]
     fn test() {
-        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let content = Text::basic(LOREM_IPSUM, &font, 32.);
             let content = content.debug(1);
@@ -248,8 +247,8 @@ mod tests {
 
     #[test]
     fn test_collapse() {
-        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let content = NoneElement;
             let content = content.debug(1);
@@ -272,8 +271,8 @@ mod tests {
 
     #[test]
     fn test_no_collapse() {
-        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let content = NoneElement;
             let content = content.debug(1);
@@ -301,8 +300,8 @@ mod tests {
                 first_height: 1.,
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
 
                 let content = NoneElement;
                 let content = content.debug(1);
@@ -326,8 +325,8 @@ mod tests {
 
     #[test]
     fn test_multipage_no_collapse() {
-        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let content = FranticJumper {
                 jumps: vec![(0, None), (0, None), (2, Some(32.)), (3, Some(55.))],
@@ -356,8 +355,8 @@ mod tests {
 
     #[test]
     fn test_multipage_collapse() {
-        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let content = FranticJumper {
                 jumps: vec![(1, None), (1, None), (3, Some(32.)), (4, None)],
@@ -391,8 +390,8 @@ mod tests {
                 first_height: 10.,
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
                 let title = Text::basic("title", &font, 12.);
                 let title = &title.debug(1);
 
