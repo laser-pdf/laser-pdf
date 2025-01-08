@@ -7,7 +7,7 @@ pub mod changing_title;
 // pub mod circle;
 pub mod column;
 pub mod debug;
-// pub mod expand_to_preferred_height;
+pub mod expand_to_preferred_height;
 pub mod force_break;
 pub mod h_align;
 // pub mod image;
