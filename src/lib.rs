@@ -1,4 +1,5 @@
 pub mod elements;
+pub mod flex;
 pub mod fonts;
 pub mod image;
 pub mod serde_elements;
@@ -7,8 +8,6 @@ pub mod utils;
 
 #[cfg(test)]
 pub mod test_utils;
-
-pub(crate) mod flex;
 
 use elements::padding::Padding;
 use fonts::Font;
