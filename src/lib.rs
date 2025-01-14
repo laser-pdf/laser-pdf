@@ -3,11 +3,9 @@ pub mod flex;
 pub mod fonts;
 pub mod image;
 pub mod serde_elements;
+pub mod test_utils;
 pub mod text;
 pub mod utils;
-
-#[cfg(test)]
-pub mod test_utils;
 
 use elements::padding::Padding;
 use fonts::Font;
