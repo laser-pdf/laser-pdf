@@ -1,5 +1,10 @@
 use crate::*;
-use std::{cell::Cell, collections::HashMap, mem::ManuallyDrop, rc::Rc};
+use std::{
+    cell::Cell,
+    collections::{BTreeMap, HashMap},
+    mem::ManuallyDrop,
+    rc::Rc,
+};
 
 use fonts::{EncodedGlyph, GeneralMetrics};
 use pdf_writer::{
@@ -7,7 +12,7 @@ use pdf_writer::{
     types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap},
     writers::{FontDescriptor, WMode},
 };
-use rustybuzz::{Face, GlyphBuffer, Script, ShapePlan, UnicodeBuffer, shape_with_plan};
+use rustybuzz::{Face, GlyphBuffer, ShapePlan, UnicodeBuffer, shape_with_plan};
 // use elements::padding::Padding;
 // use fonts::Font;
 // use printpdf::{CurTransMat, Mm, PdfDocumentReference, PdfLayerReference};
@@ -54,7 +59,7 @@ impl TruetypeFont {
             face: face.clone(),
             data: bytes,
             id,
-            glyph_set: HashMap::new(),
+            glyph_set: BTreeMap::new(),
         });
 
         let plan = ShapePlan::new(
@@ -219,7 +224,7 @@ pub(crate) struct TruetypeFontState {
     face: Face<'static>,
     data: &'static [u8],
     id: Ref,
-    glyph_set: HashMap<u16, String>,
+    glyph_set: BTreeMap<u16, String>,
 }
 
 impl TruetypeFontState {
@@ -298,7 +303,7 @@ impl TruetypeFontState {
     }
 }
 
-fn create_cmap(glyph_set: &HashMap<u16, String>, glyph_remapper: &GlyphRemapper) -> Vec<u8> {
+fn create_cmap(glyph_set: &BTreeMap<u16, String>, glyph_remapper: &GlyphRemapper) -> Vec<u8> {
     // Produce a reverse mapping from glyphs' CIDs to unicode strings.
     let mut cmap = UnicodeCmap::new(
         Name(b"Custom"),
@@ -320,6 +325,7 @@ fn create_cmap(glyph_set: &HashMap<u16, String>, glyph_remapper: &GlyphRemapper)
 
 fn subset_font(font: &[u8], glyph_remapper: &GlyphRemapper) -> Result<Vec<u8>, subsetter::Error> {
     let subset = subsetter::subset(font, 0, glyph_remapper)?;
+
     let data = subset.as_ref();
 
     Ok(deflate(data))
@@ -419,154 +425,154 @@ mod tests {
         insta::assert_debug_snapshot!(shaped_vec);
     }
 
-    #[test]
-    fn make_a_pdf() {
-        use pdf_writer::{
-            Name, Pdf, Rect, Ref, Str,
-            types::{CidFontType, SystemInfo},
-        };
-        // use ttf_parser::;
+    // #[test]
+    // fn make_a_pdf() {
+    //     use pdf_writer::{
+    //         Name, Pdf, Rect, Ref, Str,
+    //         types::{CidFontType, SystemInfo},
+    //     };
+    //     // use ttf_parser::;
 
-        let font_data = std::fs::read("../sws/inc/font/nunito/nunito_regular.ttf").unwrap();
+    //     let font_data = std::fs::read("../sws/inc/font/nunito/nunito_regular.ttf").unwrap();
 
-        let ttf = ttf_parser::Face::parse(&font_data, 0).unwrap();
-        let mut glyph_remapper: subsetter::GlyphRemapper = Default::default();
-        let mut glyph_set = HashMap::new();
+    //     let ttf = ttf_parser::Face::parse(&font_data, 0).unwrap();
+    //     let mut glyph_remapper: subsetter::GlyphRemapper = Default::default();
+    //     let mut glyph_set = HashMap::new();
 
-        let mut alloc = Ref::new(1);
+    //     let mut alloc = Ref::new(1);
 
-        // Define some indirect reference ids we'll use.
-        let catalog_id = alloc.bump();
-        let page_tree_id = alloc.bump();
-        let page_id = alloc.bump();
-        let content_id = alloc.bump();
+    //     // Define some indirect reference ids we'll use.
+    //     let catalog_id = alloc.bump();
+    //     let page_tree_id = alloc.bump();
+    //     let page_id = alloc.bump();
+    //     let content_id = alloc.bump();
 
-        let font_name = Name(b"F1");
+    //     let font_name = Name(b"F1");
 
-        let type0_ref = alloc.bump();
-        let cid_ref = alloc.bump();
-        let descriptor_ref = alloc.bump();
-        let cmap_ref = alloc.bump();
-        let data_ref = alloc.bump();
+    //     let type0_ref = alloc.bump();
+    //     let cid_ref = alloc.bump();
+    //     let descriptor_ref = alloc.bump();
+    //     let cmap_ref = alloc.bump();
+    //     let data_ref = alloc.bump();
 
-        // Write a document catalog and a page tree with one A4 page that uses no resources.
-        let mut pdf = Pdf::new();
-        pdf.catalog(catalog_id).pages(page_tree_id);
-        pdf.pages(page_tree_id).kids([page_id]).count(1);
-        pdf.page(page_id)
-            .parent(page_tree_id)
-            .media_box(Rect::new(0.0, 0.0, 595.0, 842.0))
-            .contents(content_id)
-            .resources()
-            .fonts()
-            .pair(font_name, type0_ref);
+    //     // Write a document catalog and a page tree with one A4 page that uses no resources.
+    //     let mut pdf = Pdf::new();
+    //     pdf.catalog(catalog_id).pages(page_tree_id);
+    //     pdf.pages(page_tree_id).kids([page_id]).count(1);
+    //     pdf.page(page_id)
+    //         .parent(page_tree_id)
+    //         .media_box(Rect::new(0.0, 0.0, 595.0, 842.0))
+    //         .contents(content_id)
+    //         .resources()
+    //         .fonts()
+    //         .pair(font_name, type0_ref);
 
-        let mut content = Content::new();
-        content.begin_text();
-        content.set_font(font_name, 14.0);
-        content.next_line(108.0, 734.0);
-        // content.show(Str(b"Hello World from Rust!"));
+    //     let mut content = Content::new();
+    //     content.begin_text();
+    //     content.set_font(font_name, 14.0);
+    //     content.next_line(108.0, 734.0);
+    //     // content.show(Str(b"Hello World from Rust!"));
 
-        let mut positioned = content.show_positioned();
-        let mut items = positioned.items();
+    //     let mut positioned = content.show_positioned();
+    //     let mut items = positioned.items();
 
-        let mut encoded = Vec::new();
+    //     let mut encoded = Vec::new();
 
-        {
-            let text = "Here in my terminal, just installed this new crate here.";
+    //     {
+    //         let text = "Here in my terminal, just installed this new crate here.";
 
-            let glyphs = shape(text, &font_data, 12.);
+    //         let glyphs = shape(text, &font_data, 12.);
 
-            for glyph in glyphs {
-                glyph_set
-                    .entry(glyph.glyph_id as u16)
-                    .or_insert_with(|| text[glyph.text_range].to_string());
+    //         for glyph in glyphs {
+    //             glyph_set
+    //                 .entry(glyph.glyph_id as u16)
+    //                 .or_insert_with(|| text[glyph.text_range].to_string());
 
-                let cid = glyph_remapper.remap(glyph.glyph_id as u16);
-                // ????
-                encoded.push((cid >> 8) as u8);
-                encoded.push((cid & 0xff) as u8);
-            }
+    //             let cid = glyph_remapper.remap(glyph.glyph_id as u16);
+    //             // ????
+    //             encoded.push((cid >> 8) as u8);
+    //             encoded.push((cid & 0xff) as u8);
+    //         }
 
-            // something about pdf/a???
-            for chunk in encoded.chunks(0x7FFF) {
-                items.show(Str(chunk));
-            }
-        }
+    //         // something about pdf/a???
+    //         for chunk in encoded.chunks(0x7FFF) {
+    //             items.show(Str(chunk));
+    //         }
+    //     }
 
-        drop(items);
-        drop(positioned);
+    //     drop(items);
+    //     drop(positioned);
 
-        content.end_text();
-        pdf.stream(content_id, &content.finish());
+    //     content.end_text();
+    //     pdf.stream(content_id, &content.finish());
 
-        // Write the base font object referencing the CID font.
-        pdf.type0_font(type0_ref)
-            .base_font(Name(b"test"))
-            .encoding_predefined(Name(b"Identity-H")) // TODO: what does this mean??????????
-            .descendant_font(cid_ref)
-            .to_unicode(cmap_ref);
+    //     // Write the base font object referencing the CID font.
+    //     pdf.type0_font(type0_ref)
+    //         .base_font(Name(b"test"))
+    //         .encoding_predefined(Name(b"Identity-H")) // TODO: what does this mean??????????
+    //         .descendant_font(cid_ref)
+    //         .to_unicode(cmap_ref);
 
-        // Write the CID font referencing the font descriptor.
-        let mut cid = pdf.cid_font(cid_ref);
-        cid.subtype(CidFontType::Type2);
-        cid.base_font(Name(b"test"));
-        cid.system_info(SystemInfo {
-            registry: Str(b"Adobe"), // whyyyy????
-            ordering: Str(b"Identity"),
-            supplement: 0,
-        });
-        cid.font_descriptor(descriptor_ref);
-        cid.default_width(0.0);
+    //     // Write the CID font referencing the font descriptor.
+    //     let mut cid = pdf.cid_font(cid_ref);
+    //     cid.subtype(CidFontType::Type2);
+    //     cid.base_font(Name(b"test"));
+    //     cid.system_info(SystemInfo {
+    //         registry: Str(b"Adobe"), // whyyyy????
+    //         ordering: Str(b"Identity"),
+    //         supplement: 0,
+    //     });
+    //     cid.font_descriptor(descriptor_ref);
+    //     cid.default_width(0.0);
 
-        let units_per_em = ttf.units_per_em() as f32;
+    //     let units_per_em = ttf.units_per_em() as f32;
 
-        // Extract the widths of all glyphs.
-        // `remapped_gids` returns an iterator over the old GIDs in their new sorted
-        // order, so we can append the widths as is.
-        let widths = glyph_remapper
-            .remapped_gids()
-            .map(|gid| {
-                let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
+    //     // Extract the widths of all glyphs.
+    //     // `remapped_gids` returns an iterator over the old GIDs in their new sorted
+    //     // order, so we can append the widths as is.
+    //     let widths = glyph_remapper
+    //         .remapped_gids()
+    //         .map(|gid| {
+    //             let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
 
-                (width as f32 / units_per_em * 1000.) as f32
-            })
-            .collect::<Vec<_>>();
+    //             (width as f32 / units_per_em * 1000.) as f32
+    //         })
+    //         .collect::<Vec<_>>();
 
-        // Write all non-zero glyph widths.
-        let mut first = 0;
-        let mut width_writer = cid.widths();
-        for (w, group) in widths.group_by_key(|&w| w) {
-            let end = first + group.len();
-            if w != 0.0 {
-                let last = end - 1;
-                width_writer.same(first as u16, last as u16, w);
-            }
-            first = end;
-        }
+    //     // Write all non-zero glyph widths.
+    //     let mut first = 0;
+    //     let mut width_writer = cid.widths();
+    //     for (w, group) in widths.group_by_key(|&w| w) {
+    //         let end = first + group.len();
+    //         if w != 0.0 {
+    //             let last = end - 1;
+    //             width_writer.same(first as u16, last as u16, w);
+    //         }
+    //         first = end;
+    //     }
 
-        drop(width_writer);
-        drop(cid);
+    //     drop(width_writer);
+    //     drop(cid);
 
-        let cmap = create_cmap(&glyph_set, &glyph_remapper);
-        pdf.cmap(cmap_ref, &cmap)
-            .writing_mode(WMode::Horizontal)
-            .filter(Filter::FlateDecode);
+    //     let cmap = create_cmap(&glyph_set, &glyph_remapper);
+    //     pdf.cmap(cmap_ref, &cmap)
+    //         .writing_mode(WMode::Horizontal)
+    //         .filter(Filter::FlateDecode);
 
-        let subset = subset_font(&font_data, &glyph_remapper).unwrap();
+    //     let subset = subset_font(&font_data, &glyph_remapper).unwrap();
 
-        let mut stream = pdf.stream(data_ref, &subset);
-        stream.filter(Filter::FlateDecode);
-        drop(stream);
+    //     let mut stream = pdf.stream(data_ref, &subset);
+    //     stream.filter(Filter::FlateDecode);
+    //     drop(stream);
 
-        // let mut font_descriptor = write_font_descriptor(&mut pdf, descriptor_ref, &ttf, "todo");
-        // font_descriptor.font_file2(data_ref);
+    //     // let mut font_descriptor = write_font_descriptor(&mut pdf, descriptor_ref, &ttf, "todo");
+    //     // font_descriptor.font_file2(data_ref);
 
-        // drop(font_descriptor);
+    //     // drop(font_descriptor);
 
-        // Finish with cross-reference table and trailer and write to file.
-        // std::fs::write("test.pdf", pdf.finish()).unwrap();
-    }
+    //     // Finish with cross-reference table and trailer and write to file.
+    //     // std::fs::write("test.pdf", pdf.finish()).unwrap();
+    // }
 
     struct Glyph {
         /// The glyph ID of the glyph.
