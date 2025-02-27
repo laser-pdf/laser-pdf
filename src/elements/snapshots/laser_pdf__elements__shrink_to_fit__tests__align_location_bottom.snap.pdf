@@ -41,7 +41,7 @@ endobj
 
 5 0 obj
 <<
-  /Length 340
+  /Length 344
 >>
 stream
 q
@@ -49,10 +49,8 @@ q
 q
 0 0 0 RG
 /F0 20 Tf
-BT
-22.677166 48.494335 Td
-(Test) Tj
-ET
+1 0 0 1 22.677166 48.494335 Tm
+[(Test)] TJ
 Q
 q
 0 w
@@ -97,5 +95,5 @@ trailer
   /Root 2 0 R
 >>
 startxref
-788
+792
 %%EOF

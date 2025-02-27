@@ -71,16 +71,14 @@ endobj
 
 7 0 obj
 <<
-  /Length 505
+  /Length 517
 >>
 stream
 q
 0 0 0 RG
 /F0 32 Tf
-BT
-22.677166 740.96625 Td
-(content) Tj
-ET
+1 0 0 1 22.677166 740.96625 Tm
+[(content)] TJ
 Q
 q
 0 w
@@ -91,10 +89,8 @@ Q
 q
 0 0 0 RG
 /F0 12 Tf
-BT
-22.677166 710.99304 Td
-(bottom) Tj
-ET
+1 0 0 1 22.677166 710.99304 Tm
+[(bottom)] TJ
 Q
 q
 0 w
@@ -111,10 +107,8 @@ Q
 q
 0 0 0 RG
 /F0 12 Tf
-BT
-22.677166 785.7594 Td
-(title) Tj
-ET
+1 0 0 1 22.677166 785.7594 Tm
+[(title)] TJ
 Q
 q
 0 w
@@ -147,5 +141,5 @@ trailer
   /Root 2 0 R
 >>
 startxref
-1268
+1280
 %%EOF
