@@ -87,7 +87,8 @@ impl<'a, F: Font> Text<'a, F> {
         for line in lines {
             // let line: &str = &remove_non_trailing_soft_hyphens(line);
 
-            let line_width = line.width as f32 / self.font.units_per_em() as f32 * self.size;
+            let line_width =
+                pt_to_mm(line.width as f32 / self.font.units_per_em() as f32 * self.size);
             max_width = max_width.max(line_width);
 
             if height_available < line_height {
@@ -162,7 +163,7 @@ impl<'a, F: Font> Text<'a, F> {
         line_height: f32,
         measure_ctx: Option<&mut MeasureCtx>,
     ) -> (f32, f32) {
-        let mut max_width: f32 = 0.;
+        let mut max_width = 0;
         let mut line_count = 0;
 
         // This function is a bit hacky because it's both used for measure and for determining the
@@ -186,7 +187,7 @@ impl<'a, F: Font> Text<'a, F> {
                 }
             }
 
-            let line_width = line.width as f32 / self.font.units_per_em() as f32 * self.size;
+            let line_width = line.width;
 
             max_width = max_width.max(line_width);
 
@@ -194,7 +195,10 @@ impl<'a, F: Font> Text<'a, F> {
             line_count += 1;
         }
 
-        (max_width, line_count as f32 * line_height)
+        (
+            pt_to_mm(max_width as f32 / self.font.units_per_em() as f32 * self.size),
+            line_count as f32 * line_height,
+        )
     }
 
     fn break_into_lines<R>(

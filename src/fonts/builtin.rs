@@ -129,13 +129,13 @@ impl<'a> Iterator for Shaped<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.chars.next().map(|(i, c)| {
-            let metrics = &self.font.char_metrics_by_codepoint[&(c as u32)];
+            let metrics = self.font.char_metrics_by_codepoint.get(&(c as u32));
 
             ShapedGlyph {
                 unsafe_to_break: false,
                 glyph_id: c as u32, // i guess
                 text_range: i..i + c.len_utf8(),
-                x_advance: metrics.wx as u16, // i hope those are ints in practice
+                x_advance: metrics.map_or(0, |m| m.wx as u16), // i hope those are ints in practice
                 x_offset: 0,
                 y_offset: 0,
                 y_advance: 0,
