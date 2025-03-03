@@ -2,11 +2,12 @@ pub mod elements;
 pub mod flex;
 pub mod fonts;
 pub mod image;
+pub mod serde_elements;
 pub mod test_utils;
-// pub mod serde_elements;
 pub mod text;
 pub mod utils;
 
+use elements::padding::Padding;
 use pdf_writer::{Content, Name, Rect, Ref};
 // use elements::padding::Padding;
 use fonts::Font;
@@ -178,7 +179,7 @@ impl Pdf {
             .kids(pages)
             .count(self.pages.len() as i32);
 
-        let mut page_alloc = dbg!(self.alloc);
+        let mut page_alloc = self.alloc;
         self.alloc = Ref::new(self.alloc.get() + self.pages.len() as i32);
 
         for page in self.pages {
@@ -427,31 +428,31 @@ pub trait Element {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize;
 
-    // fn with_padding_top(&self, padding: f32) -> Padding<Self>
-    // where
-    //     Self: Sized,
-    // {
-    //     Padding {
-    //         left: 0.,
-    //         right: 0.,
-    //         top: padding,
-    //         bottom: 0.,
-    //         element: self,
-    //     }
-    // }
+    fn with_padding_top(&self, padding: f32) -> Padding<Self>
+    where
+        Self: Sized,
+    {
+        Padding {
+            left: 0.,
+            right: 0.,
+            top: padding,
+            bottom: 0.,
+            element: self,
+        }
+    }
 
-    // fn with_vertical_padding(&self, padding: f32) -> Padding<Self>
-    // where
-    //     Self: Sized,
-    // {
-    //     Padding {
-    //         left: 0.,
-    //         right: 0.,
-    //         top: padding,
-    //         bottom: padding,
-    //         element: self,
-    //     }
-    // }
+    fn with_vertical_padding(&self, padding: f32) -> Padding<Self>
+    where
+        Self: Sized,
+    {
+        Padding {
+            left: 0.,
+            right: 0.,
+            top: padding,
+            bottom: padding,
+            element: self,
+        }
+    }
 
     fn debug(&self, color: u8) -> elements::debug::Debug<Self>
     where

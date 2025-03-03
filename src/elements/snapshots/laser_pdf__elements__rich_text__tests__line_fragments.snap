@@ -1,0 +1,43 @@
+---
+source: src/elements/rich_text.rs
+expression: collect(0.)
+snapshot_kind: text
+---
+[
+    Frag {
+        new_line: false,
+        text: "Where ",
+        x_offset: 0.0,
+        span: 0,
+    },
+    Frag {
+        new_line: true,
+        text: "are ",
+        x_offset: 5.0,
+        span: 0,
+    },
+    Frag {
+        new_line: false,
+        text: "",
+        x_offset: 8.0,
+        span: 1,
+    },
+    Frag {
+        new_line: true,
+        text: "they ",
+        x_offset: 8.0,
+        span: 1,
+    },
+    Frag {
+        new_line: false,
+        text: "",
+        x_offset: 12.0,
+        span: 2,
+    },
+    Frag {
+        new_line: true,
+        text: "a?",
+        x_offset: 12.0,
+        span: 2,
+    },
+]

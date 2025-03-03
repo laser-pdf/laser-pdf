@@ -425,6 +425,24 @@ mod tests {
         insta::assert_debug_snapshot!(shaped_vec);
     }
 
+    #[test]
+    fn test_trailing_space() {
+        const FONT: &[u8] = include_bytes!("Kenney Bold.ttf");
+
+        let mut pdf = Pdf::new((8., 8.));
+
+        let font = TruetypeFont::new(&mut pdf, &FONT);
+
+        let text = "Rewriting ";
+
+        let shaped = font.shape(text);
+        let shaped = shaped.clone();
+
+        let shaped_vec: Vec<_> = shaped.collect();
+
+        insta::assert_debug_snapshot!(shaped_vec);
+    }
+
     // #[test]
     // fn make_a_pdf() {
     //     use pdf_writer::{

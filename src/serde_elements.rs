@@ -2,10 +2,10 @@ pub mod elements;
 
 use std::{ops::Index, rc::Rc};
 
-use crate::{fonts::truetype::TruetypeFont, CompositeElement, CompositeElementCallback};
+use crate::{CompositeElement, CompositeElementCallback, fonts::truetype::TruetypeFont};
 use elements::*;
 
-pub type Font = Rc<TruetypeFont<'static>>;
+pub type Font = Rc<TruetypeFont>;
 
 pub trait SerdeElement {
     fn element(
@@ -43,7 +43,7 @@ macro_rules! define_serde_element_value {
                 callback: impl $crate::CompositeElementCallback,
             ) {
                 match self {
-                    $($enum_name::$type(ref val) => $crate::serde_elements::SerdeElement
+                    $($enum_name::$type(val) => $crate::serde_elements::SerdeElement
                         ::element(val, fonts, callback)),*
                 }
             }

@@ -199,7 +199,9 @@ impl<'a, 'b, S: Clone + Iterator<Item = ShapedGlyph>> Iterator for Pieces<'a, 'b
 
 #[derive(Clone)]
 pub struct Line<I> {
+    pub empty: bool,
     pub width: u32,
+    pub trailing_whitespace_width: u32,
     iter: std::iter::Take<I>,
 }
 
@@ -298,7 +300,9 @@ impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
         }
 
         Some(Line {
+            empty: glyph_count == 0,
             width: current_width,
+            trailing_whitespace_width: current_width_whitespace,
             iter: start.take(glyph_count),
         })
     }
@@ -605,6 +609,24 @@ mod tests {
 
             assert_eq!(generator.next(16, false).map(&collect), Some(""));
             assert_eq!(generator.next(16, false).map(&collect), None);
+        });
+    }
+
+    #[test]
+    fn test_some_shit() {
+        let text = "\nthe the the";
+
+        LineGenerator::new(&FakeFont, text, |mut generator| {
+            let collect = collect(text);
+
+            // std::iter::from_fn(|| generator.next())
+            // generator.map(&collect).collect();
+
+            // assert_eq!(generator.next(4, false).map(&collect), Some("\n"));
+            // assert_eq!(generator.next(4, false).map(&collect), Some("the "));
+            // assert_eq!(generator.next(4, false).map(&collect), Some("the "));
+            // assert_eq!(generator.next(4, false).map(&collect), Some("the"));
+            // assert_eq!(generator.next(4, false).map(&collect), None);
         });
     }
 

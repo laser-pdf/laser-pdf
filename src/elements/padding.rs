@@ -9,12 +9,42 @@ pub struct Padding<'a, E: Element> {
 }
 
 impl<'a, E: Element> Padding<'a, E> {
+    pub fn left(left: f32, element: &'a E) -> Self {
+        Padding {
+            left,
+            right: 0.,
+            top: 0.,
+            bottom: 0.,
+            element,
+        }
+    }
+
+    pub fn right(right: f32, element: &'a E) -> Self {
+        Padding {
+            left: 0.,
+            right,
+            top: 0.,
+            bottom: 0.,
+            element,
+        }
+    }
+
     pub fn top(top: f32, element: &'a E) -> Self {
         Padding {
             left: 0.,
             right: 0.,
             top,
             bottom: 0.,
+            element,
+        }
+    }
+
+    pub fn bottom(bottom: f32, element: &'a E) -> Self {
+        Padding {
+            left: 0.,
+            right: 0.,
+            top: 0.,
+            bottom,
             element,
         }
     }
