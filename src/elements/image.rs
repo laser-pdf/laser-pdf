@@ -1,6 +1,6 @@
-use miniz_oxide::deflate::{compress_to_vec_zlib, CompressionLevel};
+use ::image::{DynamicImage, GenericImageView};
+use miniz_oxide::deflate::{CompressionLevel, compress_to_vec_zlib};
 use pdf_writer::Filter;
-use printpdf::image::{DynamicImage, GenericImageView};
 use utils::mm_to_pt;
 
 use crate::{image::Image, *};

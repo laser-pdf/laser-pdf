@@ -1,14 +1,6 @@
-use std::{fs::File, io::BufWriter};
-
-use printpdf::{
-    indices::{PdfLayerIndex, PdfPageIndex},
-    OffsetDateTime, PdfDocument,
-};
-
 use crate::{utils::max_optional_size, *};
 
-pub const LOREM_IPSUM: &str =
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut \
+pub const LOREM_IPSUM: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut \
     labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco \
     laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in \
     voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat \
@@ -301,11 +293,7 @@ pub fn test_element_bytes(params: TestElementParams, build_element: impl Fn(Call
 
         fn max(a: Thing, b: Thing) -> Thing {
             // Beware of wild NaNs, they bite!
-            if a > b {
-                a
-            } else {
-                b
-            }
+            if a > b { a } else { b }
         }
 
         assert!(drawn >= measured);

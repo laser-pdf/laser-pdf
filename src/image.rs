@@ -1,4 +1,4 @@
-use serde::{de::Visitor, Deserializer};
+use serde::{Deserializer, de::Visitor};
 
 pub fn deserialize_buffer<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
     struct FileVisitor;
@@ -86,7 +86,7 @@ pub fn deserialize_svg_from_path<'de, D: Deserializer<'de>>(
 #[derive(Clone)]
 pub enum Image {
     Svg(usvg::Tree),
-    Pixel(printpdf::image::DynamicImage),
+    Pixel(image::DynamicImage),
 }
 
 pub fn deserialize_image<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Image, D::Error> {
@@ -99,9 +99,7 @@ pub fn deserialize_image<'de, D: Deserializer<'de>>(deserializer: D) -> Result<I
                 usvg::Tree::from_data(&data, &Default::default()).map_err(|e| E::custom(e))?
             }))
         } else {
-            Ok(Image::Pixel(
-                printpdf::image::open(path).map_err(E::custom)?,
-            ))
+            Ok(Image::Pixel(image::open(path).map_err(E::custom)?))
         }
     }
 
