@@ -396,22 +396,15 @@ pub fn write_font_descriptor<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{collections::HashMap, ops::Range};
+    use std::ops::Range;
 
-    use pdf_writer::{
-        Chunk, Content, Filter, Name, Ref, Str,
-        types::{FontFlags, SystemInfo, UnicodeCmap},
-        writers::{FontDescriptor, WMode},
-    };
     use rustybuzz::{Direction, UnicodeBuffer};
-    use ttf_parser::{Face, GlyphId};
-    use typst_utils::SliceExt;
 
     #[test]
     fn test() {
         const FONT: &[u8] = include_bytes!("Kenney Bold.ttf");
 
-        let mut pdf = Pdf::new((8., 8.));
+        let mut pdf = Pdf::new();
 
         let font = TruetypeFont::new(&mut pdf, &FONT);
 
@@ -429,7 +422,7 @@ mod tests {
     fn test_trailing_space() {
         const FONT: &[u8] = include_bytes!("Kenney Bold.ttf");
 
-        let mut pdf = Pdf::new((8., 8.));
+        let mut pdf = Pdf::new();
 
         let font = TruetypeFont::new(&mut pdf, &FONT);
 

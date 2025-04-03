@@ -99,6 +99,7 @@ pub struct Page {
     pub ext_g_states: Vec<Ref>, // all objects must be indirect for now
     pub x_objects: Vec<Ref>,
     pub layers: Vec<Content>,
+    pub size: (f32, f32),
 }
 
 impl Page {
@@ -117,24 +118,18 @@ pub struct Pdf {
     pub alloc: Ref,
     pub pdf: pdf_writer::Pdf,
     pub pages: Vec<Page>,
-    pub page_size: (f32, f32),
     pub fonts: Vec<Ref>,
     truetype_fonts: Vec<fonts::truetype::TruetypeFontState>,
 }
 
 impl Pdf {
-    pub fn new(page_size: (f32, f32)) -> Self {
+    pub fn new() -> Self {
         let pdf = pdf_writer::Pdf::new();
 
         Pdf {
             alloc: pdf_writer::Ref::new(1),
             pdf,
-            pages: vec![Page {
-                ext_g_states: Vec::new(),
-                x_objects: Vec::new(),
-                layers: vec![Content::new()],
-            }],
-            page_size,
+            pages: Vec::new(),
             fonts: Vec::new(),
             truetype_fonts: Vec::new(),
         }
@@ -144,11 +139,12 @@ impl Pdf {
         self.alloc.bump()
     }
 
-    pub fn add_page(&mut self) -> Location {
+    pub fn add_page(&mut self, size: (f32, f32)) -> Location {
         self.pages.push(Page {
             ext_g_states: Vec::new(),
             x_objects: Vec::new(),
             layers: vec![Content::new()],
+            size,
         });
 
         Location {
@@ -190,8 +186,8 @@ impl Pdf {
                 .media_box(Rect::new(
                     0.,
                     0.,
-                    (self.page_size.0 * 72. / 25.4) as f32,
-                    (self.page_size.1 * 72. / 25.4) as f32,
+                    (page.size.0 * 72. / 25.4) as f32,
+                    (page.size.1 * 72. / 25.4) as f32,
                 ))
                 .contents_array(
                     page.layers

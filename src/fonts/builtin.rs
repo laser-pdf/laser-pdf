@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_no_panic() {
-        let mut pdf = Pdf::new((12., 12.));
+        let mut pdf = Pdf::new();
 
         BuiltinFont::courier(&mut pdf);
         BuiltinFont::courier_bold(&mut pdf);

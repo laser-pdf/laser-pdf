@@ -97,7 +97,8 @@ impl Doc {
 
         // TODO??
 
-        let pdf = Pdf::new(params.page_size);
+        let mut pdf = Pdf::new();
+        pdf.add_page(params.page_size);
 
         Doc { params, pdf }
     }
@@ -212,7 +213,7 @@ impl<'a> Callback<'a> {
 
                 let next_draw_pos = &mut |pdf: &mut Pdf, location_idx, _height| {
                     while page_idx <= location_idx {
-                        pdf.add_page();
+                        pdf.add_page(self.doc.params.page_size);
                         page_idx += 1;
                     }
 

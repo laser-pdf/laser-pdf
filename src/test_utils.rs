@@ -171,11 +171,7 @@ pub fn test_element(
 
         fn max(a: Thing, b: Thing) -> Thing {
             // Beware of wild NaNs, they bite!
-            if a > b {
-                a
-            } else {
-                b
-            }
+            if a > b { a } else { b }
         }
 
         assert!(drawn >= measured);
@@ -262,7 +258,8 @@ fn draw_element<E: Element>(
 ) -> DrawStats {
     let mut page_idx = 0;
 
-    let mut pdf = Pdf::new(page_size);
+    let mut pdf = Pdf::new();
+    pdf.add_page(page_size);
 
     let mut breaks = vec![];
 
@@ -270,7 +267,7 @@ fn draw_element<E: Element>(
         breaks.push(location_idx);
 
         while page_idx <= location_idx {
-            pdf.add_page();
+            pdf.add_page(page_size);
             page_idx += 1;
         }
 
