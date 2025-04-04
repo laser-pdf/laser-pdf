@@ -36,6 +36,8 @@ pub fn draw_line<'a, F: Font>(
     }
 
     let glyphs: Vec<_> = line
+        // we don't want to filter out all unknown glyphs
+        .filter(|glyph| !["\n", "\r", "\r\n"].contains(&&text[glyph.text_range.clone()]))
         .map(|glyph| {
             let encoded = font.encode(pdf, glyph.glyph_id, &text[glyph.text_range]);
 
@@ -579,21 +581,6 @@ mod tests {
         });
     }
 
-    #[test]
-    fn teeest() {
-        LINE_SEGMENTER.with(|segmenter| {
-            // dbg!('\u{00ad}'.len_utf8());
-            // let text = "A-very -long-word";
-            let text = "A-very--long-word";
-            // let text = "A\u{00ad}very\u{00ad}\u{00ad}long\u{00ad}word";
-            // let text = "A\u{00ad}very \u{00ad}long\u{00ad}word";
-            dbg!(text);
-            dbg!(segmenter.segment_str(text).collect::<Vec<_>>());
-        });
-
-        // panic!()
-    }
-
     fn assert_width(width: u32) -> impl Fn(&Line<FakeShaped>) {
         move |l| {
             assert_eq!(l.width, width);
@@ -609,24 +596,6 @@ mod tests {
 
             assert_eq!(generator.next(16, false).map(&collect), Some(""));
             assert_eq!(generator.next(16, false).map(&collect), None);
-        });
-    }
-
-    #[test]
-    fn test_some_shit() {
-        let text = "\nthe the the";
-
-        LineGenerator::new(&FakeFont, text, |mut generator| {
-            let collect = collect(text);
-
-            // std::iter::from_fn(|| generator.next())
-            // generator.map(&collect).collect();
-
-            // assert_eq!(generator.next(4, false).map(&collect), Some("\n"));
-            // assert_eq!(generator.next(4, false).map(&collect), Some("the "));
-            // assert_eq!(generator.next(4, false).map(&collect), Some("the "));
-            // assert_eq!(generator.next(4, false).map(&collect), Some("the"));
-            // assert_eq!(generator.next(4, false).map(&collect), None);
         });
     }
 

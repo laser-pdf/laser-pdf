@@ -29,6 +29,7 @@ pub fn mm_to_pt(mm: f32) -> f32 {
 }
 
 pub fn pt_to_mm(pt: f32) -> f32 {
+    // (pt as f64 * 0.352_778) as f32
     pt * 25.4 / 72.
 }
 

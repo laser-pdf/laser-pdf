@@ -142,7 +142,7 @@ impl Font for TruetypeFont {
             ascent: ascent as u32,
 
             // It seems that descent is positive in some fonts and negative in others.
-            line_height: (ascent + self.face.descender().abs()) as u32,
+            line_height: (ascent + self.face.descender().abs() + self.face.line_gap()) as u32,
         }
     }
 
@@ -411,7 +411,7 @@ mod tests {
 
         let font = TruetypeFont::new(&mut pdf, &FONT);
 
-        let text = "Rewriting software in Rust.";
+        let text = "Rewriting software in\nRust.";
 
         let shaped = font.shape(text);
         let shaped = shaped.clone();

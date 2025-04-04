@@ -51,14 +51,10 @@ impl<'a, F: Font> Text<'a, F> {
 
         let units_per_em = self.font.units_per_em() as f32;
 
-        // FontMetrics {
-        //     ascent: pt_to_mm(ascent * self.size / units_per_em),
-        //     line_height: pt_to_mm(line_height * self.size / units_per_em) + self.extra_line_height,
-        // }
-
         FontMetrics {
             ascent: pt_to_mm(ascent as f32 * self.size / units_per_em),
-            line_height: pt_to_mm(line_height as f32 * self.size / units_per_em),
+            line_height: pt_to_mm(line_height as f32 * self.size / units_per_em)
+                + self.extra_line_height,
         }
     }
 

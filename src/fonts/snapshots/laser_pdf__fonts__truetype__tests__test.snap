@@ -195,9 +195,9 @@ snapshot_kind: text
     },
     ShapedGlyph {
         unsafe_to_break: false,
-        glyph_id: 3,
+        glyph_id: 0,
         text_range: 21..22,
-        x_advance: 384,
+        x_advance: 1043,
         x_offset: 0,
         y_offset: 0,
         y_advance: 0,

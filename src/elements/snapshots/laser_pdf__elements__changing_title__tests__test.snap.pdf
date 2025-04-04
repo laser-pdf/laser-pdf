@@ -144,7 +144,7 @@ endobj
 
 7 0 obj
 <<
-  /Length 1276
+  /Length 1274
 >>
 stream
 q
@@ -223,7 +223,7 @@ q
 0 0 0 RG
 /F0 12 Tf
 1 0 0 1 22.677166 785.7594 Tm
-[(remaining\n)] TJ
+[(remaining)] TJ
 Q
 q
 0 0 0 RG
@@ -262,5 +262,5 @@ trailer
   /Root 2 0 R
 >>
 startxref
-2988
+2986
 %%EOF
