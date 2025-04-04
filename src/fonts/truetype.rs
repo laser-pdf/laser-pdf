@@ -97,6 +97,9 @@ impl Font for TruetypeFont {
 
         buffer.push_str(text);
 
+        buffer.set_script(rustybuzz::script::LATIN);
+        buffer.set_direction(rustybuzz::Direction::LeftToRight);
+
         let shaped = shape_with_plan(&self.face, &self.plan, buffer);
 
         Shaped {
