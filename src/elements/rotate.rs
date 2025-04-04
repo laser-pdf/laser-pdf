@@ -100,8 +100,8 @@ impl<'a, E: Element> Element for Rotate<'a, E> {
             layer.save_state();
 
             let (x, y, rotation): (_, _, f32) = match self.rotation {
-                Rotation::QuarterLeft => (location.pos.0, location.pos.1 - width, 270.),
-                Rotation::QuarterRight => (location.pos.0 + height, location.pos.1, 90.),
+                Rotation::QuarterLeft => (location.pos.0, location.pos.1 - width, -270.),
+                Rotation::QuarterRight => (location.pos.0 + height, location.pos.1, -90.),
             };
 
             let rad = rotation.to_radians();
