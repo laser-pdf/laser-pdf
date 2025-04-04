@@ -150,7 +150,7 @@ impl Pdf {
         Location {
             page_idx: self.pages.len() - 1,
             layer_idx: 0,
-            pos: (0., 0.),
+            pos: (0., size.1),
             scale_factor: 1.,
         }
     }
