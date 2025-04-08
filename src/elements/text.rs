@@ -136,14 +136,6 @@ impl<'a, F: Font> Text<'a, F> {
 
             layer.set_font(self.font.resource_name(), self.size);
 
-            if self.extra_character_spacing != 0. {
-                layer.set_char_spacing(self.extra_character_spacing);
-            }
-
-            if self.extra_word_spacing != 0. {
-                layer.set_word_spacing(self.extra_word_spacing);
-            }
-
             layer.set_text_matrix([1.0, 0.0, 0.0, 1.0, mm_to_pt(x), mm_to_pt(y)]);
 
             draw_line(ctx.pdf, &ctx.location, self.font, text, line);
@@ -281,6 +273,7 @@ impl<'a, F: Font> Element for Text<'a, F> {
 
 #[cfg(test)]
 mod tests {
+    use elements::column::Column;
     use fonts::truetype::TruetypeFont;
     use insta::*;
 
@@ -316,6 +309,50 @@ mod tests {
             let content = content.debug(0);
 
             callback.call(&content);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
+    fn test_truetype_extra_spacing() {
+        let mut params = TestElementParams::breakable();
+        params.width.expand = false;
+
+        let bytes = test_element_bytes(params, |mut callback| {
+            let font =
+                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+
+            let normal = Text::basic("Hello, World", &font, 32.);
+
+            let character_spacing = Text {
+                extra_character_spacing: 16.,
+                ..Text::basic("Hello, World", &font, 32.)
+            };
+
+            let word_spacing = Text {
+                extra_word_spacing: 16.,
+                ..Text::basic("Hello, World", &font, 32.)
+            };
+
+            let both = Text {
+                extra_character_spacing: 16.,
+                extra_word_spacing: 16.,
+                ..Text::basic("Hello, World", &font, 32.)
+            };
+
+            callback.call(&Column {
+                gap: 12.,
+                collapse: false,
+                content: |content| {
+                    content
+                        .add(&normal.debug(0).show_max_width())?
+                        .add(&character_spacing.debug(1).show_max_width())?
+                        .add(&word_spacing.debug(2).show_max_width())?
+                        .add(&both.debug(3).show_max_width())?;
+
+                    None
+                },
+            });
         });
         assert_binary_snapshot!(".pdf", bytes);
     }

@@ -65,7 +65,9 @@ pub fn draw_line<'a, F: Font>(
                 run.clear();
             }
 
-            items.adjust(-adjustment);
+            // For some absurd reason the PDF spec specifies these to be thousandths instead of
+            // being in glyph space, which would be the value from the font.
+            items.adjust(-(adjustment * 1000. / font.units_per_em() as f32));
             adjustment = 0.;
         }
 
