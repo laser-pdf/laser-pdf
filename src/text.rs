@@ -77,6 +77,7 @@ struct Piece<'a, S> {
     trailing_whitespace_width: u32,
     mandatory_break_after: bool,
     glyph_count: usize,
+    empty: bool,
 }
 
 struct Pieces<'a, 'b, S> {
@@ -150,13 +151,32 @@ impl<'a, 'b, S: Clone + Iterator<Item = ShapedGlyph>> Iterator for Pieces<'a, 'b
         let mut width = 0;
         let mut whitespace_width = 0;
         let mut glyph_count = 0;
+        let mut mandatory_break_after = false;
 
         while let Some(glyph) = iter.next() {
             glyph_count += 1;
 
             // A space at the end of a line doesn't count towards the width.
-            if matches!(&self.text[glyph.text_range], " " | "\u{00A0}" | "　") {
+            if matches!(
+                &self.text[glyph.text_range.clone()],
+                " " | "\u{00A0}" | "　"
+            ) {
                 whitespace_width += glyph.x_advance as u32;
+            } else if matches!(
+                self.text[glyph.text_range]
+                    .chars()
+                    .next()
+                    .map(|c| LINE_BREAK_MAP.get(c)),
+                Some(
+                    LineBreak::MandatoryBreak
+                        | LineBreak::CarriageReturn
+                        | LineBreak::LineFeed
+                        | LineBreak::NextLine,
+                )
+            ) {
+                // We probably can't break here because the font might generate two missing glyphs
+                // for a \r\n here.
+                mandatory_break_after = true;
             } else {
                 width += whitespace_width;
                 whitespace_width = 0;
@@ -164,34 +184,24 @@ impl<'a, 'b, S: Clone + Iterator<Item = ShapedGlyph>> Iterator for Pieces<'a, 'b
             }
         }
 
-        let last_char = self.text[..segment].chars().next_back();
-
-        let mandatory = match last_char
-            .filter(|_| self.current.is_some())
-            .map(|l| LINE_BREAK_MAP.get(l))
-        {
-            Some(
-                LineBreak::MandatoryBreak
-                | LineBreak::CarriageReturn
-                | LineBreak::LineFeed
-                | LineBreak::NextLine,
-            ) => true,
-            _ => false,
-        };
-
         let piece = Piece {
             text: &self.text[current..segment],
             shaped_start: self.shaped.clone(),
             width,
             trailing_whitespace_width: whitespace_width,
-            mandatory_break_after: mandatory,
+            mandatory_break_after,
             glyph_count,
+
+            // TODO: This might not work for \r\n, but that depends on the shaping. We should
+            // proabably find a way to filter out newlines entirely so that they don't show up after
+            // line breaking (and maybe also don't get shaped?).
+            empty: glyph_count == 0 || (glyph_count == 1 && mandatory_break_after),
         };
 
         self.current = self.current.and(Some(segment));
         self.shaped = shaped;
 
-        if self.segments.peek().is_none() && !mandatory {
+        if self.segments.peek().is_none() && !mandatory_break_after {
             self.current = None;
         }
 
@@ -274,6 +284,7 @@ impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
             return None;
         };
 
+        let mut empty = true;
         let mut glyph_count = 0;
         let mut current_width = 0;
         let mut current_width_whitespace = 0;
@@ -287,6 +298,7 @@ impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
                 break;
             }
 
+            empty = empty && piece.empty;
             glyph_count += piece.glyph_count;
 
             current_width += current_width_whitespace + piece.width;
@@ -302,7 +314,7 @@ impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
         }
 
         Some(Line {
-            empty: glyph_count == 0,
+            empty,
             width: current_width,
             trailing_whitespace_width: current_width_whitespace,
             iter: start.take(glyph_count),
@@ -334,7 +346,9 @@ mod tests {
                     unsafe_to_break: false,
                     glyph_id: c as u32,
                     text_range: i..i + c.len_utf8(),
-                    x_advance: if matches!(c, '\n' | '\u{00ad}') { 0 } else { 1 },
+                    // we don't match newlines here because they produce the missing glyph which has
+                    // a non-zero width.
+                    x_advance: if matches!(c, '\u{00ad}') { 0 } else { 1 },
                     x_offset: 0,
                     y_offset: 0,
                     y_advance: 0,
@@ -572,7 +586,9 @@ mod tests {
                 &pieces,
                 &[
                     ("    ", 0, 4, false),
-                    ("abc    \n", 7, 0, true),
+                    // It's somewhat unclear whether the trailing spaces should count toward the
+                    // width here.
+                    ("abc    \n", 3, 4, true),
                     ("def  ", 3, 2, false),
                     ("the\t", 4, 0, false),
                     ("jflkdsa", 7, 0, false),
@@ -710,13 +726,10 @@ mod tests {
                 generator.next(16, false).map(&collect),
                 Some("Id impedit quo \n")
             );
-            assert_eq!(generator.next(16, false).map(&collect), Some("quaerat "));
-
-            // The old line-breaker used to not count the spaces before the newline. It's sort of
-            // unclear what's better here.
+            // It seems unclear what the intent would be in such a case.
             assert_eq!(
                 generator.next(16, false).map(&collect),
-                Some("enimmmmm    \n")
+                Some("quaerat enimmmmm    \n")
             );
             assert_eq!(generator.next(16, false).map(&collect), Some("amet."));
             assert_eq!(generator.next(16, false).map(&collect), None);

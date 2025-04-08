@@ -224,6 +224,8 @@ impl<'a, F: Font> RichText<'a, F> {
                 (true, true) => (self.fonts.bold_italic, bold_italic_vars),
             };
 
+            let mut last_line_empty = true;
+
             LineGenerator::new(font, &span.text, |mut generator| {
                 while let Some(line) = generator.next(
                     ((mm_to_pt(width)
@@ -242,7 +244,12 @@ impl<'a, F: Font> RichText<'a, F> {
                     let width = line.width;
                     let trailing_whitespace_width = line.trailing_whitespace_width;
 
-                    if !line.empty {
+                    last_line_empty = last_line_empty && line.empty;
+
+                    // We need empty parts at the beginning of lines, otherwise trailing newlines
+                    // on spans don't work. The reason we filter out empty fragments at all is so
+                    // that we don't need add trailing whitespace to the width.
+                    if !line.empty || line_state != InLine {
                         f(LineFragment {
                             font,
                             font_vars: &font_vars,
@@ -261,7 +268,7 @@ impl<'a, F: Font> RichText<'a, F> {
                 }
             });
 
-            line_state = InLine;
+            line_state = if last_line_empty { FirstLine } else { InLine };
         }
     }
 
@@ -327,7 +334,7 @@ mod tests {
                     unsafe_to_break: false,
                     glyph_id: c as u32,
                     text_range: i..i + c.len_utf8(),
-                    x_advance: if matches!(c, '\n' | '\u{00ad}') { 0 } else { 1 },
+                    x_advance: if matches!(c, '\u{00ad}') { 0 } else { 1 },
                     x_offset: 0,
                     y_offset: 0,
                     y_advance: 0,
@@ -384,14 +391,21 @@ mod tests {
                     color: 0x00_00_00_FF,
                 },
                 Span {
-                    text: "they ".to_string(),
+                    text: "they".to_string(),
                     bold: true,
                     italic: false,
                     underline: false,
                     color: 0x00_00_FF_FF,
                 },
                 Span {
-                    text: "a?".to_string(),
+                    text: "\n".to_string(),
+                    bold: false,
+                    italic: false,
+                    underline: false,
+                    color: 0x00_00_FF_FF,
+                },
+                Span {
+                    text: "at?".to_string(),
                     bold: false,
                     italic: false,
                     underline: false,
@@ -416,12 +430,14 @@ mod tests {
             text: String,
             x_offset: f32,
             span: usize,
+            empty: bool,
         }
 
         let collect = |width: f32| -> Vec<Frag> {
             let mut results = Vec::new();
 
             element.line_fragments(width, |mut fragment| {
+                let empty = fragment.line.empty;
                 let text = if let Some(first) = fragment.line.next() {
                     let last = fragment.line.last();
 
@@ -441,6 +457,7 @@ mod tests {
                         .enumerate()
                         .find_map(|(i, span)| std::ptr::eq(span, fragment.span).then_some(i))
                         .unwrap(),
+                    empty,
                 });
             });
 
@@ -454,24 +471,35 @@ mod tests {
                 text: "Where ",
                 x_offset: 0.0,
                 span: 0,
+                empty: false,
             },
             Frag {
                 new_line: true,
                 text: "are ",
                 x_offset: 0.0,
                 span: 0,
+                empty: false,
             },
             Frag {
                 new_line: true,
-                text: "they ",
+                text: "they",
                 x_offset: 0.0,
                 span: 1,
+                empty: false,
             },
             Frag {
                 new_line: true,
-                text: "a?",
+                text: "",
                 x_offset: 0.0,
                 span: 2,
+                empty: true,
+            },
+            Frag {
+                new_line: false,
+                text: "at?",
+                x_offset: 0.0,
+                span: 3,
+                empty: false,
             },
         ]
         "#);
@@ -482,24 +510,35 @@ mod tests {
                 text: "Where ",
                 x_offset: 0.0,
                 span: 0,
+                empty: false,
             },
             Frag {
                 new_line: true,
                 text: "are ",
                 x_offset: 0.0,
                 span: 0,
+                empty: false,
             },
             Frag {
                 new_line: false,
-                text: "they ",
+                text: "they",
                 x_offset: 4.0,
                 span: 1,
+                empty: false,
             },
             Frag {
                 new_line: true,
-                text: "a?",
+                text: "",
                 x_offset: 0.0,
                 span: 2,
+                empty: true,
+            },
+            Frag {
+                new_line: false,
+                text: "at?",
+                x_offset: 0.0,
+                span: 3,
+                empty: false,
             },
         ]
         "#);
@@ -510,18 +549,28 @@ mod tests {
                 text: "Where are ",
                 x_offset: 0.0,
                 span: 0,
+                empty: false,
             },
             Frag {
                 new_line: false,
-                text: "they ",
+                text: "they",
                 x_offset: 10.0,
                 span: 1,
+                empty: false,
+            },
+            Frag {
+                new_line: true,
+                text: "",
+                x_offset: 0.0,
+                span: 2,
+                empty: true,
             },
             Frag {
                 new_line: false,
-                text: "a?",
-                x_offset: 15.0,
-                span: 2,
+                text: "at?",
+                x_offset: 0.0,
+                span: 3,
+                empty: false,
             },
         ]
         "#);
@@ -545,14 +594,21 @@ mod tests {
                         color: 0x00_00_00_FF,
                     },
                     Span {
-                        text: "they ".to_string(),
+                        text: "they".to_string(),
                         bold: true,
                         italic: false,
                         underline: false,
                         color: 0x00_00_FF_FF,
                     },
                     Span {
-                        text: "a?".to_string(),
+                        text: "\n".to_string(),
+                        bold: true,
+                        italic: false,
+                        underline: false,
+                        color: 0x00_00_FF_FF,
+                    },
+                    Span {
+                        text: "at?".to_string(),
                         bold: false,
                         italic: false,
                         underline: false,
@@ -576,9 +632,10 @@ mod tests {
                 content: |content: ColumnContent| {
                     content
                         .add(&rich_text.debug(0))?
-                        .add(&Padding::right(140., &rich_text.debug(1)))?
-                        .add(&Padding::right(160., &rich_text.debug(2)))?
-                        .add(&Padding::right(180., &rich_text.debug(3)))?;
+                        .add(&Padding::right(140., &rich_text.debug(1).show_max_width()))?
+                        .add(&Padding::right(160., &rich_text.debug(2).show_max_width()))?
+                        .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
+                        .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;
                     None
                 },
             };
