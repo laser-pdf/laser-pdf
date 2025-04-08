@@ -134,9 +134,17 @@ impl<'a, F: Font> Text<'a, F> {
             // );
             //
 
-            layer
-                .set_font(self.font.resource_name(), self.size)
-                .set_text_matrix([1.0, 0.0, 0.0, 1.0, mm_to_pt(x), mm_to_pt(y)]);
+            layer.set_font(self.font.resource_name(), self.size);
+
+            if self.extra_character_spacing != 0. {
+                layer.set_char_spacing(self.extra_character_spacing);
+            }
+
+            if self.extra_word_spacing != 0. {
+                layer.set_word_spacing(self.extra_word_spacing);
+            }
+
+            layer.set_text_matrix([1.0, 0.0, 0.0, 1.0, mm_to_pt(x), mm_to_pt(y)]);
 
             draw_line(ctx.pdf, &ctx.location, self.font, text, line);
 
@@ -204,6 +212,8 @@ impl<'a, F: Font> Text<'a, F> {
     ) -> R {
         lines(
             self.font,
+            (self.extra_character_spacing / self.size * self.font.units_per_em() as f32) as i32,
+            (self.extra_word_spacing / self.size * self.font.units_per_em() as f32) as i32,
             (mm_to_pt(width) / self.size * self.font.units_per_em() as f32) as u32,
             self.text,
             f,

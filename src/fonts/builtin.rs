@@ -131,11 +131,14 @@ impl<'a> Iterator for Shaped<'a> {
         self.chars.next().map(|(i, c)| {
             let metrics = self.font.char_metrics_by_codepoint.get(&(c as u32));
 
+            let advance = metrics.map_or(0, |m| m.wx as i32); // i hope those are ints in practice
+
             ShapedGlyph {
                 unsafe_to_break: false,
                 glyph_id: c as u32, // i guess
                 text_range: i..i + c.len_utf8(),
-                x_advance: metrics.map_or(0, |m| m.wx as u16), // i hope those are ints in practice
+                x_advance_font: advance,
+                x_advance: advance,
                 x_offset: 0,
                 y_offset: 0,
                 y_advance: 0,
@@ -150,7 +153,7 @@ impl Font for BuiltinFont {
     where
         Self: 'a;
 
-    fn shape<'a>(&'a self, text: &'a str) -> Self::Shaped<'a> {
+    fn shape<'a>(&'a self, text: &'a str, _: i32, _: i32) -> Self::Shaped<'a> {
         Shaped {
             font: self,
             chars: text.char_indices(),

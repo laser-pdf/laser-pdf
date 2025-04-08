@@ -5,6 +5,10 @@ pub mod truetype;
 
 use std::ops::Range;
 
+use pdf_writer::writers::ShowPositioned;
+
+use crate::{Location, Pdf};
+
 // use pdf_writer::Content;
 
 // pub struct HMetrics {
@@ -21,10 +25,12 @@ pub struct ShapedGlyph {
     pub unsafe_to_break: bool,
     pub glyph_id: u32,
     pub text_range: Range<usize>,
-    pub x_advance: u16,
-    pub x_offset: u16,
-    pub y_offset: u16,
-    pub y_advance: u16,
+    /// without kerning
+    pub x_advance_font: i32,
+    pub x_advance: i32,
+    pub x_offset: i32,
+    pub y_advance: i32,
+    pub y_offset: i32,
 }
 
 // TODO: different representation?
@@ -38,7 +44,12 @@ pub trait Font {
     where
         Self: 'a;
 
-    fn shape<'a>(&'a self, text: &'a str) -> Self::Shaped<'a>;
+    fn shape<'a>(
+        &'a self,
+        text: &'a str,
+        character_spacing: i32,
+        word_spacing: i32,
+    ) -> Self::Shaped<'a>;
 
     // fn remap(&self, pdf: &mut crate::Pdf, glyph_id: u16) -> u16;
 

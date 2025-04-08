@@ -1,9 +1,11 @@
 use crate::*;
 use std::{
-    cell::Cell,
+    cell::{Cell, OnceCell},
     collections::{BTreeMap, HashMap},
     mem::ManuallyDrop,
+    ops::Add,
     rc::Rc,
+    str::FromStr,
 };
 
 use fonts::{EncodedGlyph, GeneralMetrics};
@@ -12,7 +14,7 @@ use pdf_writer::{
     types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap},
     writers::{FontDescriptor, WMode},
 };
-use rustybuzz::{Face, GlyphBuffer, ShapePlan, UnicodeBuffer, shape_with_plan};
+use rustybuzz::{Face, Feature, GlyphBuffer, ShapePlan, UnicodeBuffer, shape_with_plan};
 // use elements::padding::Padding;
 // use fonts::Font;
 // use printpdf::{CurTransMat, Mm, PdfDocumentReference, PdfLayerReference};
@@ -26,6 +28,7 @@ pub struct TruetypeFont {
     pub name: Vec<u8>,
     pub face: Face<'static>,
     pub plan: ShapePlan,
+    plan_no_ligatures: OnceCell<ShapePlan>,
     // pub remapper: GlyphRemapper,
     // pub font: Face<'a>,
 }
@@ -75,7 +78,23 @@ impl TruetypeFont {
             name: resource_name.into_bytes(), // face.names().get(0).unwrap().name.to_vec(),
             face,
             plan,
+            plan_no_ligatures: OnceCell::new(),
         }
+    }
+
+    fn plan_no_ligatures(&self) -> &ShapePlan {
+        self.plan_no_ligatures.get_or_init(|| {
+            ShapePlan::new(
+                &self.face,
+                rustybuzz::Direction::LeftToRight,
+                Some(rustybuzz::script::LATIN),
+                None,
+                &[
+                    Feature::from_str("liga=0").unwrap(),
+                    Feature::from_str("clig=0").unwrap(),
+                ],
+            )
+        })
     }
 }
 
@@ -89,7 +108,12 @@ impl Font for TruetypeFont {
     where
         Self: 'b;
 
-    fn shape<'b>(&'b self, text: &'b str) -> Self::Shaped<'b> {
+    fn shape<'b>(
+        &'b self,
+        text: &'b str,
+        character_spacing: i32,
+        word_spacing: i32,
+    ) -> Self::Shaped<'b> {
         // In basically all real cases we should end up always taking and returnung the same buffer
         // here. But even in the worst case this should still be better than allocating a new buffer
         // every time.
@@ -100,10 +124,21 @@ impl Font for TruetypeFont {
         buffer.set_script(rustybuzz::script::LATIN);
         buffer.set_direction(rustybuzz::Direction::LeftToRight);
 
-        let shaped = shape_with_plan(&self.face, &self.plan, buffer);
+        let shaped = shape_with_plan(
+            &self.face,
+            if character_spacing == 0 {
+                &self.plan
+            } else {
+                self.plan_no_ligatures()
+            },
+            buffer,
+        );
 
         Shaped {
             text,
+            character_spacing,
+            word_spacing,
+            face: &self.face,
             buffer: Rc::new(Buffer(ManuallyDrop::new(shaped))),
             i: 0,
         }
@@ -120,10 +155,6 @@ impl Font for TruetypeFont {
             .or_insert_with(|| text.to_string());
 
         EncodedGlyph::TwoBytes(cid.to_be_bytes())
-
-        // write
-        //     .write_all(&[(cid >> 8) as u8, (cid & 0xff) as u8])
-        //     .unwrap();
     }
 
     fn resource_name(&self) -> Name {
@@ -165,8 +196,11 @@ impl Drop for Buffer {
 #[derive(Clone)]
 pub struct Shaped<'a> {
     text: &'a str,
+    face: &'a Face<'static>,
     buffer: Rc<Buffer>,
     i: usize,
+    character_spacing: i32,
+    word_spacing: i32,
 }
 
 impl<'a> Iterator for Shaped<'a> {
@@ -205,14 +239,40 @@ impl<'a> Iterator for Shaped<'a> {
 
         self.i += 1;
 
+        let text_range = start..(end as usize);
+
+        let mut x_advance = position.x_advance;
+
+        if matches!(&self.text[text_range.clone()], " " | "\u{00A0}" | "　") {
+            x_advance += self.word_spacing;
+        }
+
+        // for characters made from multiple glyphs
+        if self.character_spacing != 0
+            && self
+                .buffer
+                .0
+                .glyph_infos()
+                .get(self.i + 1)
+                .map_or(true, |next| next.cluster != info.cluster)
+        {
+            x_advance += self.character_spacing;
+        }
+
+        let x_advance_font = self
+            .face
+            .glyph_hor_advance(GlyphId(info.glyph_id as u16))
+            .unwrap() as i32;
+
         Some(ShapedGlyph {
             unsafe_to_break: info.unsafe_to_break(),
             glyph_id: info.glyph_id,
-            text_range: start..(end as usize),
-            x_advance: position.x_advance as u16,
-            x_offset: position.x_offset as u16,
-            y_offset: position.y_offset as u16,
-            y_advance: position.y_advance as u16,
+            text_range,
+            x_advance_font,
+            x_advance,
+            x_offset: position.x_offset,
+            y_offset: position.y_offset,
+            y_advance: position.y_advance,
         })
     }
 
@@ -413,7 +473,7 @@ mod tests {
 
         let text = "Rewriting software in\nRust.";
 
-        let shaped = font.shape(text);
+        let shaped = font.shape(text, 0, 0);
         let shaped = shaped.clone();
 
         let shaped_vec: Vec<_> = shaped.collect();
@@ -431,7 +491,7 @@ mod tests {
 
         let text = "Rewriting ";
 
-        let shaped = font.shape(text);
+        let shaped = font.shape(text, 0, 0);
         let shaped = shaped.clone();
 
         let shaped_vec: Vec<_> = shaped.collect();

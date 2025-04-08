@@ -226,7 +226,7 @@ impl<'a, F: Font> RichText<'a, F> {
 
             let mut last_line_empty = true;
 
-            LineGenerator::new(font, &span.text, |mut generator| {
+            LineGenerator::new(font, 0, 0, &span.text, |mut generator| {
                 while let Some(line) = generator.next(
                     ((mm_to_pt(width)
                         - (line_state == InLine).then_some(x_offset_pt).unwrap_or(0.))
@@ -334,6 +334,7 @@ mod tests {
                     unsafe_to_break: false,
                     glyph_id: c as u32,
                     text_range: i..i + c.len_utf8(),
+                    x_advance_font: if matches!(c, '\u{00ad}') { 0 } else { 1 },
                     x_advance: if matches!(c, '\u{00ad}') { 0 } else { 1 },
                     x_offset: 0,
                     y_offset: 0,
@@ -351,7 +352,7 @@ mod tests {
         where
             Self: 'a;
 
-        fn shape<'a>(&'a self, text: &'a str) -> Self::Shaped<'a> {
+        fn shape<'a>(&'a self, text: &'a str, _: i32, _: i32) -> Self::Shaped<'a> {
             FakeShaped {
                 inner: text.char_indices(),
             }
