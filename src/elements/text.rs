@@ -78,18 +78,13 @@ impl<'a, F: Font> Text<'a, F> {
         let mut line_count = 0;
         let mut draw_rect = 0;
 
-        // ctx.location.layer(ctx.pdf).save_state();
-
         for line in lines {
-            // let line: &str = &remove_non_trailing_soft_hyphens(line);
-
             let line_width =
                 pt_to_mm(line.width as f32 / self.font.units_per_em() as f32 * self.size);
             max_width = max_width.max(line_width);
 
             if height_available < line_height {
                 if let Some(ref mut breakable) = ctx.breakable {
-                    // ctx.location.layer(ctx.pdf).restore_state();
                     let new_location = (breakable.do_break)(
                         ctx.pdf,
                         draw_rect,
@@ -106,7 +101,6 @@ impl<'a, F: Font> Text<'a, F> {
                     ctx.location.page_idx = new_location.page_idx;
                     ctx.location.layer_idx = new_location.layer_idx;
                     line_count = 0;
-                    // ctx.location.layer(ctx.pdf).save_state();
                 }
             }
 
@@ -122,17 +116,6 @@ impl<'a, F: Font> Text<'a, F> {
             };
 
             let x = x + x_offset;
-            // self.font.render_line(
-            //     layer,
-            //     line,
-            //     self.size,
-            //     self.extra_character_spacing,
-            //     self.extra_word_spacing,
-            //     self.underline,
-            //     x as f32,
-            //     y as f32,
-            // );
-            //
 
             layer.set_font(self.font.resource_name(), self.size);
 
@@ -146,8 +129,6 @@ impl<'a, F: Font> Text<'a, F> {
             height_available -= line_height;
             line_count += 1;
         }
-
-        // ctx.location.layer(ctx.pdf).restore_state();
 
         (max_width, line_count as f32 * line_height)
     }

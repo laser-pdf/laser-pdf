@@ -82,6 +82,11 @@ pub fn add_optional_size_with_gap(a: Option<f32>, b: Option<f32>, gap: f32) -> O
 
 pub fn set_fill_color(layer: &mut Content, color: u32) {
     let (color, _) = u32_to_color_and_alpha(color);
+    layer.set_fill_rgb(color[0], color[1], color[2]);
+}
+
+pub fn set_stroke_color(layer: &mut Content, color: u32) {
+    let (color, _) = u32_to_color_and_alpha(color);
     layer.set_stroke_rgb(color[0], color[1], color[2]);
 }
 
