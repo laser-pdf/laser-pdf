@@ -53,10 +53,11 @@ impl<'a, F: Font> Element for RichText<'a, F> {
 
         let mut line_count = 1;
 
-        self.line_fragments(ctx.width.max, |frag| {
-            let line_width = frag.length;
+        let mut last_line_full_width = 0.;
 
-            max_width = max_width.max(frag.x_offset + line_width);
+        self.line_fragments(ctx.width.max, |frag| {
+            max_width = max_width.max(frag.x_offset + frag.length);
+            last_line_full_width = frag.x_offset + frag.full_length;
 
             if frag.new_line {
                 match ctx.breakable {
@@ -75,7 +76,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
         });
 
         ElementSize {
-            width: Some(max_width),
+            width: Some(max_width.max(last_line_full_width)),
             height: Some(line_count as f32 * line_height),
         }
     }
@@ -107,10 +108,11 @@ impl<'a, F: Font> Element for RichText<'a, F> {
 
         let mut line_count = 1;
 
-        self.line_fragments(ctx.width.max, |frag| {
-            let line_width = frag.length;
+        let mut last_line_full_width = 0.;
 
-            max_width = max_width.max(frag.x_offset + line_width);
+        self.line_fragments(ctx.width.max, |frag| {
+            max_width = max_width.max(frag.x_offset + frag.length);
+            last_line_full_width = frag.x_offset + frag.full_length;
 
             if frag.new_line {
                 match ctx.breakable {
@@ -170,7 +172,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
         });
 
         ElementSize {
-            width: Some(max_width),
+            width: Some(max_width.max(last_line_full_width)),
             height: Some(line_count as f32 * line_height),
         }
     }
@@ -190,6 +192,7 @@ struct LineFragment<'a, F: Font> {
     length: f32,
 
     x_offset: f32,
+    full_length: f32,
 }
 
 impl<'a, F: Font> RichText<'a, F> {
@@ -216,7 +219,7 @@ impl<'a, F: Font> RichText<'a, F> {
 
         let mut x_offset_pt = 0.;
 
-        for span in self.spans {
+        for (i, span) in self.spans.iter().enumerate() {
             let (font, font_vars): (&F, FontVars) = match (span.bold, span.italic) {
                 (false, false) => (self.fonts.regular, regular_vars),
                 (false, true) => (self.fonts.italic, italic_vars),
@@ -226,47 +229,67 @@ impl<'a, F: Font> RichText<'a, F> {
 
             let mut last_line_empty = true;
 
-            LineGenerator::new(font, 0, 0, &span.text, |mut generator| {
-                while let Some(line) = generator.next(
-                    ((mm_to_pt(width)
-                        - (line_state == InLine).then_some(x_offset_pt).unwrap_or(0.))
-                        / self.size
-                        * font.units_per_em() as f32) as u32,
-                    line_state == InLine,
-                ) {
-                    if line_state != InLine {
-                        x_offset_pt = 0.;
+            LineGenerator::new(
+                font,
+                0,
+                0,
+                // We want to consider trailing whitespace at the end of the whole text, but at the
+                // end of a span that's in the middle. It's a bit weird, but we don't want trailing
+                // whitespace to take up width in general, spaces at the end of the text can be used
+                // for layout purposes (for example when putting them in a row with other elements;
+                // mostly just a single line, but special casing single lines would be more
+                // confusing).
+                i + 1 == self.spans.len(),
+                &span.text,
+                |mut generator| {
+                    while let Some(line) = generator.next(
+                        ((mm_to_pt(width)
+                            - (line_state == InLine).then_some(x_offset_pt).unwrap_or(0.))
+                            / self.size
+                            * font.units_per_em() as f32) as u32,
+                        line_state == InLine,
+                    ) {
+                        if line_state != InLine {
+                            x_offset_pt = 0.;
+                        }
+
+                        let length =
+                            pt_to_mm(line.width as f32 / font.units_per_em() as f32 * self.size);
+
+                        let full_length = pt_to_mm(
+                            (line.width + line.trailing_whitespace_width) as f32
+                                / font.units_per_em() as f32
+                                * self.size,
+                        );
+
+                        let width = line.width;
+                        let trailing_whitespace_width = line.trailing_whitespace_width;
+
+                        last_line_empty = last_line_empty && line.empty;
+
+                        // We need empty parts at the beginning of lines, otherwise trailing newlines
+                        // on spans don't work. The reason we filter out empty fragments at all is so
+                        // that we don't need add trailing whitespace to the width.
+                        if !line.empty || line_state != InLine {
+                            f(LineFragment {
+                                font,
+                                font_vars: &font_vars,
+                                span,
+                                line,
+                                new_line: line_state == LineDone,
+                                x_offset: pt_to_mm(x_offset_pt),
+                                length,
+                                full_length,
+                            });
+                        }
+
+                        x_offset_pt += (width + trailing_whitespace_width) as f32
+                            / font.units_per_em() as f32
+                            * self.size;
+                        line_state = LineDone;
                     }
-
-                    let length =
-                        pt_to_mm(line.width as f32 / font.units_per_em() as f32 * self.size);
-
-                    let width = line.width;
-                    let trailing_whitespace_width = line.trailing_whitespace_width;
-
-                    last_line_empty = last_line_empty && line.empty;
-
-                    // We need empty parts at the beginning of lines, otherwise trailing newlines
-                    // on spans don't work. The reason we filter out empty fragments at all is so
-                    // that we don't need add trailing whitespace to the width.
-                    if !line.empty || line_state != InLine {
-                        f(LineFragment {
-                            font,
-                            font_vars: &font_vars,
-                            span,
-                            line,
-                            new_line: line_state == LineDone,
-                            x_offset: pt_to_mm(x_offset_pt),
-                            length,
-                        });
-                    }
-
-                    x_offset_pt += (width + trailing_whitespace_width) as f32
-                        / font.units_per_em() as f32
-                        * self.size;
-                    line_state = LineDone;
-                }
-            });
+                },
+            );
 
             line_state = if last_line_empty { FirstLine } else { InLine };
         }
@@ -634,6 +657,71 @@ mod tests {
                     content
                         .add(&rich_text.debug(0))?
                         .add(&Padding::right(140., &rich_text.debug(1).show_max_width()))?
+                        .add(&Padding::right(160., &rich_text.debug(2).show_max_width()))?
+                        .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
+                        .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;
+                    None
+                },
+            };
+
+            callback.call(&list);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
+    fn test_truetype_trailing_whitespace() {
+        let mut params = TestElementParams::breakable();
+        params.width.expand = false;
+
+        let bytes = test_element_bytes(params, |mut callback| {
+            let regular =
+                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Future.ttf"));
+            let bold =
+                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+
+            let rich_text = RichText {
+                spans: &[
+                    Span {
+                        text: "Where are ".to_string(),
+                        bold: false,
+                        italic: false,
+                        underline: false,
+                        color: 0x00_00_00_FF,
+                    },
+                    Span {
+                        text: "they ".to_string(),
+                        bold: true,
+                        italic: false,
+                        underline: false,
+                        color: 0x00_FF_00_FF,
+                    },
+                    Span {
+                        text: "at?        ".to_string(),
+                        bold: false,
+                        italic: false,
+                        underline: false,
+                        color: 0xFF_00_00_FF,
+                    },
+                ],
+                size: 12.,
+                small_size: 8.,
+                extra_line_height: 0.,
+                fonts: FontSet {
+                    regular: &regular,
+                    bold: &bold,
+                    italic: &regular,
+                    bold_italic: &bold,
+                },
+            };
+
+            let list = Column {
+                gap: 16.,
+                collapse: false,
+                content: |content: ColumnContent| {
+                    content
+                        .add(&rich_text.debug(0))?
+                        .add(&Padding::right(145., &rich_text.debug(1).show_max_width()))?
                         .add(&Padding::right(160., &rich_text.debug(2).show_max_width()))?
                         .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
                         .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;

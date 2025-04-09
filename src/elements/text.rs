@@ -2,7 +2,7 @@ use fonts::GeneralMetrics;
 use text::{Line, Lines, draw_line, lines};
 use utils::{mm_to_pt, pt_to_mm, set_fill_color};
 
-use crate::{fonts::Font, utils::u32_to_color_and_alpha, *};
+use crate::{fonts::Font, *};
 
 #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TextAlign {
@@ -69,6 +69,7 @@ impl<'a, F: Font> Text<'a, F> {
         width: f32,
     ) -> (f32, f32) {
         let mut max_width = width;
+        let mut last_line_full_width = 0;
 
         let mut x = ctx.location.pos.0;
         let mut y = ctx.location.pos.1 - ascent;
@@ -82,6 +83,8 @@ impl<'a, F: Font> Text<'a, F> {
             let line_width =
                 pt_to_mm(line.width as f32 / self.font.units_per_em() as f32 * self.size);
             max_width = max_width.max(line_width);
+
+            last_line_full_width = line.width + line.trailing_whitespace_width;
 
             if height_available < line_height {
                 if let Some(ref mut breakable) = ctx.breakable {
@@ -130,7 +133,12 @@ impl<'a, F: Font> Text<'a, F> {
             line_count += 1;
         }
 
-        (max_width, line_count as f32 * line_height)
+        (
+            max_width.max(pt_to_mm(
+                last_line_full_width as f32 / self.font.units_per_em() as f32 * self.size,
+            )),
+            line_count as f32 * line_height,
+        )
     }
 
     #[inline(always)]
@@ -141,6 +149,7 @@ impl<'a, F: Font> Text<'a, F> {
         measure_ctx: Option<&mut MeasureCtx>,
     ) -> (f32, f32) {
         let mut max_width = 0;
+        let mut last_line_full_width = 0;
         let mut line_count = 0;
 
         // This function is a bit hacky because it's both used for measure and for determining the
@@ -164,16 +173,18 @@ impl<'a, F: Font> Text<'a, F> {
                 }
             }
 
-            let line_width = line.width;
-
-            max_width = max_width.max(line_width);
+            max_width = max_width.max(line.width);
+            last_line_full_width = line.width + line.trailing_whitespace_width;
 
             height_available -= line_height;
             line_count += 1;
         }
 
         (
-            pt_to_mm(max_width as f32 / self.font.units_per_em() as f32 * self.size),
+            pt_to_mm(
+                max_width.max(last_line_full_width) as f32 / self.font.units_per_em() as f32
+                    * self.size,
+            ),
             line_count as f32 * line_height,
         )
     }
@@ -287,6 +298,23 @@ mod tests {
                 TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
 
             let content = Text::basic(LOREM_IPSUM, &font, 32.);
+            let content = content.debug(0);
+
+            callback.call(&content);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
+    fn test_truetype_trailing_whitespace() {
+        let mut params = TestElementParams::breakable();
+        params.width.expand = false;
+
+        let bytes = test_element_bytes(params, |mut callback| {
+            let font =
+                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+
+            let content = Text::basic("Whitespace ", &font, 32.);
             let content = content.debug(0);
 
             callback.call(&content);

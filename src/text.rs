@@ -259,12 +259,19 @@ pub fn lines<'a, R, F: Font>(
     text: &'a str,
     f: impl for<'b> FnOnce(Lines<'a, 'b, F>) -> R,
 ) -> R {
-    LineGenerator::new(font, character_spacing, word_spacing, text, |generator| {
-        f(Lines {
-            max_width,
-            generator,
-        })
-    })
+    LineGenerator::new(
+        font,
+        character_spacing,
+        word_spacing,
+        true,
+        text,
+        |generator| {
+            f(Lines {
+                max_width,
+                generator,
+            })
+        },
+    )
 }
 
 impl<'a, 'b, F: Font> Iterator for Lines<'a, 'b, F> {
@@ -277,8 +284,9 @@ impl<'a, 'b, F: Font> Iterator for Lines<'a, 'b, F> {
 
 pub struct LineGenerator<'a, 'b, F: Font> {
     font: &'a F,
-    // text: &'a str,
+    consider_last_line_trailing_whitespace: bool,
     pieces: Peekable<Pieces<'a, 'b, F::Shaped<'a>>>,
+    current: Option<Piece<'a, F::Shaped<'a>>>,
 }
 
 impl<'a, F: Font> LineGenerator<'a, 'static, F> {
@@ -286,35 +294,62 @@ impl<'a, F: Font> LineGenerator<'a, 'static, F> {
         font: &'a F,
         character_spacing: i32,
         word_spacing: i32,
+        consider_last_line_trailing_whitespace: bool,
         text: &'a str,
         f: impl for<'b> FnOnce(LineGenerator<'a, 'b, F>) -> R,
     ) -> R {
         Pieces::new(font, character_spacing, word_spacing, text, |pieces| {
             f(LineGenerator {
                 font,
-                // text,
+                consider_last_line_trailing_whitespace,
                 pieces: pieces.peekable(),
+                current: None,
             })
         })
     }
 }
 
 impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
+    // Needs to be one call to avoid lifetime problems.
+    fn current(&mut self) -> Option<(&Piece<'a, F::Shaped<'a>>, bool)> {
+        if self.current.is_none() {
+            self.current = self.pieces.next();
+        }
+
+        self.current
+            .as_ref()
+            .map(|c| (c, self.pieces.peek().is_some()))
+    }
+
+    fn advance(&mut self) {
+        self.current = None;
+    }
+}
+
+impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
     pub fn next(&mut self, max_width: u32, incomplete: bool) -> Option<Line<F::Shaped<'a>>> {
-        let Some(start) = self.pieces.peek().map(|p| p.shaped_start.clone()) else {
+        let Some(start) = self.current().map(|(p, _)| p.shaped_start.clone()) else {
             return None;
         };
+
+        let consider_last_line_trailing_whitespace = self.consider_last_line_trailing_whitespace;
 
         let mut empty = true;
         let mut glyph_count = 0;
         let mut current_width = 0;
         let mut current_width_whitespace = 0;
 
-        while let Some(piece) = self.pieces.peek() {
+        while let Some((piece, has_next)) = self.current() {
             // If current_width is zero we have to place the piece on this line, because adding
             // another line would not help.
             if (current_width > 0 || incomplete)
-                && current_width + current_width_whitespace + piece.width > max_width
+                && current_width
+                    + current_width_whitespace
+                    + piece.width
+                    + (!has_next && consider_last_line_trailing_whitespace)
+                        .then_some(piece.trailing_whitespace_width)
+                        .unwrap_or(0)
+                    > max_width
             {
                 break;
             }
@@ -327,7 +362,7 @@ impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
 
             let mandatory_break_after = piece.mandatory_break_after;
 
-            self.pieces.next();
+            self.advance();
 
             if mandatory_break_after {
                 break;
@@ -629,7 +664,7 @@ mod tests {
     fn test_empty_string() {
         let text = "";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(generator.next(16, false).map(&collect), Some(""));
@@ -642,7 +677,7 @@ mod tests {
         let text = "Amet consequatur facilis necessitatibus sed quia numquam reiciendis. \
                 Id impedit quo quaerat enim amet. ";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(
@@ -699,7 +734,7 @@ mod tests {
     fn test_text_after_newline() {
         let text = "\nthe the the";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(generator.next(4, false).map(&collect), Some("\n"));
@@ -714,7 +749,7 @@ mod tests {
     fn test_trailing_whitespace() {
         let text = "Id impedit quo quaerat enim amet.                  ";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(
@@ -741,7 +776,7 @@ mod tests {
     #[test]
     fn test_pre_newline_whitespace() {
         let text = "Id impedit quo \nquaerat enimmmmm    \namet.";
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(
@@ -762,7 +797,7 @@ mod tests {
     fn test_newline() {
         let text = "\n";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(generator.next(16, false).map(&collect), Some("\n"));
@@ -775,7 +810,7 @@ mod tests {
     fn test_just_spaces() {
         let text = "  ";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(generator.next(16, false).map(&collect), Some("  "));
@@ -787,7 +822,7 @@ mod tests {
     fn test_word_longer_than_line() {
         let text = "Averylongword";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(
@@ -799,7 +834,7 @@ mod tests {
 
         let text = "Averylongword test.";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(
@@ -812,7 +847,7 @@ mod tests {
 
         let text = "A verylongword test.";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(generator.next(8, false).map(&collect), Some("A "));
@@ -829,7 +864,7 @@ mod tests {
     fn test_soft_hyphens() {
         let text = "A\u{00ad}very\u{00ad}long\u{00ad}word";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(
@@ -843,7 +878,7 @@ mod tests {
 
         let text = "A\u{00ad}very \u{00ad}long\u{00ad}word";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(
@@ -859,7 +894,7 @@ mod tests {
 
         let text = "A\u{00ad}very\u{00ad}\u{00ad}long\u{00ad}word";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(
@@ -876,7 +911,7 @@ mod tests {
     fn test_hard_hyphens() {
         let text = "A-very-long-word";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(generator.next(7, false).map(&collect), Some("A-very-"));
@@ -887,7 +922,7 @@ mod tests {
 
         let text = "A-very -long-word";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(generator.next(7, false).map(&collect), Some("A-very "));
@@ -898,7 +933,7 @@ mod tests {
 
         let text = "A-very--long-word";
 
-        LineGenerator::new(&FakeFont, 0, 0, text, |mut generator| {
+        LineGenerator::new(&FakeFont, 0, 0, true, text, |mut generator| {
             let collect = collect(text);
 
             assert_eq!(generator.next(7, false).map(&collect), Some("A-"));
