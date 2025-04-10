@@ -157,7 +157,10 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                     0.0,
                     1.0,
                     mm_to_pt(x + frag.x_offset),
-                    mm_to_pt(y - line_height + frag.font_vars.line_height - frag.font_vars.ascent),
+                    mm_to_pt(
+                        y - line_height + self.extra_line_height + frag.font_vars.line_height
+                            - frag.font_vars.ascent,
+                    ),
                 ]);
 
             draw_line(
