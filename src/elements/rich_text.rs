@@ -157,6 +157,8 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                     0.0,
                     1.0,
                     mm_to_pt(x + frag.x_offset),
+                    // TODO: To make the baselines align we'd need also need to add the line gap of
+                    // the font here.
                     mm_to_pt(
                         y - line_height + self.extra_line_height + frag.font_vars.line_height
                             - frag.font_vars.ascent,
