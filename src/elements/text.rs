@@ -198,7 +198,10 @@ impl<'a, F: Font> Text<'a, F> {
             self.font,
             (self.extra_character_spacing / self.size * self.font.units_per_em() as f32) as i32,
             (self.extra_word_spacing / self.size * self.font.units_per_em() as f32) as i32,
-            (mm_to_pt(width) / self.size * self.font.units_per_em() as f32) as u32,
+            // The ceil is to prevent rounding errors from causing problems in cases where the
+            // element gets measured and then the measured width gets used for draw, such as in
+            // HAlign.
+            (mm_to_pt(width) / self.size * self.font.units_per_em() as f32).ceil() as u32,
             self.text,
             f,
         )
