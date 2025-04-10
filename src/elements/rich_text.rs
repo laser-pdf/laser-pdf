@@ -246,10 +246,14 @@ impl<'a, F: Font> RichText<'a, F> {
                 &span.text,
                 |mut generator| {
                     while let Some(line) = generator.next(
+                        // The ceil is to prevent rounding errors from causing problems in cases where the
+                        // element gets measured and then the measured width gets used for draw, such as in
+                        // HAlign.
                         ((mm_to_pt(width)
                             - (line_state == InLine).then_some(x_offset_pt).unwrap_or(0.))
                             / self.size
-                            * font.units_per_em() as f32) as u32,
+                            * font.units_per_em() as f32)
+                            .ceil() as u32,
                         line_state == InLine,
                     ) {
                         if line_state != InLine {
