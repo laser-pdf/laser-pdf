@@ -297,9 +297,12 @@ impl TruetypeFontState {
         let cmap_ref = alloc.bump();
         let data_ref = alloc.bump();
 
+        let name = self.face.names().get(1).and_then(|n| n.to_string());
+        let name = name.as_deref().unwrap_or("Unknown Font");
+
         // Write the base font object referencing the CID font.
         pdf.type0_font(type0_ref)
-            .base_font(Name(b"test"))
+            .base_font(Name(name.as_bytes()))
             .encoding_predefined(Name(b"Identity-H")) // TODO: what does this mean??????????
             .descendant_font(cid_ref)
             .to_unicode(cmap_ref);
@@ -307,7 +310,7 @@ impl TruetypeFontState {
         // Write the CID font referencing the font descriptor.
         let mut cid = pdf.cid_font(cid_ref);
         cid.subtype(CidFontType::Type2);
-        cid.base_font(Name(b"test"));
+        cid.base_font(Name(name.as_bytes()));
         cid.system_info(SystemInfo {
             registry: Str(b"Adobe"), // whyyyy????
             ordering: Str(b"Identity"),
@@ -358,7 +361,7 @@ impl TruetypeFontState {
         stream.filter(Filter::FlateDecode);
         drop(stream);
 
-        let mut font_descriptor = write_font_descriptor(pdf, descriptor_ref, &self.face, "todo");
+        let mut font_descriptor = write_font_descriptor(pdf, descriptor_ref, &self.face, name);
         font_descriptor.font_file2(data_ref);
 
         drop(font_descriptor);
