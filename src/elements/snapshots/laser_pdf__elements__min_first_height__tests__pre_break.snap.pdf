@@ -71,44 +71,26 @@ endobj
 
 7 0 obj
 <<
-  /Length 997
+  /Length 888
 >>
 stream
 q
-0 0 0 rg
 /F0 12 Tf
+0 0 0 rg
+BT
 1 0 0 1 22.677166 785.7594 Tm
 [(Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod )] TJ
-Q
-q
-0 0 0 rg
-/F0 12 Tf
 1 0 0 1 22.677166 773.0995 Tm
 [(tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, )] TJ
-Q
-q
-0 0 0 rg
-/F0 12 Tf
 1 0 0 1 22.677166 760.43945 Tm
 [(quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo )] TJ
-Q
-q
-0 0 0 rg
-/F0 12 Tf
 1 0 0 1 22.677166 747.77954 Tm
 [(consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse )] TJ
-Q
-q
-0 0 0 rg
-/F0 12 Tf
 1 0 0 1 22.677166 735.1195 Tm
 [(cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat )] TJ
-Q
-q
-0 0 0 rg
-/F0 12 Tf
 1 0 0 1 22.677166 722.4595 Tm
 [(non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.)] TJ
+ET
 Q
 q
 0 w
@@ -148,5 +130,5 @@ trailer
   /Root 2 0 R
 >>
 startxref
-1760
+1651
 %%EOF

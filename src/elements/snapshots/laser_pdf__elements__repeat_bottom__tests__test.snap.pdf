@@ -41,56 +41,36 @@ endobj
 
 6 0 obj
 <<
-  /Length 1012
+  /Length 886
 >>
 stream
 q
-0 0 0 rg
 /F0 32 Tf
+0 0 0 rg
+BT
 1 0 0 1 22.677166 300.0829 Tm
 [(Lorem ipsum dolor sit amet, )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 266.3229 Tm
 [(consectetur adipiscing elit, )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 232.56293 Tm
 [(sed do eiusmod tempor )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 198.80293 Tm
 [(incididunt ut labore et )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 165.04292 Tm
 [(dolore magna aliqua. Ut enim )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 131.28293 Tm
 [(ad minim veniam, quis )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 97.52293 Tm
 [(nostrud exercitation ullamco )] TJ
+ET
 Q
 q
-0 0 0 rg
 /F0 12 Tf
+0 0 0 rg
+BT
 1 0 0 1 22.677166 67.54967 Tm
 [(bottom)] TJ
+ET
 Q
 q
 0 w
@@ -144,74 +124,36 @@ endobj
 
 7 0 obj
 <<
-  /Length 1195
+  /Length 977
 >>
 stream
 q
-0 0 0 rg
 /F0 32 Tf
+0 0 0 rg
+BT
 1 0 0 1 22.677166 767.79944 Tm
 [(laboris nisi ut aliquip ex )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 734.0394 Tm
 [(ea commodo consequat. Duis )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 700.2794 Tm
 [(aute irure dolor in )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 666.5195 Tm
 [(reprehenderit in voluptate )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 632.75946 Tm
 [(velit esse cillum dolore eu )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 598.99945 Tm
 [(fugiat nulla pariatur. )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 565.23944 Tm
 [(Excepteur sint occaecat )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 531.4795 Tm
 [(cupidatat non proident, sunt )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 497.71945 Tm
 [(in culpa qui officia )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 463.95947 Tm
 [(deserunt mollit anim id est )] TJ
-Q
-q
-0 0 0 rg
-/F0 32 Tf
 1 0 0 1 22.677166 430.19946 Tm
 [(laborum.)] TJ
+ET
 Q
 q
 0 w
@@ -220,10 +162,12 @@ q
 S
 Q
 q
-0 0 0 rg
 /F0 12 Tf
+0 0 0 rg
+BT
 1 0 0 1 22.677166 400.22623 Tm
 [(bottom)] TJ
+ET
 Q
 q
 0 w
@@ -247,14 +191,14 @@ xref
 0000000091 00000 n
 0000000145 00000 n
 0000000215 00000 n
-0000001467 00000 n
+0000001340 00000 n
 0000000400 00000 n
-0000001652 00000 n
+0000001525 00000 n
 trailer
 <<
   /Size 8
   /Root 2 0 R
 >>
 startxref
-2902
+2556
 %%EOF

@@ -79,6 +79,21 @@ impl<'a, F: Font> Text<'a, F> {
         let mut line_count = 0;
         let mut draw_rect = 0;
 
+        let start = |pdf: &mut Pdf, location: &Location| {
+            let layer = location.layer(pdf);
+            layer
+                .save_state()
+                .set_font(self.font.resource_name(), self.size);
+            set_fill_color(layer, self.color);
+            layer.begin_text();
+        };
+
+        let end = |pdf: &mut Pdf, location: &Location| {
+            location.layer(pdf).end_text().restore_state();
+        };
+
+        start(ctx.pdf, &ctx.location);
+
         for line in lines {
             let line_width =
                 pt_to_mm(line.width as f32 / self.font.units_per_em() as f32 * self.size);
@@ -88,6 +103,8 @@ impl<'a, F: Font> Text<'a, F> {
 
             if height_available < line_height {
                 if let Some(ref mut breakable) = ctx.breakable {
+                    end(ctx.pdf, &ctx.location);
+
                     let new_location = (breakable.do_break)(
                         ctx.pdf,
                         draw_rect,
@@ -104,13 +121,12 @@ impl<'a, F: Font> Text<'a, F> {
                     ctx.location.page_idx = new_location.page_idx;
                     ctx.location.layer_idx = new_location.layer_idx;
                     line_count = 0;
+
+                    start(ctx.pdf, &ctx.location);
                 }
             }
 
             let layer = ctx.location.layer(ctx.pdf);
-
-            layer.save_state();
-            set_fill_color(layer, self.color);
 
             let x_offset = match self.align {
                 TextAlign::Left => 0.,
@@ -120,18 +136,16 @@ impl<'a, F: Font> Text<'a, F> {
 
             let x = x + x_offset;
 
-            layer.set_font(self.font.resource_name(), self.size);
-
             layer.set_text_matrix([1.0, 0.0, 0.0, 1.0, mm_to_pt(x), mm_to_pt(y)]);
 
             draw_line(ctx.pdf, &ctx.location, self.font, text, line);
-
-            ctx.location.layer(ctx.pdf).restore_state();
 
             y -= line_height;
             height_available -= line_height;
             line_count += 1;
         }
+
+        end(ctx.pdf, &ctx.location);
 
         (
             max_width.max(pt_to_mm(

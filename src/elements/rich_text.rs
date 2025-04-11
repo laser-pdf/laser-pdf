@@ -141,16 +141,11 @@ impl<'a, F: Font> Element for RichText<'a, F> {
 
             let layer = ctx.location.layer(ctx.pdf);
             layer.save_state();
-
-            set_fill_color(layer, frag.span.color);
-
-            let layer = ctx.location.layer(ctx.pdf);
-
-            layer.save_state();
             set_fill_color(layer, frag.span.color);
 
             layer
                 .set_font(frag.font.resource_name(), self.size)
+                .begin_text()
                 .set_text_matrix([
                     1.0,
                     0.0,
@@ -173,7 +168,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                 frag.line,
             );
 
-            ctx.location.layer(ctx.pdf).restore_state();
+            ctx.location.layer(ctx.pdf).end_text().restore_state();
         });
 
         ElementSize {
