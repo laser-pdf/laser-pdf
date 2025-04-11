@@ -15,27 +15,22 @@ pub use fake_text::FakeText;
 pub use frantic_jumper::FranticJumper;
 pub use old::*;
 
-use printpdf::{
-    indices::{PdfLayerIndex, PdfPageIndex},
-    PdfDocument,
-};
-
 use crate::{utils::max_optional_size, *};
 
 use self::build_element::{BuildElementCallback, BuildElementReturnToken};
 
 pub struct TestElementParams {
     pub width: WidthConstraint,
-    pub first_height: f64,
-    pub preferred_height: Option<f64>,
+    pub first_height: f32,
+    pub preferred_height: Option<f32>,
     pub breakable: Option<TestElementParamsBreakable>,
-    pub pos: (f64, f64),
-    pub page_size: (f64, f64),
+    pub pos: (f32, f32),
+    pub page_size: (f32, f32),
 }
 
 pub struct TestElementParamsBreakable {
     pub preferred_height_break_count: u32,
-    pub full_height: f64,
+    pub full_height: f32,
 }
 
 impl Default for TestElementParams {
@@ -72,7 +67,7 @@ pub struct ElementTestOutput {
 #[derive(Debug)]
 pub struct ElementTestOutputBreakable {
     pub break_count: u32,
-    pub extra_location_min_height: Option<f64>,
+    pub extra_location_min_height: Option<f32>,
 
     pub first_location_usage: FirstLocationUsage,
 }
@@ -100,7 +95,7 @@ impl ElementTestOutputBreakable {
 
     pub fn assert_extra_location_min_height(
         &self,
-        extra_location_min_height: Option<f64>,
+        extra_location_min_height: Option<f32>,
     ) -> &Self {
         assert_eq!(self.extra_location_min_height, extra_location_min_height);
         self
@@ -172,15 +167,11 @@ pub fn test_element(
         let measured = (measure.break_count, measure.size.height);
         let drawn = (draw.break_count, draw.size.height);
 
-        type Thing = (u32, Option<f64>);
+        type Thing = (u32, Option<f32>);
 
         fn max(a: Thing, b: Thing) -> Thing {
             // Beware of wild NaNs, they bite!
-            if a > b {
-                a
-            } else {
-                b
-            }
+            if a > b { a } else { b }
         }
 
         assert!(drawn >= measured);
@@ -251,27 +242,24 @@ pub struct DrawStats {
 }
 
 struct BreakableDrawConfig {
-    pos: (f64, f64),
-    full_height: f64,
+    pos: (f32, f32),
+    full_height: f32,
     preferred_height_break_count: u32,
 }
 
 fn draw_element<E: Element>(
     element: &E,
     width: WidthConstraint,
-    first_height: f64,
-    preferred_height: Option<f64>,
-    first_pos: (f64, f64),
-    page_size: (f64, f64),
+    first_height: f32,
+    preferred_height: Option<f32>,
+    first_pos: (f32, f32),
+    page_size: (f32, f32),
     breakable: Option<BreakableDrawConfig>,
 ) -> DrawStats {
-    let (doc, page, layer) = PdfDocument::new("test", Mm(page_size.0), Mm(page_size.1), "Layer 0");
     let mut page_idx = 0;
 
-    let mut pdf = Pdf {
-        document: doc,
-        page_size,
-    };
+    let mut pdf = Pdf::new();
+    pdf.add_page(page_size);
 
     let mut breaks = vec![];
 
@@ -279,30 +267,24 @@ fn draw_element<E: Element>(
         breaks.push(location_idx);
 
         while page_idx <= location_idx {
-            pdf.document
-                .add_page(Mm(page_size.0), Mm(page_size.1), "Layer 0");
+            pdf.add_page(page_size);
             page_idx += 1;
         }
 
-        let layer = pdf
-            .document
-            .get_page(PdfPageIndex((location_idx + 1) as usize))
-            .get_layer(PdfLayerIndex(0));
-
         Location {
-            layer,
+            page_idx: location_idx as usize + 1,
+            layer_idx: 0,
             pos: breakable.as_ref().unwrap().pos,
             scale_factor: 1.,
         }
     };
 
-    let layer = pdf.document.get_page(page).get_layer(layer);
-
     let ctx = DrawCtx {
         pdf: &mut pdf,
         width,
         location: Location {
-            layer,
+            page_idx: 0,
+            layer_idx: 0,
             pos: first_pos,
             scale_factor: 1.,
         },
@@ -328,15 +310,15 @@ fn draw_element<E: Element>(
 
 pub struct MeasureStats {
     break_count: u32,
-    extra_location_min_height: Option<f64>,
+    extra_location_min_height: Option<f32>,
     size: ElementSize,
 }
 
 pub fn measure_element<E: Element>(
     element: &E,
     width: WidthConstraint,
-    first_height: f64,
-    full_height: Option<f64>,
+    first_height: f32,
+    full_height: Option<f32>,
 ) -> MeasureStats {
     let mut break_count = 0;
     let mut extra_location_min_height = None;

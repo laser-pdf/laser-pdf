@@ -5,11 +5,11 @@ use crate::{
 
 pub struct StyledBox<'a, E: Element> {
     pub element: &'a E,
-    pub padding_left: f64,
-    pub padding_right: f64,
-    pub padding_top: f64,
-    pub padding_bottom: f64,
-    pub border_radius: f64,
+    pub padding_left: f32,
+    pub padding_right: f32,
+    pub padding_top: f32,
+    pub padding_bottom: f32,
+    pub border_radius: f32,
     pub fill: Option<u32>,
     pub outline: Option<LineStyle>,
 }
@@ -30,13 +30,13 @@ impl<'a, E: Element> StyledBox<'a, E> {
 }
 
 struct Common {
-    top: f64,
-    bottom: f64,
-    left: f64,
-    right: f64,
+    top: f32,
+    bottom: f32,
+    left: f32,
+    right: f32,
 
     inner_width_constraint: WidthConstraint,
-    width: Option<f64>,
+    width: Option<f32>,
 }
 
 impl Common {
@@ -47,7 +47,7 @@ impl Common {
         }
     }
 
-    fn height(&self, input: f64) -> f64 {
+    fn height(&self, input: f32) -> f32 {
         input - self.top - self.bottom
     }
 }
@@ -88,10 +88,8 @@ impl<'a, E: Element> StyledBox<'a, E> {
         }
     }
 
-    fn draw_box(&self, location: &Location, size: (f64, f64)) {
+    fn draw_box(&self, pdf: &mut Pdf, location: &Location, size: (f32, f32)) {
         use kurbo::{PathEl, RoundedRect, Shape};
-        use lopdf::content::Operation;
-        use printpdf::LineDashPattern;
 
         let size = (
             size.0 + self.padding_left + self.padding_right,
@@ -101,36 +99,64 @@ impl<'a, E: Element> StyledBox<'a, E> {
         let thickness = self.outline.map(|o| o.thickness).unwrap_or(0.);
         let half_thickness = thickness / 2.;
 
-        let shape = RoundedRect::new(
-            mm_to_pt(location.pos.0 + half_thickness),
-            mm_to_pt(location.pos.1 - half_thickness),
-            mm_to_pt(location.pos.0 + size.0 + thickness + half_thickness),
-            mm_to_pt(location.pos.1 - size.1 - thickness - half_thickness),
-            mm_to_pt(self.border_radius),
-        );
+        let fill_alpha = self
+            .fill
+            .map(|c| u32_to_color_and_alpha(c).1)
+            .filter(|&a| a != 1.);
 
-        let layer = &location.layer;
+        let outline_alpha = self
+            .outline
+            .map(|o| u32_to_color_and_alpha(o.color).1)
+            .filter(|&a| a != 1.);
 
-        layer.save_graphics_state();
+        location.layer(pdf).save_state();
+
+        if fill_alpha.is_some() || outline_alpha.is_some() {
+            let ext_graphics_ref = pdf.alloc();
+
+            let mut ext_graphics = pdf.pdf.ext_graphics(ext_graphics_ref);
+            fill_alpha.inspect(|&a| {
+                ext_graphics.non_stroking_alpha(a);
+            });
+            outline_alpha.inspect(|&a| {
+                ext_graphics.stroking_alpha(a);
+            });
+
+            let resource_id = pdf.pages[location.page_idx].add_ext_g_state(ext_graphics_ref);
+            drop(ext_graphics);
+            location
+                .layer(pdf)
+                .set_parameters(Name(format!("{}", resource_id).as_bytes()));
+        }
+
+        let layer = location.layer(pdf);
 
         if let Some(color) = self.fill {
-            let (color, alpha) = u32_to_color_and_alpha(color);
-            layer.set_fill_color(color);
-            layer.set_fill_alpha(alpha);
+            let (color, _) = u32_to_color_and_alpha(color);
+
+            layer.set_fill_rgb(color[0], color[1], color[2]);
         }
 
         if let Some(line_style) = self.outline {
-            // No outline alpha?
-            let (color, _alpha) = u32_to_color_and_alpha(line_style.color);
-            layer.set_outline_color(color);
-            layer.set_outline_thickness(mm_to_pt(line_style.thickness));
-            layer.set_line_cap_style(line_style.cap_style.into());
-            layer.set_line_dash_pattern(if let Some(pattern) = line_style.dash_pattern {
-                pattern.into()
-            } else {
-                LineDashPattern::default()
-            });
+            let (color, _) = u32_to_color_and_alpha(line_style.color);
+
+            layer
+                .set_line_width(mm_to_pt(thickness as f32))
+                .set_stroke_rgb(color[0], color[1], color[2])
+                .set_line_cap(line_style.cap_style.into());
+
+            if let Some(pattern) = line_style.dash_pattern {
+                layer.set_dash_pattern(pattern.dashes.map(f32::from), pattern.offset as f32);
+            }
         }
+
+        let shape = RoundedRect::new(
+            mm_to_pt(location.pos.0 + half_thickness) as f64,
+            mm_to_pt(location.pos.1 - half_thickness) as f64,
+            mm_to_pt(location.pos.0 + size.0 + thickness + half_thickness) as f64,
+            mm_to_pt(location.pos.1 - size.1 - thickness - half_thickness) as f64,
+            mm_to_pt(self.border_radius) as f64,
+        );
 
         let els = shape.path_elements(0.1);
 
@@ -141,40 +167,33 @@ impl<'a, E: Element> StyledBox<'a, E> {
 
             match el {
                 MoveTo(point) => {
-                    layer.add_op(Operation::new("m", vec![point.x.into(), point.y.into()]))
+                    layer.move_to(point.x as f32, point.y as f32);
                 }
                 LineTo(point) => {
-                    layer.add_op(Operation::new("l", vec![point.x.into(), point.y.into()]))
+                    layer.line_to(point.x as f32, point.y as f32);
                 }
-                QuadTo(a, b) => layer.add_op(
-                    // i dunno
-                    Operation::new("v", vec![a.x.into(), a.y.into(), b.x.into(), b.y.into()]),
-                ),
-                CurveTo(a, b, c) => layer.add_op(Operation::new(
-                    "c",
-                    vec![
-                        a.x.into(),
-                        a.y.into(),
-                        b.x.into(),
-                        b.y.into(),
-                        c.x.into(),
-                        c.y.into(),
-                    ],
-                )),
+                QuadTo(a, b) => {
+                    layer.cubic_to_initial(a.x as f32, a.y as f32, b.x as f32, b.y as f32);
+                }
+                CurveTo(a, b, c) => {
+                    layer.cubic_to(
+                        a.x as f32, a.y as f32, b.x as f32, b.y as f32, c.x as f32, c.y as f32,
+                    );
+                }
                 ClosePath => closed = true,
             };
         }
 
         match (self.outline.is_some(), self.fill.is_some(), closed) {
-            (true, true, true) => layer.add_op(Operation::new("b", Vec::new())),
-            (true, true, false) => layer.add_op(Operation::new("f", Vec::new())),
-            (true, false, true) => layer.add_op(Operation::new("s", Vec::new())),
-            (true, false, false) => layer.add_op(Operation::new("S", Vec::new())),
-            (false, true, _) => layer.add_op(Operation::new("f", Vec::new())),
-            _ => layer.add_op(Operation::new("n", Vec::new())),
-        }
+            (true, true, true) => layer.close_fill_nonzero_and_stroke(),
+            (true, true, false) => layer.fill_nonzero(),
+            (true, false, true) => layer.close_and_stroke(),
+            (true, false, false) => layer.stroke(),
+            (false, true, _) => layer.fill_nonzero(),
+            _ => layer.end_path(),
+        };
 
-        location.layer.restore_graphics_state();
+        layer.restore_state();
     }
 }
 
@@ -278,7 +297,7 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
                                     &(breakable.do_break)(pdf, location_idx, None)
                                 };
 
-                                self.draw_box(location, (width, height));
+                                self.draw_box(pdf, location, (width, height));
                             }
                             _ => (),
                         }
@@ -293,7 +312,7 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
             });
 
             if let (Some(width), Some(height)) = (width, size.height) {
-                self.draw_box(&last_location, (width, height));
+                self.draw_box(ctx.pdf, &last_location, (width, height));
             }
 
             size
@@ -314,7 +333,7 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
                 height: Some(height),
             } = size
             {
-                self.draw_box(&ctx.location, (width, height));
+                self.draw_box(ctx.pdf, &ctx.location, (width, height));
             }
 
             size

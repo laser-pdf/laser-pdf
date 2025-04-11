@@ -6,22 +6,22 @@ pub struct ChangingTitle<'a, F: Element, R: Element, C: Element> {
     pub first_title: &'a F,
     pub remaining_title: &'a R,
     pub content: &'a C,
-    pub gap: f64,
+    pub gap: f32,
     pub collapse: bool,
 }
 
 struct CommonBreakable {
-    full_height: f64,
+    full_height: f32,
     pre_break: bool,
     remaining_title_size: ElementSize,
-    total_remaining_title_height: f64,
+    total_remaining_title_height: f32,
     content_first_location_usage: Option<FirstLocationUsage>,
 }
 
 struct Common {
-    first_height: f64,
+    first_height: f32,
     first_title_size: ElementSize,
-    total_first_title_height: f64,
+    total_first_title_height: f32,
     breakable: Option<CommonBreakable>,
 }
 
@@ -29,8 +29,8 @@ impl<'a, F: Element, R: Element, C: Element> ChangingTitle<'a, F, R, C> {
     fn common(
         &self,
         width: WidthConstraint,
-        first_height: f64,
-        full_height: Option<f64>,
+        first_height: f32,
+        full_height: Option<f32>,
     ) -> Common {
         let bottom_first_height = full_height.unwrap_or(first_height);
 
@@ -94,7 +94,7 @@ impl<'a, F: Element, R: Element, C: Element> ChangingTitle<'a, F, R, C> {
         }
     }
 
-    fn height(&self, title_height: Option<f64>, height: Option<f64>) -> Option<f64> {
+    fn height(&self, title_height: Option<f32>, height: Option<f32>) -> Option<f32> {
         height
             .map(|h| h + self.gap)
             .or((!self.collapse).then_some(0.))
@@ -202,7 +202,6 @@ impl<'a, F: Element, R: Element, C: Element> Element for ChangingTitle<'a, F, R,
             self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location: Location {
-                    layer: location.layer,
                     pos: (
                         location.pos.0,
                         location.pos.1 - common.total_first_title_height,
@@ -296,7 +295,6 @@ impl<'a, F: Element, R: Element, C: Element> Element for ChangingTitle<'a, F, R,
                         };
 
                         Location {
-                            layer: location.layer,
                             pos: (
                                 location.pos.0,
                                 location.pos.1 - common_breakable.total_remaining_title_height,
@@ -310,7 +308,6 @@ impl<'a, F: Element, R: Element, C: Element> Element for ChangingTitle<'a, F, R,
             self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
                 location: Location {
-                    layer: ctx.location.layer,
                     pos: (
                         ctx.location.pos.0,
                         ctx.location.pos.1 - common.total_first_title_height,
@@ -370,8 +367,8 @@ mod tests {
 
     #[test]
     fn test() {
-        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let first = Text::basic("first", &font, 12.);
             let first = first.debug(1);
@@ -403,8 +400,8 @@ mod tests {
                 first_height: TestElementParams::DEFAULT_FULL_HEIGHT,
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
 
                 let first = Text::basic("first", &font, 12.);
                 let first = first.debug(1);
@@ -432,8 +429,8 @@ mod tests {
 
     #[test]
     fn test_collapse() {
-        let bytes = test_element_bytes(TestElementParams::unbreakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::unbreakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let first = Text::basic("first", &font, 12.);
             let first = first.debug(1);
@@ -460,8 +457,8 @@ mod tests {
 
     #[test]
     fn test_no_collapse() {
-        let bytes = test_element_bytes(TestElementParams::unbreakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::unbreakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let first = Text::basic("first", &font, 12.);
             let first = first.debug(1);
@@ -488,8 +485,8 @@ mod tests {
 
     #[test]
     fn test_multipage_collapse() {
-        let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
-            let font = BuiltinFont::courier(callback.document());
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
 
             let first = Text::basic("first", &font, 12.);
             let first = first.debug(1);
@@ -531,8 +528,8 @@ mod tests {
                 },
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
 
                 let title = Text::basic("title", &font, 12.);
                 let title = &title.debug(1);

@@ -188,14 +188,14 @@ impl<F: Fn(&mut RowContent)> Element for TableRow<F> {
 
 pub struct RowContent<'a, 'b, 'c> {
     width: WidthConstraint,
-    first_height: f64,
+    first_height: f32,
     pass: Pass<'a, 'b, 'c>,
 }
 
 enum Pass<'a, 'b, 'c> {
     MeasureNonExpanded {
         layout: &'a mut MeasureLayout,
-        max_height: Option<&'a mut Option<f64>>,
+        max_height: Option<&'a mut Option<f32>>,
         breakable: Option<&'a mut BreakableMeasure<'b>>,
     },
 
@@ -203,31 +203,31 @@ enum Pass<'a, 'b, 'c> {
 
     MeasureExpanded {
         layout: &'a DrawLayout,
-        max_height: &'a mut Option<f64>,
-        width: Option<&'a mut Option<f64>>,
-        gap: f64,
+        max_height: &'a mut Option<f32>,
+        width: Option<&'a mut Option<f32>>,
+        gap: f32,
         breakable: Option<&'a mut BreakableMeasure<'b>>,
     },
 
     Draw {
         layout: &'a DrawLayout,
-        max_height: &'a mut Option<f64>,
-        width: &'a mut Option<f64>,
+        max_height: &'a mut Option<f32>,
+        width: &'a mut Option<f32>,
 
-        gap: f64,
+        gap: f32,
 
         pdf: &'c mut Pdf,
         location: Location,
 
-        preferred_height: Option<f64>,
+        preferred_height: Option<f32>,
         break_count: &'a mut u32,
         breakable: Option<&'a mut BreakableDraw<'b>>,
     },
 
     DrawLines {
         layout: &'a DrawLayout,
-        height: f64,
-        width: Option<f64>,
+        height: f32,
+        width: Option<f32>,
         break_count: u32,
 
         line_style: LineStyle,
@@ -240,15 +240,15 @@ enum Pass<'a, 'b, 'c> {
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub enum Flex {
     Expand(u8),
-    Fixed(f64),
+    Fixed(f32),
 }
 
 fn add_height(
-    max_height: &mut Option<f64>,
+    max_height: &mut Option<f32>,
     breakable: Option<&mut BreakableMeasure>,
     size: ElementSize,
     break_count: u32,
-    extra_location_min_height: Option<f64>,
+    extra_location_min_height: Option<f32>,
 ) {
     if let Some(b) = breakable {
         *b.extra_location_min_height =
@@ -481,44 +481,40 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                 };
 
                 if let Some(width) = width {
-                    let draw_line = |location: &Location, height: f64| {
+                    let draw_line = |pdf: &mut Pdf, location: &Location, height: f32| {
                         let x = location.pos.0 + *width;
                         let y = location.pos.1;
 
-                        location.layer.save_graphics_state();
-                        let layer = &location.layer;
-
                         let (color, _alpha) = u32_to_color_and_alpha(line_style.color);
-                        layer.set_outline_color(color);
-                        layer.set_outline_thickness(mm_to_pt(line_style.thickness));
-                        layer.set_line_cap_style(line_style.cap_style.into());
-                        layer.set_line_dash_pattern(
-                            if let Some(pattern) = line_style.dash_pattern {
-                                pattern.into()
-                            } else {
-                                printpdf::LineDashPattern::default()
-                            },
-                        );
+                        let style = line_style;
+
+                        let layer = location.layer(pdf);
+
+                        layer
+                            .save_state()
+                            .set_line_width(mm_to_pt(style.thickness))
+                            .set_stroke_rgb(color[0], color[1], color[2])
+                            .set_line_cap(style.cap_style.into());
+
+                        if let Some(pattern) = style.dash_pattern {
+                            layer.set_dash_pattern(
+                                pattern.dashes.map(f32::from),
+                                pattern.offset as f32,
+                            );
+                        }
 
                         let line_x = x + line_style.thickness / 2.;
 
-                        location.layer.add_shape(printpdf::Line {
-                            points: vec![
-                                (printpdf::Point::new(Mm(line_x), Mm(y)), false),
-                                (printpdf::Point::new(Mm(line_x), Mm(y - height)), false),
-                            ],
-                            is_closed: false,
-                            has_fill: false,
-                            has_stroke: true,
-                            is_clipping_path: false,
-                        });
-
-                        location.layer.restore_graphics_state();
+                        layer
+                            .move_to(mm_to_pt(line_x), mm_to_pt(y))
+                            .line_to(mm_to_pt(line_x), mm_to_pt(y - height))
+                            .stroke()
+                            .restore_state();
                     };
 
                     match breakable {
                         Some(breakable) if break_count > 0 => {
-                            draw_line(location, self.first_height);
+                            draw_line(pdf, location, self.first_height);
 
                             for i in 0..break_count {
                                 let location = (breakable.do_break)(
@@ -531,6 +527,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                                     }),
                                 );
                                 draw_line(
+                                    pdf,
                                     &location,
                                     if i == break_count - 1 {
                                         height
@@ -541,7 +538,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                             }
                         }
                         _ => {
-                            draw_line(location, height);
+                            draw_line(pdf, location, height);
                         }
                     }
 

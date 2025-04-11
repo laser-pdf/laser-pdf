@@ -1,6 +1,6 @@
 use crate::*;
 
-pub struct VGap(pub f64);
+pub struct VGap(pub f32);
 
 impl Element for VGap {
     fn measure(&self, ctx: MeasureCtx) -> ElementSize {
@@ -12,7 +12,7 @@ impl Element for VGap {
     }
 }
 
-fn size(v_gap: &VGap, first_height: f64) -> ElementSize {
+fn size(v_gap: &VGap, first_height: f32) -> ElementSize {
     ElementSize {
         width: None,
         height: Some(v_gap.0.min(first_height)),

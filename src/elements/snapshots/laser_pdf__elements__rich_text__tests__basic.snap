@@ -1,0 +1,6 @@
+---
+source: src/elements/rich_text.rs
+expression: bytes
+extension: pdf
+snapshot_kind: binary
+---

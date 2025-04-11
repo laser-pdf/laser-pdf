@@ -1,4 +1,4 @@
-use printpdf::{utils::calculate_points_for_rect, Line, Rgb};
+use utils::mm_to_pt;
 
 use crate::*;
 
@@ -102,19 +102,22 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
 
                     let dashed = match size.width.zip(height) {
                         Some(solid_size) => {
-                            draw_box(location.clone(), solid_size, color, false);
+                            draw_box(ctx.pdf, location.clone(), solid_size, color, false);
                             solid_size != dashed_size
                         }
                         _ => true,
                     };
 
                     if dashed {
-                        draw_box(location, dashed_size, color, dashed);
+                        draw_box(ctx.pdf, location, dashed_size, color, dashed);
                     }
                 }
             }
         } else {
-            size = self.element.draw(ctx);
+            size = self.element.draw(DrawCtx {
+                pdf: ctx.pdf,
+                ..ctx
+            });
         }
 
         let dashed_size = (
@@ -135,7 +138,13 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
         );
 
         let dashed = if let (Some(width), Some(height)) = (size.width, size.height) {
-            draw_box(last_location.clone(), (width, height), color, false);
+            draw_box(
+                ctx.pdf,
+                last_location.clone(),
+                (width, height),
+                color,
+                false,
+            );
             dashed_size != (Some(width), Some(height))
         } else {
             true
@@ -143,7 +152,7 @@ impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
 
         if let Some((width, height)) = dashed.then_some(dashed_size.0.zip(dashed_size.1)).flatten()
         {
-            draw_box(last_location, (width, height), color, true);
+            draw_box(ctx.pdf, last_location, (width, height), color, true);
         }
 
         size
@@ -164,49 +173,29 @@ fn hue_to_rgb(hue: u8) -> [u8; 3] {
     }
 }
 
-fn calculate_color(input: u8) -> [f64; 3] {
-    hue_to_rgb(input.reverse_bits()).map(|c| c as f64 / 255.)
+fn calculate_color(input: u8) -> [f32; 3] {
+    hue_to_rgb(input.reverse_bits()).map(|c| c as f32 / 255.)
 }
 
-fn draw_box(location: Location, size: (f64, f64), color: [f64; 3], dashed: bool) {
-    let points = calculate_points_for_rect(
-        Mm(size.0),
-        Mm(size.1),
-        Mm(location.pos.0 + size.0 / 2.0),
-        Mm(location.pos.1 - size.1 / 2.0),
-    );
+fn draw_box(pdf: &mut Pdf, location: Location, size: (f32, f32), color: [f32; 3], dashed: bool) {
+    let layer = location.layer(pdf);
 
-    location.layer.save_graphics_state();
-
-    location.layer.set_outline_thickness(0.);
+    layer
+        .save_state()
+        .set_line_width(0.)
+        .set_stroke_rgb(color[0], color[1], color[2]);
 
     if dashed {
-        location
-            .layer
-            .set_line_dash_pattern(printpdf::LineDashPattern::new(
-                0,
-                Some(2),
-                Some(2),
-                None,
-                None,
-                None,
-                None,
-            ));
+        layer.set_dash_pattern([2., 2.], 0.);
     }
 
-    location
-        .layer
-        .set_outline_color(printpdf::Color::Rgb(Rgb::new(
-            color[0], color[1], color[2], None,
-        )));
-
-    location.layer.add_shape(Line {
-        points,
-        is_closed: true,
-        has_fill: false,
-        has_stroke: true,
-        is_clipping_path: false,
-    });
-
-    location.layer.restore_graphics_state();
+    layer
+        .rect(
+            mm_to_pt(location.pos.0),
+            mm_to_pt(location.pos.1 - size.1),
+            mm_to_pt(size.0),
+            mm_to_pt(size.1),
+        )
+        .stroke()
+        .restore_state();
 }

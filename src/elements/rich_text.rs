@@ -1,9 +1,9 @@
 use crate::fonts::Font;
 use crate::fonts::GeneralMetrics;
-use crate::text::remove_non_trailing_soft_hyphens;
+// use crate::text::remove_non_trailing_soft_hyphens;
 use crate::text::*;
 use crate::utils::*;
-use crate::{text::text_width, *};
+use crate::*;
 
 use serde::{Deserialize, Serialize};
 
@@ -18,257 +18,15 @@ pub struct Span {
 
 pub struct RichText<'a, F: Font> {
     pub spans: &'a [Span],
-    pub size: f64,
-    pub small_size: f64,
-    pub extra_line_height: f64,
+    pub size: f32,
+    pub small_size: f32,
+    pub extra_line_height: f32,
     pub fonts: FontSet<'a, F>,
-}
-
-pub struct LineFragment<'a, F: Font> {
-    text_full: &'a str,
-    length_full: f64,
-
-    text_trimmed: &'a str,
-    length_trimmed: f64,
-
-    font: &'a F,
-    size: f64,
-    bold: bool,
-    underline: bool,
-    color: u32,
-    ascent: f64,
-    new_line: bool,
-    x_offset: f64,
-}
-
-// These are manually implemented because the derive macro would otherwise put a Copy bound on F.
-impl<'a, F: Font> Copy for LineFragment<'a, F> {}
-
-impl<'a, F: Font> Clone for LineFragment<'a, F> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct LineFragmentTrimmed<'a, F: Font> {
-    text: &'a str,
-    length: f64,
-
-    font: &'a F,
-    size: f64,
-
-    // needed for underline thickness
-    bold: bool,
-
-    underline: bool,
-    color: u32,
-    ascent: f64,
-    new_line: bool,
-    x_offset: f64,
-}
-
-impl<'a, F: Font> RichText<'a, F> {
-    fn pieces(&'a self, width: f64) -> (impl Iterator<Item = LineFragment<'a, F>> + 'a, f64) {
-        #[derive(Copy, Clone)]
-        struct FontVars {
-            ascent: f64,
-            line_height: f64,
-        }
-
-        fn font_vars<F: Font>(font: &F, size: f64) -> FontVars {
-            let GeneralMetrics {
-                ascent,
-                line_height,
-            } = font.general_metrics();
-
-            let units_per_em = font.units_per_em() as f64;
-
-            FontVars {
-                ascent: pt_to_mm(ascent * size / units_per_em),
-                line_height: pt_to_mm(line_height * size / units_per_em),
-            }
-        }
-
-        fn mk_gen<'a, F: Font>(
-            text: &'a str,
-            font: &'a F,
-            size: f64,
-        ) -> LineGenerator<'a, impl Fn(&str) -> f64 + 'a> {
-            let text_width = move |t: &str| text_width(t, size, font, 0., 0.);
-            LineGenerator::new(text, text_width)
-        }
-
-        let regular_vars = font_vars(self.fonts.regular, self.size as f64);
-        let bold_vars = font_vars(self.fonts.bold, self.size as f64);
-        let italic_vars = font_vars(self.fonts.italic, self.size as f64);
-        let bold_italic_vars = font_vars(self.fonts.bold_italic, self.size as f64);
-
-        let line_height = regular_vars
-            .line_height
-            .max(bold_vars.line_height)
-            .max(italic_vars.line_height)
-            .max(bold_italic_vars.line_height);
-
-        let mut spans = self.spans.iter();
-        let mut generator = None;
-
-        #[derive(PartialEq, Eq)]
-        enum LineState {
-            FirstLine,
-            InLine,
-            LineDone,
-        }
-
-        use LineState::*;
-
-        let mut line_state = FirstLine;
-
-        let mut x_offset = 0.;
-
-        (
-            std::iter::from_fn(move || {
-                loop {
-                    match generator {
-                        None => {
-                            if let Some(span) = spans.next() {
-                                // this way we make sure the generator has at least one item
-                                if span.text.len() > 0 {
-                                    let (font, font_vars): (&F, FontVars) =
-                                        match (span.bold, span.italic) {
-                                            (false, false) => (self.fonts.regular, regular_vars),
-                                            (false, true) => (self.fonts.italic, italic_vars),
-                                            (true, false) => (self.fonts.bold, bold_vars),
-                                            (true, true) => {
-                                                (self.fonts.bold_italic, bold_italic_vars)
-                                            }
-                                        };
-
-                                    generator = Some((
-                                        mk_gen(&span.text, font, self.size),
-                                        font,
-                                        font_vars,
-                                        span.bold,
-                                        span.italic,
-                                        span.underline,
-                                        span.color,
-                                    ));
-                                }
-                            } else {
-                                break None;
-                            }
-                        }
-                        Some((ref mut gen, font, font_vars, bold, _italic, underline, color)) => {
-                            let next = if let FirstLine | LineDone = line_state {
-                                gen.next(mm_to_pt(width), false)
-                            } else {
-                                gen.next(mm_to_pt(width - x_offset).max(0.), true)
-                            };
-
-                            if let Some(next) = next {
-                                let new_line = line_state == LineDone;
-                                line_state = LineDone;
-
-                                let trimmed = next.trim_end();
-                                let length_trimmed =
-                                    pt_to_mm(text_width(trimmed, self.size, font, 0., 0.));
-                                let length_full = length_trimmed
-                                    + pt_to_mm(text_width(
-                                        &next[trimmed.len()..],
-                                        self.size,
-                                        font,
-                                        0.,
-                                        0.,
-                                    ));
-
-                                let ret_x_offset = if new_line { 0. } else { x_offset };
-                                x_offset = if new_line {
-                                    length_full
-                                } else {
-                                    x_offset + length_full
-                                };
-
-                                break Some(LineFragment {
-                                    text_full: next,
-                                    length_full,
-
-                                    text_trimmed: trimmed,
-                                    length_trimmed,
-
-                                    font,
-                                    size: self.size,
-                                    bold,
-                                    underline,
-                                    color,
-                                    ascent: font_vars.ascent,
-                                    new_line,
-                                    x_offset: ret_x_offset,
-                                });
-                            } else {
-                                generator = None;
-                                line_state = InLine;
-                            }
-                        }
-                    }
-                }
-            })
-            .filter(|i| i.new_line || i.text_trimmed.len() != 0),
-            line_height,
-        )
-    }
-
-    fn pieces_trimmed(
-        &'a self,
-        width: f64,
-    ) -> (impl Iterator<Item = LineFragmentTrimmed<'a, F>> + 'a, f64) {
-        let (mut iter, line_height) = self.pieces(width);
-
-        let mut last = iter.next();
-
-        (
-            std::iter::from_fn(move || {
-                if let Some(last_frag) = last {
-                    last = iter.next();
-
-                    let trim = if let Some(new) = last {
-                        new.new_line
-                    } else {
-                        true
-                    };
-
-                    Some(LineFragmentTrimmed {
-                        text: if trim {
-                            last_frag.text_trimmed
-                        } else {
-                            last_frag.text_full
-                        },
-                        length: if trim {
-                            last_frag.length_trimmed
-                        } else {
-                            last_frag.length_full
-                        },
-
-                        font: last_frag.font,
-                        size: last_frag.size,
-                        bold: last_frag.bold,
-                        underline: last_frag.underline,
-                        color: last_frag.color,
-                        ascent: last_frag.ascent,
-                        new_line: last_frag.new_line,
-                        x_offset: last_frag.x_offset,
-                    })
-                } else {
-                    None
-                }
-            }),
-            line_height,
-        )
-    }
 }
 
 impl<'a, F: Font> Element for RichText<'a, F> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        let (_, line_height) = self.pieces_trimmed(ctx.width.max);
+        let line_height = self.line_height();
         let line_height = line_height + self.extra_line_height;
 
         if ctx.first_height < line_height {
@@ -281,7 +39,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let mut max_width = ctx.width.constrain(0.);
 
-        let (iter, line_height) = self.pieces_trimmed(ctx.width.max);
+        let line_height = self.line_height();
         let line_height = line_height + self.extra_line_height;
 
         let mut height_available = ctx.first_height;
@@ -295,10 +53,11 @@ impl<'a, F: Font> Element for RichText<'a, F> {
 
         let mut line_count = 1;
 
-        for frag in iter {
-            let line_width = frag.length;
+        let mut last_line_full_width = 0.;
 
-            max_width = max_width.max(frag.x_offset + line_width);
+        self.line_fragments(ctx.width.max, |frag| {
+            max_width = max_width.max(frag.x_offset + frag.length);
+            last_line_full_width = frag.x_offset + frag.full_length;
 
             if frag.new_line {
                 match ctx.breakable {
@@ -314,18 +73,18 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                     }
                 }
             }
-        }
+        });
 
         ElementSize {
-            width: Some(max_width),
-            height: Some(line_count as f64 * line_height),
+            width: Some(max_width.max(last_line_full_width)),
+            height: Some(line_count as f32 * line_height),
         }
     }
 
     fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         let mut max_width = ctx.width.constrain(0.);
 
-        let (iter, line_height) = self.pieces_trimmed(ctx.width.max);
+        let line_height = self.line_height();
         let line_height = line_height + self.extra_line_height;
 
         let mut x = ctx.location.pos.0;
@@ -342,18 +101,18 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                 x = new_location.pos.0;
                 y = new_location.pos.1;
                 height_available = breakable.full_height;
-                ctx.location.layer = new_location.layer;
+                ctx.location.page_idx = new_location.page_idx;
+                ctx.location.layer_idx = new_location.layer_idx;
             }
         }
 
         let mut line_count = 1;
 
-        for frag in iter {
-            let pdf_font = &frag.font.indirect_font_ref();
+        let mut last_line_full_width = 0.;
 
-            let line_width = frag.length;
-
-            max_width = max_width.max(frag.x_offset + line_width);
+        self.line_fragments(ctx.width.max, |frag| {
+            max_width = max_width.max(frag.x_offset + frag.length);
+            last_line_full_width = frag.x_offset + frag.full_length;
 
             if frag.new_line {
                 match ctx.breakable {
@@ -361,14 +120,15 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                         let new_location = (breakable.do_break)(
                             ctx.pdf,
                             draw_rect,
-                            Some(line_count as f64 * line_height),
+                            Some(line_count as f32 * line_height),
                         );
                         draw_rect += 1;
 
                         x = new_location.pos.0;
                         y = new_location.pos.1;
                         height_available = breakable.full_height;
-                        ctx.location.layer = new_location.layer;
+                        ctx.location.page_idx = new_location.page_idx;
+                        ctx.location.layer_idx = new_location.layer_idx;
                         line_count = 1;
                     }
                     _ => {
@@ -379,149 +139,607 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                 }
             }
 
-            ctx.location.layer.save_graphics_state();
-            ctx.location
-                .layer
-                .set_fill_color(u32_to_color_and_alpha(frag.color).0);
-            ctx.location.layer.use_text(
-                &remove_non_trailing_soft_hyphens(frag.text),
-                frag.size,
-                Mm(x + frag.x_offset),
-                Mm(y - frag.ascent),
-                pdf_font,
+            let layer = ctx.location.layer(ctx.pdf);
+            layer.save_state();
+
+            set_fill_color(layer, frag.span.color);
+
+            let layer = ctx.location.layer(ctx.pdf);
+
+            layer.save_state();
+            set_fill_color(layer, frag.span.color);
+
+            layer
+                .set_font(frag.font.resource_name(), self.size)
+                .set_text_matrix([
+                    1.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    mm_to_pt(x + frag.x_offset),
+                    // TODO: To make the baselines align we'd need also need to add the line gap of
+                    // the font here.
+                    mm_to_pt(
+                        y - line_height + self.extra_line_height + frag.font_vars.line_height
+                            - frag.font_vars.ascent,
+                    ),
+                ]);
+
+            draw_line(
+                ctx.pdf,
+                &ctx.location,
+                frag.font,
+                &frag.span.text,
+                frag.line,
             );
 
-            // This isn't quite correct currently. The truetype format has underline position and
-            // thickness information in the `post` table. This information is however not
-            // exposed in the `stb_truetype` crate. To get this information we'll have to switch
-            // to another crate, such as `ttf-parser`, which exposes the `post` table and the
-            // underline information. For now we'll just use some hard-coded values that look
-            // mostly right.
-            if frag.underline {
-                ctx.location
-                    .layer
-                    .set_outline_color(u32_to_color_and_alpha(frag.color).0);
-                crate::utils::line(
-                    &ctx.location.layer,
-                    [x + frag.x_offset, y - frag.ascent - 1.0],
-                    pt_to_mm(text_width(frag.text, frag.size, frag.font, 0., 0.)),
-                    pt_to_mm(if frag.bold { 1.0 } else { 0.5 }),
-                );
-            }
-            ctx.location.layer.restore_graphics_state();
-        }
+            ctx.location.layer(ctx.pdf).restore_state();
+        });
 
         ElementSize {
-            width: Some(max_width),
-            height: Some(line_count as f64 * line_height),
+            width: Some(max_width.max(last_line_full_width)),
+            height: Some(line_count as f32 * line_height),
         }
+    }
+}
+
+struct LineFragment<'a, F: Font> {
+    font: &'a F,
+    font_vars: &'a FontVars,
+
+    span: &'a Span,
+    line: Line<F::Shaped<'a>>,
+
+    /// Whether the fragment goes on a new line. So the line breaking has to happen before the
+    /// fragment, not after.
+    new_line: bool,
+
+    length: f32,
+
+    x_offset: f32,
+    full_length: f32,
+}
+
+impl<'a, F: Font> RichText<'a, F> {
+    // Currently has to be an internal iterator because of LineGenerator, which works with a
+    // callback. We'll probably have to change this at some point if we want to support justified
+    // text. But for that we'll also need to solve the problem of the unicode segmentation iterator
+    // not being cloneable.
+    fn line_fragments(&self, width: f32, mut f: impl for<'b> FnMut(LineFragment<'b, F>)) {
+        let regular_vars = font_vars(self.fonts.regular, self.size as f32);
+        let bold_vars = font_vars(self.fonts.bold, self.size as f32);
+        let italic_vars = font_vars(self.fonts.italic, self.size as f32);
+        let bold_italic_vars = font_vars(self.fonts.bold_italic, self.size as f32);
+
+        #[derive(PartialEq, Eq, Debug)]
+        enum LineState {
+            FirstLine,
+            InLine,
+            LineDone,
+        }
+
+        use LineState::*;
+
+        let mut line_state = FirstLine;
+
+        let mut x_offset_pt = 0.;
+
+        for (i, span) in self.spans.iter().enumerate() {
+            let (font, font_vars): (&F, FontVars) = match (span.bold, span.italic) {
+                (false, false) => (self.fonts.regular, regular_vars),
+                (false, true) => (self.fonts.italic, italic_vars),
+                (true, false) => (self.fonts.bold, bold_vars),
+                (true, true) => (self.fonts.bold_italic, bold_italic_vars),
+            };
+
+            let mut last_line_empty = true;
+
+            LineGenerator::new(
+                font,
+                0,
+                0,
+                // We want to consider trailing whitespace at the end of the whole text, but at the
+                // end of a span that's in the middle. It's a bit weird, but we don't want trailing
+                // whitespace to take up width in general, spaces at the end of the text can be used
+                // for layout purposes (for example when putting them in a row with other elements;
+                // mostly just a single line, but special casing single lines would be more
+                // confusing).
+                i + 1 == self.spans.len(),
+                &span.text,
+                |mut generator| {
+                    while let Some(line) = generator.next(
+                        // The ceil is to prevent rounding errors from causing problems in cases where the
+                        // element gets measured and then the measured width gets used for draw, such as in
+                        // HAlign.
+                        ((mm_to_pt(width)
+                            - (line_state == InLine).then_some(x_offset_pt).unwrap_or(0.))
+                            / self.size
+                            * font.units_per_em() as f32)
+                            .ceil() as u32,
+                        line_state == InLine,
+                    ) {
+                        if line_state != InLine {
+                            x_offset_pt = 0.;
+                        }
+
+                        let length =
+                            pt_to_mm(line.width as f32 / font.units_per_em() as f32 * self.size);
+
+                        let full_length = pt_to_mm(
+                            (line.width + line.trailing_whitespace_width) as f32
+                                / font.units_per_em() as f32
+                                * self.size,
+                        );
+
+                        let width = line.width;
+                        let trailing_whitespace_width = line.trailing_whitespace_width;
+
+                        last_line_empty = last_line_empty && line.empty;
+
+                        // We need empty parts at the beginning of lines, otherwise trailing newlines
+                        // on spans don't work. The reason we filter out empty fragments at all is so
+                        // that we don't need add trailing whitespace to the width.
+                        if !line.empty || line_state != InLine {
+                            f(LineFragment {
+                                font,
+                                font_vars: &font_vars,
+                                span,
+                                line,
+                                new_line: line_state == LineDone,
+                                x_offset: pt_to_mm(x_offset_pt),
+                                length,
+                                full_length,
+                            });
+                        }
+
+                        x_offset_pt += (width + trailing_whitespace_width) as f32
+                            / font.units_per_em() as f32
+                            * self.size;
+                        line_state = LineDone;
+                    }
+                },
+            );
+
+            line_state = if last_line_empty { FirstLine } else { InLine };
+        }
+    }
+
+    fn line_height(&self) -> f32 {
+        let regular_vars = font_vars(self.fonts.regular, self.size as f32);
+        let bold_vars = font_vars(self.fonts.bold, self.size as f32);
+        let italic_vars = font_vars(self.fonts.italic, self.size as f32);
+        let bold_italic_vars = font_vars(self.fonts.bold_italic, self.size as f32);
+
+        regular_vars
+            .line_height
+            .max(bold_vars.line_height)
+            .max(italic_vars.line_height)
+            .max(bold_italic_vars.line_height)
+    }
+}
+
+#[derive(Copy, Clone)]
+struct FontVars {
+    ascent: f32,
+    line_height: f32,
+}
+
+fn font_vars<F: Font>(font: &F, size: f32) -> FontVars {
+    let GeneralMetrics {
+        ascent,
+        line_height,
+    } = font.general_metrics();
+
+    let units_per_em = font.units_per_em() as f32;
+
+    FontVars {
+        ascent: pt_to_mm(ascent as f32 * size / units_per_em),
+        line_height: pt_to_mm(line_height as f32 * size / units_per_em),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use printpdf::PdfDocument;
+    use elements::column::{Column, ColumnContent};
+    use fonts::{ShapedGlyph, truetype::TruetypeFont};
+    use insta::*;
 
-    use crate::{
-        fonts::builtin::BuiltinFont,
-        test_utils::{ElementProxy, ElementTestParams},
-    };
+    use crate::test_utils::binary_snapshots::*;
 
     use super::*;
 
-    #[test]
-    fn test_rich_text() {
-        // A fake document for adding the fonts to.
-        let doc = PdfDocument::empty("i contain a font");
+    #[derive(Debug)]
+    struct FakeFont;
 
-        let text_element = RichText {
+    #[derive(Clone, Debug)]
+    struct FakeShaped<'a> {
+        // last: usize,
+        inner: std::str::CharIndices<'a>,
+    }
+
+    impl<'a> Iterator for FakeShaped<'a> {
+        type Item = ShapedGlyph;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if let Some((i, c)) = self.inner.next() {
+                Some(ShapedGlyph {
+                    unsafe_to_break: false,
+                    glyph_id: c as u32,
+                    text_range: i..i + c.len_utf8(),
+                    x_advance_font: if matches!(c, '\u{00ad}') { 0 } else { 1 },
+                    x_advance: if matches!(c, '\u{00ad}') { 0 } else { 1 },
+                    x_offset: 0,
+                    y_offset: 0,
+                    y_advance: 0,
+                })
+            } else {
+                None
+            }
+        }
+    }
+
+    impl Font for FakeFont {
+        type Shaped<'a>
+            = FakeShaped<'a>
+        where
+            Self: 'a;
+
+        fn shape<'a>(&'a self, text: &'a str, _: i32, _: i32) -> Self::Shaped<'a> {
+            FakeShaped {
+                inner: text.char_indices(),
+            }
+        }
+
+        fn encode(&self, _: &mut crate::Pdf, _: u32, _: &str) -> crate::fonts::EncodedGlyph {
+            unimplemented!()
+        }
+
+        fn resource_name(&self) -> pdf_writer::Name {
+            unimplemented!()
+        }
+
+        fn general_metrics(&self) -> GeneralMetrics {
+            GeneralMetrics {
+                ascent: 0,
+                line_height: 1,
+            }
+        }
+
+        fn units_per_em(&self) -> u16 {
+            1
+        }
+    }
+
+    #[test]
+    fn test_line_fragments() {
+        let font = FakeFont;
+
+        let element = RichText {
             spans: &[
                 Span {
-                    text: "Lorem ip".to_string(),
+                    text: "Where are ".to_string(),
                     bold: false,
                     italic: false,
                     underline: false,
-                    color: 0,
+                    color: 0x00_00_00_FF,
                 },
                 Span {
-                    text: "sum dol ".to_string(),
+                    text: "they".to_string(),
                     bold: true,
-                    italic: true,
+                    italic: false,
                     underline: false,
-                    color: 0,
+                    color: 0x00_00_FF_FF,
                 },
                 Span {
-                    text: "or sit amet".to_string(),
-                    bold: true,
-                    italic: true,
+                    text: "\n".to_string(),
+                    bold: false,
+                    italic: false,
                     underline: false,
-                    color: 0,
+                    color: 0x00_00_FF_FF,
+                },
+                Span {
+                    text: "at?".to_string(),
+                    bold: false,
+                    italic: false,
+                    underline: false,
+                    color: 0xFF_00_00_FF,
                 },
             ],
-            size: 12.,
-            small_size: 12.,
-            extra_line_height: 12.,
+            size: 1.,
+            small_size: 1.,
+            extra_line_height: 0.,
             fonts: FontSet {
-                regular: &BuiltinFont::courier(&doc),
-                bold: &BuiltinFont::courier_bold(&doc),
-                italic: &BuiltinFont::courier_oblique(&doc),
-                bold_italic: &BuiltinFont::courier_bold_oblique(&doc),
+                regular: &font,
+                bold: &font,
+                italic: &font,
+                bold_italic: &font,
             },
         };
 
-        // Should be broken into lines like this:
-        // Lorem
-        // ipsum
-        // dol or
-        // sit
-        // amet
-
-        let element = ElementProxy {
-            before_draw: &|ctx: &mut DrawCtx| {
-                // These seem to be stored in a map by name and when drawing a font with the same
-                // needs to exist in the document being drawn on.
-                ctx.pdf
-                    .document
-                    .add_builtin_font(printpdf::BuiltinFont::Courier)
-                    .unwrap();
-                ctx.pdf
-                    .document
-                    .add_builtin_font(printpdf::BuiltinFont::CourierBold)
-                    .unwrap();
-                ctx.pdf
-                    .document
-                    .add_builtin_font(printpdf::BuiltinFont::CourierOblique)
-                    .unwrap();
-                ctx.pdf
-                    .document
-                    .add_builtin_font(printpdf::BuiltinFont::CourierBoldOblique)
-                    .unwrap();
-            },
-            ..ElementProxy::new(text_element)
-        };
-
-        // Since courier is a monospace font all letters should be the same width which makes our
-        // math easier.
-        let letter_width = 2.5400016;
-        let line_height = 16.466169479999998;
-
-        for mut output in (ElementTestParams {
-            first_height: 2.,
-            full_height: line_height,
-            width: letter_width * 6.5,
-            ..Default::default()
-        })
-        .run(&element)
-        {
-            if let Some(ref mut b) = output.breakable {
-                b.assert_break_count(if output.first_height == 2. { 5 } else { 4 });
-            }
-
-            output.assert_size(ElementSize {
-                width: Some(output.width.constrain(letter_width * 6.)),
-
-                height: Some(line_height * if output.breakable.is_some() { 1. } else { 5. }),
-            });
+        #[derive(Debug)]
+        #[allow(dead_code)]
+        struct Frag {
+            new_line: bool,
+            text: String,
+            x_offset: f32,
+            span: usize,
+            empty: bool,
         }
+
+        let collect = |width: f32| -> Vec<Frag> {
+            let mut results = Vec::new();
+
+            element.line_fragments(width, |mut fragment| {
+                let empty = fragment.line.empty;
+                let text = if let Some(first) = fragment.line.next() {
+                    let last = fragment.line.last();
+
+                    &fragment.span.text[first.text_range.start
+                        ..last.map_or(first.text_range.end, |l| l.text_range.end)]
+                } else {
+                    ""
+                };
+
+                results.push(Frag {
+                    text: text.to_string(),
+                    new_line: fragment.new_line,
+                    x_offset: mm_to_pt(fragment.x_offset),
+                    span: element
+                        .spans
+                        .iter()
+                        .enumerate()
+                        .find_map(|(i, span)| std::ptr::eq(span, fragment.span).then_some(i))
+                        .unwrap(),
+                    empty,
+                });
+            });
+
+            results
+        };
+
+        assert_debug_snapshot!(collect(0.), @r#"
+        [
+            Frag {
+                new_line: false,
+                text: "Where ",
+                x_offset: 0.0,
+                span: 0,
+                empty: false,
+            },
+            Frag {
+                new_line: true,
+                text: "are ",
+                x_offset: 0.0,
+                span: 0,
+                empty: false,
+            },
+            Frag {
+                new_line: true,
+                text: "they",
+                x_offset: 0.0,
+                span: 1,
+                empty: false,
+            },
+            Frag {
+                new_line: true,
+                text: "",
+                x_offset: 0.0,
+                span: 2,
+                empty: true,
+            },
+            Frag {
+                new_line: false,
+                text: "at?",
+                x_offset: 0.0,
+                span: 3,
+                empty: false,
+            },
+        ]
+        "#);
+        assert_debug_snapshot!(collect(2.8), @r#"
+        [
+            Frag {
+                new_line: false,
+                text: "Where ",
+                x_offset: 0.0,
+                span: 0,
+                empty: false,
+            },
+            Frag {
+                new_line: true,
+                text: "are ",
+                x_offset: 0.0,
+                span: 0,
+                empty: false,
+            },
+            Frag {
+                new_line: false,
+                text: "they",
+                x_offset: 4.0,
+                span: 1,
+                empty: false,
+            },
+            Frag {
+                new_line: true,
+                text: "",
+                x_offset: 0.0,
+                span: 2,
+                empty: true,
+            },
+            Frag {
+                new_line: false,
+                text: "at?",
+                x_offset: 0.0,
+                span: 3,
+                empty: false,
+            },
+        ]
+        "#);
+        assert_debug_snapshot!(collect(13.), @r#"
+        [
+            Frag {
+                new_line: false,
+                text: "Where are ",
+                x_offset: 0.0,
+                span: 0,
+                empty: false,
+            },
+            Frag {
+                new_line: false,
+                text: "they",
+                x_offset: 10.0,
+                span: 1,
+                empty: false,
+            },
+            Frag {
+                new_line: true,
+                text: "",
+                x_offset: 0.0,
+                span: 2,
+                empty: true,
+            },
+            Frag {
+                new_line: false,
+                text: "at?",
+                x_offset: 0.0,
+                span: 3,
+                empty: false,
+            },
+        ]
+        "#);
+    }
+
+    #[test]
+    fn test_truetype() {
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let regular =
+                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Future.ttf"));
+            let bold =
+                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+
+            let rich_text = RichText {
+                spans: &[
+                    Span {
+                        text: "Where are ".to_string(),
+                        bold: false,
+                        italic: false,
+                        underline: false,
+                        color: 0x00_00_00_FF,
+                    },
+                    Span {
+                        text: "they".to_string(),
+                        bold: true,
+                        italic: false,
+                        underline: false,
+                        color: 0x00_00_FF_FF,
+                    },
+                    Span {
+                        text: "\n".to_string(),
+                        bold: true,
+                        italic: false,
+                        underline: false,
+                        color: 0x00_00_FF_FF,
+                    },
+                    Span {
+                        text: "at?".to_string(),
+                        bold: false,
+                        italic: false,
+                        underline: false,
+                        color: 0xFF_00_00_FF,
+                    },
+                ],
+                size: 12.,
+                small_size: 8.,
+                extra_line_height: 0.,
+                fonts: FontSet {
+                    regular: &regular,
+                    bold: &bold,
+                    italic: &regular,
+                    bold_italic: &bold,
+                },
+            };
+
+            let list = Column {
+                gap: 16.,
+                collapse: false,
+                content: |content: ColumnContent| {
+                    content
+                        .add(&rich_text.debug(0))?
+                        .add(&Padding::right(140., &rich_text.debug(1).show_max_width()))?
+                        .add(&Padding::right(160., &rich_text.debug(2).show_max_width()))?
+                        .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
+                        .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;
+                    None
+                },
+            };
+
+            callback.call(&list);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
+    fn test_truetype_trailing_whitespace() {
+        let mut params = TestElementParams::breakable();
+        params.width.expand = false;
+
+        let bytes = test_element_bytes(params, |mut callback| {
+            let regular =
+                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Future.ttf"));
+            let bold =
+                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+
+            let rich_text = RichText {
+                spans: &[
+                    Span {
+                        text: "Where are ".to_string(),
+                        bold: false,
+                        italic: false,
+                        underline: false,
+                        color: 0x00_00_00_FF,
+                    },
+                    Span {
+                        text: "they ".to_string(),
+                        bold: true,
+                        italic: false,
+                        underline: false,
+                        color: 0x00_FF_00_FF,
+                    },
+                    Span {
+                        text: "at?        ".to_string(),
+                        bold: false,
+                        italic: false,
+                        underline: false,
+                        color: 0xFF_00_00_FF,
+                    },
+                ],
+                size: 12.,
+                small_size: 8.,
+                extra_line_height: 0.,
+                fonts: FontSet {
+                    regular: &regular,
+                    bold: &bold,
+                    italic: &regular,
+                    bold_italic: &bold,
+                },
+            };
+
+            let list = Column {
+                gap: 16.,
+                collapse: false,
+                content: |content: ColumnContent| {
+                    content
+                        .add(&rich_text.debug(0))?
+                        .add(&Padding::right(145., &rich_text.debug(1).show_max_width()))?
+                        .add(&Padding::right(160., &rich_text.debug(2).show_max_width()))?
+                        .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
+                        .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;
+                    None
+                },
+            };
+
+            callback.call(&list);
+        });
+        assert_binary_snapshot!(".pdf", bytes);
     }
 }

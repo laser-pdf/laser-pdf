@@ -2,10 +2,10 @@ use crate::*;
 
 pub struct Page<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> {
     pub primary: &'a P,
-    pub border_left: f64,
-    pub border_right: f64,
-    pub border_top: f64,
-    pub border_bottom: f64,
+    pub border_left: f32,
+    pub border_right: f32,
+    pub border_top: f32,
+    pub border_bottom: f32,
     pub decoration_elements: D,
 }
 
@@ -173,11 +173,11 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for P
 }
 
 impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Page<'a, P, D> {
-    fn width(&self, width: WidthConstraint) -> f64 {
+    fn width(&self, width: WidthConstraint) -> f32 {
         width.max - self.border_left - self.border_right
     }
 
-    fn height(&self, full_height: f64) -> f64 {
+    fn height(&self, full_height: f32) -> f32 {
         full_height - self.border_top - self.border_bottom
     }
 }
@@ -185,28 +185,27 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Page<'a, P, D
 pub struct DecorationElements<'a> {
     pdf: &'a mut Pdf,
     location: Location,
-    width: f64,
-    height: f64,
+    width: f32,
+    height: f32,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum X {
-    Left(f64),
-    Right(f64),
+    Left(f32),
+    Right(f32),
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Y {
-    Top(f64),
-    Bottom(f64),
+    Top(f32),
+    Bottom(f32),
 }
 
 impl<'a> DecorationElements<'a> {
-    pub fn add(&mut self, element: &impl Element, pos: (X, Y), width: Option<f64>) {
+    pub fn add(&mut self, element: &impl Element, pos: (X, Y), width: Option<f32>) {
         element.draw(DrawCtx {
             pdf: self.pdf,
             location: Location {
-                layer: self.location.layer.clone(),
                 pos: (
                     match pos.0 {
                         X::Left(left) => self.location.pos.0 + left,

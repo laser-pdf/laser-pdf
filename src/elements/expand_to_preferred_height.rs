@@ -100,8 +100,8 @@ mod tests {
                 }),
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
 
                 let content = Text::basic(LOREM_IPSUM, &font, 32.);
                 let content = content.debug(1);
@@ -123,8 +123,8 @@ mod tests {
                 }),
                 ..TestElementParams::breakable()
             },
-            |callback| {
-                let font = BuiltinFont::courier(callback.document());
+            |mut callback| {
+                let font = BuiltinFont::courier(callback.pdf());
 
                 let content = Text::basic(LOREM_IPSUM, &font, 12.);
                 let content = content.debug(1);

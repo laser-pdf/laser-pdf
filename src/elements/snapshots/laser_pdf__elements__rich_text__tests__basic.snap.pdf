@@ -1,0 +1,168 @@
+%PDF-1.7
+%€€€€
+
+1 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Courier
+>>
+endobj
+
+2 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Courier-Bold
+>>
+endobj
+
+3 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Courier-Oblique
+>>
+endobj
+
+4 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Courier-BoldOblique
+>>
+endobj
+
+5 0 obj
+<<
+  /Type /Catalog
+  /Pages 6 0 R
+>>
+endobj
+
+6 0 obj
+<<
+  /Type /Pages
+  /Kids [7 0 R]
+  /Count 1
+>>
+endobj
+
+7 0 obj
+<<
+  /Type /Page
+  /Parent 6 0 R
+  /MediaBox [0 0 595.2756 841.8898]
+  /Contents [8 0 R]
+  /Resources <<
+    /ExtGState <<>>
+    /Font <<
+      /F0 1 0 R
+      /F1 2 0 R
+      /F2 3 0 R
+      /F3 4 0 R
+    >>
+  >>
+>>
+endobj
+
+8 0 obj
+<<
+  /Length 1030
+>>
+stream
+q
+0 0 0 RG
+/F1 12 Tf
+BT
+22.677166 318.0909 Td
+(Lorem) Tj
+ET
+0.70555556 w
+22.677166 315.25626 m
+58.677166 315.25626 l
+S
+Q
+q
+0 0 0 RG
+/F0 12 Tf
+BT
+58.677166 318.0429 Td
+( ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod) Tj
+ET
+Q
+q
+0 0 0 RG
+/F0 12 Tf
+BT
+22.677166 305.3829 Td
+(tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,) Tj
+ET
+Q
+q
+0 0 0 RG
+/F0 12 Tf
+BT
+22.677166 292.7229 Td
+(quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo) Tj
+ET
+Q
+q
+0 0 0 RG
+/F0 12 Tf
+BT
+22.677166 280.06293 Td
+(consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse) Tj
+ET
+Q
+q
+0 0 0 RG
+/F0 12 Tf
+BT
+22.677166 267.40292 Td
+(cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat) Tj
+ET
+Q
+q
+0 0 0 RG
+/F0 12 Tf
+BT
+22.677166 254.74295 Td
+(non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.) Tj
+ET
+Q
+q
+0 w
+1 0 0 RG
+22.677166 252.85892 549.92126 75.96 re
+S
+Q
+q
+0 w
+1 0 0 RG
+[2 2] 0 d
+22.677166 45.354332 549.92126 283.46457 re
+S
+Q
+endstream
+endobj
+
+xref
+0 9
+0000000000 65535 f
+0000000016 00000 n
+0000000091 00000 n
+0000000171 00000 n
+0000000254 00000 n
+0000000341 00000 n
+0000000395 00000 n
+0000000459 00000 n
+0000000692 00000 n
+trailer
+<<
+  /Size 9
+  /Root 5 0 R
+>>
+startxref
+1777
+%%EOF

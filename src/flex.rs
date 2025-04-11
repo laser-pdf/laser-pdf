@@ -1,13 +1,13 @@
 pub struct MeasureLayout {
-    width: f64,
-    gap: f64,
+    width: f32,
+    gap: f32,
     total_flex: u8,
     no_expand_count: u8,
-    no_expand_width: f64,
+    no_expand_width: f32,
 }
 
 impl MeasureLayout {
-    pub fn new(width: f64, gap: f64) -> Self {
+    pub fn new(width: f32, gap: f32) -> Self {
         MeasureLayout {
             width,
             gap,
@@ -17,7 +17,7 @@ impl MeasureLayout {
         }
     }
 
-    pub fn add_fixed(&mut self, width: f64) {
+    pub fn add_fixed(&mut self, width: f32) {
         self.no_expand_count += 1;
         self.no_expand_width += width;
     }
@@ -27,11 +27,11 @@ impl MeasureLayout {
         self.total_flex += fraction;
     }
 
-    pub fn no_expand_width(&self) -> Option<f64> {
+    pub fn no_expand_width(&self) -> Option<f32> {
         if self.no_expand_count == 0 {
             None
         } else {
-            Some(self.no_expand_width + self.gap * (self.no_expand_count - 1) as f64)
+            Some(self.no_expand_width + self.gap * (self.no_expand_count - 1) as f32)
         }
     }
 
@@ -48,7 +48,7 @@ impl MeasureLayout {
         // gaps and then we do the math normally.
 
         let remaining_width =
-            (self.width + self.gap - self.no_expand_width - self.gap * self.no_expand_count as f64)
+            (self.width + self.gap - self.no_expand_width - self.gap * self.no_expand_count as f32)
                 .max(0.);
 
         DrawLayout {
@@ -62,13 +62,13 @@ impl MeasureLayout {
 #[derive(Copy, Clone)]
 pub struct DrawLayout {
     total_flex: u8,
-    gap: f64,
-    remaining_width: f64,
+    gap: f32,
+    remaining_width: f32,
 }
 
 impl DrawLayout {
-    pub fn expand_width(&self, fraction: u8) -> f64 {
-        (self.remaining_width * fraction as f64 / self.total_flex as f64 - self.gap).max(0.)
+    pub fn expand_width(&self, fraction: u8) -> f32 {
+        (self.remaining_width * fraction as f32 / self.total_flex as f32 - self.gap).max(0.)
     }
 }
 
