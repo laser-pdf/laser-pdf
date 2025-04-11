@@ -536,7 +536,7 @@ mod tests {
             },
         ]
         "#);
-        assert_debug_snapshot!(collect(3.), @r#"
+        assert_debug_snapshot!(collect(2.8), @r#"
         [
             Frag {
                 new_line: false,
