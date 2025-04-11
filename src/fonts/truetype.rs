@@ -429,7 +429,7 @@ pub fn write_font_descriptor<'a>(
         f32::from(global_bbox.x_min) / units_per_em * 1000.,
         f32::from(global_bbox.y_min) / units_per_em * 1000.,
         f32::from(global_bbox.x_max) / units_per_em * 1000.,
-        f32::from(global_bbox.y_min) / units_per_em * 1000.,
+        f32::from(global_bbox.y_max) / units_per_em * 1000.,
     );
 
     let italic_angle = ttf.italic_angle();
