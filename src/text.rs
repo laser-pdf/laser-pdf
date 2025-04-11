@@ -20,6 +20,9 @@ static LINE_BREAK_MAP: LazyLock<
 // TODO: Move somewhere else?
 const PDFA_LIMIT: usize = 32767;
 
+// Some fonts don't map the U+2010 glyph right, so we use hyphen-minus here.
+const HYPHEN: &str = "-";
+
 pub fn draw_line<'a, F: Font>(
     pdf: &mut Pdf,
     location: &Location,
@@ -35,6 +38,15 @@ pub fn draw_line<'a, F: Font>(
         }
     }
 
+    let hyphen = (line.trailing_hyphen_width != 0).then(|| {
+        (
+            font.encode(pdf, line.shaped_hyphen.glyph_id, HYPHEN),
+            line.shaped_hyphen.x_advance_font,
+            line.shaped_hyphen.x_advance,
+            line.shaped_hyphen.x_offset,
+        )
+    });
+
     let glyphs: Vec<_> = line
         // we don't want to filter out all unknown glyphs
         .filter(|glyph| !["\n", "\r", "\r\n"].contains(&&text[glyph.text_range.clone()]))
@@ -48,6 +60,7 @@ pub fn draw_line<'a, F: Font>(
                 glyph.x_offset,
             )
         })
+        .chain(hyphen)
         .collect();
 
     let layer = location.layer(pdf);
@@ -90,6 +103,8 @@ struct Piece<'a, S> {
     shaped_start: S,
     width: u32,
     trailing_whitespace_width: u32,
+    /// Only applies at the end of the line, otherwise, it should not be counted towards the width.
+    trailing_hyphen_width: u32,
     mandatory_break_after: bool,
     glyph_count: usize,
     empty: bool,
@@ -100,9 +115,10 @@ struct Pieces<'a, 'b, S> {
     text: &'a str,
     shaped: S,
     segments: Peekable<LineBreakIteratorUtf8<'b, 'a>>,
+    shaped_hyphen: ShapedGlyph,
 }
 
-impl<'a, S> Pieces<'a, 'static, S> {
+impl<'a, S: Iterator<Item = ShapedGlyph>> Pieces<'a, 'static, S> {
     fn new<F: 'a, R>(
         font: &'a F,
         character_spacing: i32,
@@ -114,6 +130,7 @@ impl<'a, S> Pieces<'a, 'static, S> {
         F: Font<Shaped<'a> = S>,
     {
         LINE_SEGMENTER.with(|segmenter| {
+            let shaped_hyphen = font.shape(HYPHEN, 0, 0).next().unwrap();
             let shaped = font.shape(text, character_spacing, word_spacing);
             let segments = segmenter.segment_str(text).peekable();
 
@@ -122,6 +139,7 @@ impl<'a, S> Pieces<'a, 'static, S> {
                 text,
                 shaped,
                 segments,
+                shaped_hyphen,
             })
         })
     }
@@ -201,11 +219,19 @@ impl<'a, 'b, S: Clone + Iterator<Item = ShapedGlyph>> Iterator for Pieces<'a, 'b
             }
         }
 
+        let text = &self.text[current..segment];
+
+        let trailing_hyphen_width = text
+            .ends_with('\u{00AD}')
+            .then_some(self.shaped_hyphen.x_advance as u32)
+            .unwrap_or(0);
+
         let piece = Piece {
-            text: &self.text[current..segment],
+            text,
             shaped_start: self.shaped.clone(),
             width,
             trailing_whitespace_width: whitespace_width,
+            trailing_hyphen_width,
             mandatory_break_after,
             glyph_count,
 
@@ -231,7 +257,9 @@ pub struct Line<I> {
     pub empty: bool,
     pub width: u32,
     pub trailing_whitespace_width: u32,
+    shaped_hyphen: ShapedGlyph,
     iter: std::iter::Take<I>,
+    trailing_hyphen_width: u32,
 }
 
 impl<I: Iterator> Iterator for Line<I> {
@@ -287,6 +315,7 @@ pub struct LineGenerator<'a, 'b, F: Font> {
     consider_last_line_trailing_whitespace: bool,
     pieces: Peekable<Pieces<'a, 'b, F::Shaped<'a>>>,
     current: Option<Piece<'a, F::Shaped<'a>>>,
+    shaped_hyphen: ShapedGlyph,
 }
 
 impl<'a, F: Font> LineGenerator<'a, 'static, F> {
@@ -302,6 +331,7 @@ impl<'a, F: Font> LineGenerator<'a, 'static, F> {
             f(LineGenerator {
                 font,
                 consider_last_line_trailing_whitespace,
+                shaped_hyphen: pieces.shaped_hyphen.clone(),
                 pieces: pieces.peekable(),
                 current: None,
             })
@@ -338,6 +368,7 @@ impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
         let mut glyph_count = 0;
         let mut current_width = 0;
         let mut current_width_whitespace = 0;
+        let mut trailing_hyphen_width = 0;
 
         while let Some((piece, has_next)) = self.current() {
             // If current_width is zero we have to place the piece on this line, because adding
@@ -346,6 +377,7 @@ impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
                 && current_width
                     + current_width_whitespace
                     + piece.width
+                    + piece.trailing_hyphen_width
                     + (!has_next && consider_last_line_trailing_whitespace)
                         .then_some(piece.trailing_whitespace_width)
                         .unwrap_or(0)
@@ -359,6 +391,7 @@ impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
 
             current_width += current_width_whitespace + piece.width;
             current_width_whitespace = piece.trailing_whitespace_width;
+            trailing_hyphen_width = piece.trailing_hyphen_width;
 
             let mandatory_break_after = piece.mandatory_break_after;
 
@@ -371,8 +404,10 @@ impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
 
         Some(Line {
             empty,
-            width: current_width,
+            width: current_width + trailing_hyphen_width,
             trailing_whitespace_width: current_width_whitespace,
+            trailing_hyphen_width,
+            shaped_hyphen: self.shaped_hyphen.clone(),
             iter: start.take(glyph_count),
         })
     }

@@ -281,6 +281,8 @@ mod tests {
 
     use super::*;
 
+    const FONT: &[u8] = include_bytes!("../fonts/Kenney Bold.ttf");
+
     #[test]
     fn test_multi_page() {
         let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
@@ -297,8 +299,7 @@ mod tests {
     #[test]
     fn test_truetype() {
         let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
-            let font =
-                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+            let font = TruetypeFont::new(callback.pdf(), FONT);
 
             let content = Text::basic(LOREM_IPSUM, &font, 32.);
             let content = content.debug(0);
@@ -314,8 +315,7 @@ mod tests {
         params.width.expand = false;
 
         let bytes = test_element_bytes(params, |mut callback| {
-            let font =
-                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+            let font = TruetypeFont::new(callback.pdf(), FONT);
 
             let content = Text::basic("Whitespace ", &font, 32.);
             let content = content.debug(0);
@@ -331,8 +331,7 @@ mod tests {
         params.width.expand = false;
 
         let bytes = test_element_bytes(params, |mut callback| {
-            let font =
-                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+            let font = TruetypeFont::new(callback.pdf(), FONT);
 
             let normal = Text::basic("Hello, World", &font, 32.);
 
@@ -361,6 +360,36 @@ mod tests {
                         .add(&character_spacing.debug(1).show_max_width())?
                         .add(&word_spacing.debug(2).show_max_width())?
                         .add(&both.debug(3).show_max_width())?;
+
+                    None
+                },
+            });
+        });
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
+    fn test_truetype_soft_hyphen() {
+        let mut params = TestElementParams::breakable();
+        params.width.expand = false;
+
+        let bytes = test_element_bytes(params, |mut callback| {
+            let font = TruetypeFont::new(callback.pdf(), FONT);
+
+            let a = Text::basic("Hello\u{00AD}Wrld", &font, 32.);
+            let b = Text::basic("A Hello\u{00AD}Wrld", &font, 32.);
+            let c = Text::basic("A\u{00A0}Hello\u{00AD}Wrld", &font, 32.);
+            let d = Text::basic("Hello\u{00AD}Wrld\u{00AD}", &font, 32.);
+
+            callback.call(&Column {
+                gap: 12.,
+                collapse: false,
+                content: |content| {
+                    content
+                        .add(&Padding::right(100., &a.debug(0).show_max_width()))?
+                        .add(&Padding::right(120., &b.debug(0).show_max_width()))?
+                        .add(&Padding::right(120., &c.debug(0).show_max_width()))?
+                        .add(&Padding::right(20., &d.debug(0).show_max_width()))?;
 
                     None
                 },
