@@ -115,7 +115,7 @@ impl<'a, E: Element> Element for ShrinkToFit<'a, E> {
             ctx.breakable.as_ref().map(|b| b.full_height),
         );
 
-        let mut location;
+        let location;
 
         if layout.pre_break {
             let breakable = ctx.breakable.unwrap();
@@ -130,12 +130,13 @@ impl<'a, E: Element> Element for ShrinkToFit<'a, E> {
             .save_state()
             .transform(utils::scale(layout.scale_factor));
 
-        location.pos.0 /= layout.scale_factor;
-        location.pos.1 /= layout.scale_factor;
-
         self.element.draw(DrawCtx {
             pdf: ctx.pdf,
             location: Location {
+                pos: (
+                    location.pos.0 / layout.scale_factor,
+                    location.pos.1 / layout.scale_factor,
+                ),
                 scale_factor: location.scale_factor * layout.scale_factor,
                 ..location.clone()
             },

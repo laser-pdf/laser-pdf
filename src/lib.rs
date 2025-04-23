@@ -95,10 +95,15 @@ pub struct LineStyle {
     pub cap_style: LineCapStyle,
 }
 
+pub struct Layer {
+    pub content: Content,
+    pub graphics_state_restore_required: bool,
+}
+
 pub struct Page {
     pub ext_g_states: Vec<Ref>, // all objects must be indirect for now
     pub x_objects: Vec<Ref>,
-    pub layers: Vec<Content>,
+    pub layers: Vec<Layer>,
     pub size: (f32, f32),
 }
 
@@ -143,7 +148,10 @@ impl Pdf {
         self.pages.push(Page {
             ext_g_states: Vec::new(),
             x_objects: Vec::new(),
-            layers: vec![Content::new()],
+            layers: vec![Layer {
+                content: Content::new(),
+                graphics_state_restore_required: false,
+            }],
             size,
         });
 
@@ -221,9 +229,13 @@ impl Pdf {
             drop(resources);
             drop(page_writer);
 
-            for layer in page.layers {
+            for mut layer in page.layers {
+                if layer.graphics_state_restore_required {
+                    layer.content.restore_state();
+                }
+
                 // This adds up as long as it's not bumped between the contents_array call and here.
-                self.pdf.stream(self.alloc.bump(), &layer.finish());
+                self.pdf.stream(self.alloc.bump(), &layer.content.finish());
             }
         }
 
@@ -246,19 +258,30 @@ pub struct Location {
 
 impl Location {
     pub fn layer<'a>(&self, pdf: &'a mut Pdf) -> &'a mut Content {
-        &mut pdf.pages[self.page_idx].layers[self.layer_idx]
+        &mut pdf.pages[self.page_idx].layers[self.layer_idx].content
     }
 
     pub fn next_layer(&self, pdf: &mut Pdf) -> Location {
         let page = &mut pdf.pages[self.page_idx];
 
         let mut content = Content::new();
-        content.transform(utils::scale(self.scale_factor));
+
+        let graphics_state_restore_required = if self.scale_factor != 1. {
+            content
+                .save_state()
+                .transform(utils::scale(self.scale_factor));
+            true
+        } else {
+            false
+        };
 
         // The issue is some of the layers are scaled. That's why we currently can't reuse them.
         // TODO: Find a better solution that doesn't require adding so many layers, but also doesn't
         // lead to unbalances saves/restores (which is not allowed by the spec).
-        page.layers.push(content);
+        page.layers.push(Layer {
+            content,
+            graphics_state_restore_required,
+        });
 
         Location {
             layer_idx: page.layers.len() - 1,
