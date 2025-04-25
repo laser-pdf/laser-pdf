@@ -84,8 +84,11 @@ impl<'a, F: Font> Element for RichText<'a, F> {
     fn draw(&self, mut ctx: DrawCtx) -> ElementSize {
         let mut max_width = ctx.width.constrain(0.);
 
-        let line_height = self.line_height();
-        let line_height = line_height + self.extra_line_height;
+        let FontVars {
+            ascent_pt,
+            line_height_pt,
+        } = self.combined_font_vars();
+        let line_height = pt_to_mm(line_height_pt) + self.extra_line_height;
 
         let mut x = ctx.location.pos.0;
         let mut y = ctx.location.pos.1;
@@ -154,10 +157,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
                     mm_to_pt(x + frag.x_offset),
                     // TODO: To make the baselines align we'd need also need to add the line gap of
                     // the font here.
-                    mm_to_pt(
-                        y - line_height + self.extra_line_height + frag.font_vars.line_height
-                            - frag.font_vars.ascent,
-                    ),
+                    mm_to_pt(y) - ascent_pt,
                 ]);
 
             draw_line(
@@ -180,7 +180,6 @@ impl<'a, F: Font> Element for RichText<'a, F> {
 
 struct LineFragment<'a, F: Font> {
     font: &'a F,
-    font_vars: &'a FontVars,
 
     span: &'a Span,
     line: Line<F::Shaped<'a>>,
@@ -203,11 +202,6 @@ impl<'a, F: Font> RichText<'a, F> {
     // text. But for that we'll also need to solve the problem of the unicode segmentation iterator
     // not being cloneable.
     fn line_fragments(&self, width: f32, mut f: impl for<'b> FnMut(LineFragment<'b, F>)) {
-        let regular_vars = font_vars(self.fonts.regular, self.size as f32);
-        let bold_vars = font_vars(self.fonts.bold, self.size as f32);
-        let italic_vars = font_vars(self.fonts.italic, self.size as f32);
-        let bold_italic_vars = font_vars(self.fonts.bold_italic, self.size as f32);
-
         #[derive(PartialEq, Eq, Debug)]
         enum LineState {
             FirstLine,
@@ -224,11 +218,11 @@ impl<'a, F: Font> RichText<'a, F> {
         let small_size = self.small_size.min(self.size);
 
         for (i, span) in self.spans.iter().enumerate() {
-            let (font, font_vars): (&F, FontVars) = match (span.bold, span.italic) {
-                (false, false) => (self.fonts.regular, regular_vars),
-                (false, true) => (self.fonts.italic, italic_vars),
-                (true, false) => (self.fonts.bold, bold_vars),
-                (true, true) => (self.fonts.bold_italic, bold_italic_vars),
+            let font: &F = match (span.bold, span.italic) {
+                (false, false) => self.fonts.regular,
+                (false, true) => self.fonts.italic,
+                (true, false) => self.fonts.bold,
+                (true, true) => self.fonts.bold_italic,
             };
 
             let mut last_line_empty = true;
@@ -283,7 +277,6 @@ impl<'a, F: Font> RichText<'a, F> {
                         if !line.empty || line_state != InLine {
                             f(LineFragment {
                                 font,
-                                font_vars: &font_vars,
                                 span,
                                 line,
                                 new_line: line_state == LineDone,
@@ -307,23 +300,36 @@ impl<'a, F: Font> RichText<'a, F> {
     }
 
     fn line_height(&self) -> f32 {
+        pt_to_mm(self.combined_font_vars().line_height_pt)
+    }
+
+    fn combined_font_vars(&self) -> FontVars {
         let regular_vars = font_vars(self.fonts.regular, self.size as f32);
         let bold_vars = font_vars(self.fonts.bold, self.size as f32);
         let italic_vars = font_vars(self.fonts.italic, self.size as f32);
         let bold_italic_vars = font_vars(self.fonts.bold_italic, self.size as f32);
 
-        regular_vars
-            .line_height
-            .max(bold_vars.line_height)
-            .max(italic_vars.line_height)
-            .max(bold_italic_vars.line_height)
+        let max_ascent = regular_vars
+            .ascent_pt
+            .max(bold_vars.ascent_pt)
+            .max(italic_vars.ascent_pt)
+            .max(bold_italic_vars.ascent_pt);
+
+        FontVars {
+            ascent_pt: max_ascent,
+            line_height_pt: max_ascent
+                + (regular_vars.line_height_pt - regular_vars.ascent_pt)
+                    .max(bold_vars.line_height_pt - bold_vars.ascent_pt)
+                    .max(italic_vars.line_height_pt - italic_vars.ascent_pt)
+                    .max(bold_italic_vars.line_height_pt - bold_italic_vars.ascent_pt),
+        }
     }
 }
 
 #[derive(Copy, Clone)]
 struct FontVars {
-    ascent: f32,
-    line_height: f32,
+    ascent_pt: f32,
+    line_height_pt: f32,
 }
 
 fn font_vars<F: Font>(font: &F, size: f32) -> FontVars {
@@ -335,15 +341,15 @@ fn font_vars<F: Font>(font: &F, size: f32) -> FontVars {
     let units_per_em = font.units_per_em() as f32;
 
     FontVars {
-        ascent: pt_to_mm(ascent as f32 * size / units_per_em),
-        line_height: pt_to_mm(line_height as f32 * size / units_per_em),
+        ascent_pt: ascent as f32 * size / units_per_em,
+        line_height_pt: line_height as f32 * size / units_per_em,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use elements::column::{Column, ColumnContent};
-    use fonts::{ShapedGlyph, truetype::TruetypeFont};
+    use fonts::{ShapedGlyph, builtin::BuiltinFont, truetype::TruetypeFont};
     use insta::*;
 
     use crate::test_utils::binary_snapshots::*;
@@ -765,6 +771,80 @@ mod tests {
                     TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Future.ttf"));
                 let bold =
                     TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+
+                let rich_text = RichText {
+                    spans: &[
+                        Span {
+                            text: "Where are ".to_string(),
+                            bold: false,
+                            italic: false,
+                            underline: false,
+                            color: 0x00_00_00_FF,
+                            small: false,
+                        },
+                        Span {
+                            text: "they ".to_string(),
+                            bold: true,
+                            italic: false,
+                            underline: false,
+                            color: 0x00_00_FF_FF,
+                            small: true,
+                        },
+                        Span {
+                            text: "they".to_string(),
+                            bold: false,
+                            italic: false,
+                            underline: false,
+                            color: 0x00_FF_FF_FF,
+                            small: true,
+                        },
+                        Span {
+                            text: " at?".to_string(),
+                            bold: false,
+                            italic: false,
+                            underline: false,
+                            color: 0xFF_FF_00_FF,
+                            small: false,
+                        },
+                    ],
+                    size: 12.,
+                    small_size: 4.,
+                    extra_line_height: 0.,
+                    fonts: FontSet {
+                        regular: &regular,
+                        bold: &bold,
+                        italic: &regular,
+                        bold_italic: &bold,
+                    },
+                };
+
+                let list = Column {
+                    gap: 16.,
+                    collapse: false,
+                    content: |content: ColumnContent| {
+                        content
+                            .add(&rich_text.debug(0).show_max_width())?
+                            .add(&Padding::right(140., &rich_text.debug(1).show_max_width()))?
+                            .add(&Padding::right(155., &rich_text.debug(2).show_max_width()))?
+                            .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
+                            .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;
+                        None
+                    },
+                };
+
+                callback.call(&list);
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
+    fn test_small() {
+        let bytes = test_element_bytes(
+            TestElementParams::breakable().no_expand(),
+            |mut callback| {
+                let regular = BuiltinFont::helvetica(callback.pdf());
+                let bold = BuiltinFont::helvetica_bold(callback.pdf());
 
                 let rich_text = RichText {
                     spans: &[
