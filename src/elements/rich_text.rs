@@ -1,6 +1,5 @@
 use crate::fonts::Font;
 use crate::fonts::GeneralMetrics;
-// use crate::text::remove_non_trailing_soft_hyphens;
 use crate::text::*;
 use crate::utils::*;
 use crate::*;
@@ -14,6 +13,7 @@ pub struct Span {
     pub italic: bool,
     pub underline: bool,
     pub color: u32,
+    pub small: bool,
 }
 
 pub struct RichText<'a, F: Font> {
@@ -144,7 +144,7 @@ impl<'a, F: Font> Element for RichText<'a, F> {
             set_fill_color(layer, frag.span.color);
 
             layer
-                .set_font(frag.font.resource_name(), self.size)
+                .set_font(frag.font.resource_name(), frag.size)
                 .begin_text()
                 .set_text_matrix([
                     1.0,
@@ -193,6 +193,8 @@ struct LineFragment<'a, F: Font> {
 
     x_offset: f32,
     full_length: f32,
+
+    size: f32,
 }
 
 impl<'a, F: Font> RichText<'a, F> {
@@ -219,6 +221,8 @@ impl<'a, F: Font> RichText<'a, F> {
 
         let mut x_offset_pt = 0.;
 
+        let small_size = self.small_size.min(self.size);
+
         for (i, span) in self.spans.iter().enumerate() {
             let (font, font_vars): (&F, FontVars) = match (span.bold, span.italic) {
                 (false, false) => (self.fonts.regular, regular_vars),
@@ -228,6 +232,8 @@ impl<'a, F: Font> RichText<'a, F> {
             };
 
             let mut last_line_empty = true;
+
+            let size = span.small.then_some(small_size).unwrap_or(self.size);
 
             LineGenerator::new(
                 font,
@@ -248,7 +254,7 @@ impl<'a, F: Font> RichText<'a, F> {
                         // HAlign.
                         ((mm_to_pt(width)
                             - (line_state == InLine).then_some(x_offset_pt).unwrap_or(0.))
-                            / self.size
+                            / size
                             * font.units_per_em() as f32)
                             .ceil() as u32,
                         line_state == InLine,
@@ -258,12 +264,12 @@ impl<'a, F: Font> RichText<'a, F> {
                         }
 
                         let length =
-                            pt_to_mm(line.width as f32 / font.units_per_em() as f32 * self.size);
+                            pt_to_mm(line.width as f32 / font.units_per_em() as f32 * size);
 
                         let full_length = pt_to_mm(
                             (line.width + line.trailing_whitespace_width) as f32
                                 / font.units_per_em() as f32
-                                * self.size,
+                                * size,
                         );
 
                         let width = line.width;
@@ -284,12 +290,13 @@ impl<'a, F: Font> RichText<'a, F> {
                                 x_offset: pt_to_mm(x_offset_pt),
                                 length,
                                 full_length,
+                                size,
                             });
                         }
 
                         x_offset_pt += (width + trailing_whitespace_width) as f32
                             / font.units_per_em() as f32
-                            * self.size;
+                            * size;
                         line_state = LineDone;
                     }
                 },
@@ -417,6 +424,7 @@ mod tests {
                     italic: false,
                     underline: false,
                     color: 0x00_00_00_FF,
+                    small: false,
                 },
                 Span {
                     text: "they".to_string(),
@@ -424,6 +432,7 @@ mod tests {
                     italic: false,
                     underline: false,
                     color: 0x00_00_FF_FF,
+                    small: false,
                 },
                 Span {
                     text: "\n".to_string(),
@@ -431,6 +440,7 @@ mod tests {
                     italic: false,
                     underline: false,
                     color: 0x00_00_FF_FF,
+                    small: false,
                 },
                 Span {
                     text: "at?".to_string(),
@@ -438,6 +448,7 @@ mod tests {
                     italic: false,
                     underline: false,
                     color: 0xFF_00_00_FF,
+                    small: false,
                 },
             ],
             size: 1.,
@@ -620,6 +631,7 @@ mod tests {
                         italic: false,
                         underline: false,
                         color: 0x00_00_00_FF,
+                        small: false,
                     },
                     Span {
                         text: "they".to_string(),
@@ -627,6 +639,7 @@ mod tests {
                         italic: false,
                         underline: false,
                         color: 0x00_00_FF_FF,
+                        small: false,
                     },
                     Span {
                         text: "\n".to_string(),
@@ -634,6 +647,7 @@ mod tests {
                         italic: false,
                         underline: false,
                         color: 0x00_00_FF_FF,
+                        small: false,
                     },
                     Span {
                         text: "at?".to_string(),
@@ -641,6 +655,7 @@ mod tests {
                         italic: false,
                         underline: false,
                         color: 0xFF_00_00_FF,
+                        small: false,
                     },
                 ],
                 size: 12.,
@@ -692,6 +707,7 @@ mod tests {
                         italic: false,
                         underline: false,
                         color: 0x00_00_00_FF,
+                        small: false,
                     },
                     Span {
                         text: "they ".to_string(),
@@ -699,6 +715,7 @@ mod tests {
                         italic: false,
                         underline: false,
                         color: 0x00_FF_00_FF,
+                        small: false,
                     },
                     Span {
                         text: "at?        ".to_string(),
@@ -706,6 +723,7 @@ mod tests {
                         italic: false,
                         underline: false,
                         color: 0xFF_00_00_FF,
+                        small: false,
                     },
                 ],
                 size: 12.,
@@ -735,6 +753,82 @@ mod tests {
 
             callback.call(&list);
         });
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
+    fn test_truetype_small() {
+        let bytes = test_element_bytes(
+            TestElementParams::breakable().no_expand(),
+            |mut callback| {
+                let regular =
+                    TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Future.ttf"));
+                let bold =
+                    TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+
+                let rich_text = RichText {
+                    spans: &[
+                        Span {
+                            text: "Where are ".to_string(),
+                            bold: false,
+                            italic: false,
+                            underline: false,
+                            color: 0x00_00_00_FF,
+                            small: false,
+                        },
+                        Span {
+                            text: "they ".to_string(),
+                            bold: true,
+                            italic: false,
+                            underline: false,
+                            color: 0x00_00_FF_FF,
+                            small: true,
+                        },
+                        Span {
+                            text: "they".to_string(),
+                            bold: false,
+                            italic: false,
+                            underline: false,
+                            color: 0x00_FF_FF_FF,
+                            small: true,
+                        },
+                        Span {
+                            text: " at?".to_string(),
+                            bold: false,
+                            italic: false,
+                            underline: false,
+                            color: 0xFF_FF_00_FF,
+                            small: false,
+                        },
+                    ],
+                    size: 12.,
+                    small_size: 4.,
+                    extra_line_height: 0.,
+                    fonts: FontSet {
+                        regular: &regular,
+                        bold: &bold,
+                        italic: &regular,
+                        bold_italic: &bold,
+                    },
+                };
+
+                let list = Column {
+                    gap: 16.,
+                    collapse: false,
+                    content: |content: ColumnContent| {
+                        content
+                            .add(&rich_text.debug(0).show_max_width())?
+                            .add(&Padding::right(140., &rich_text.debug(1).show_max_width()))?
+                            .add(&Padding::right(155., &rich_text.debug(2).show_max_width()))?
+                            .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
+                            .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;
+                        None
+                    },
+                };
+
+                callback.call(&list);
+            },
+        );
         assert_binary_snapshot!(".pdf", bytes);
     }
 }

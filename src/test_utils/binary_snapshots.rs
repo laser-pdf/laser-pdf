@@ -57,6 +57,11 @@ impl TestElementParams {
             page_size: (210., 297.),
         }
     }
+
+    pub fn no_expand(mut self) -> Self {
+        self.width.expand = false;
+        self
+    }
 }
 
 #[derive(Debug)]
