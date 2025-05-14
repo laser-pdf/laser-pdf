@@ -51,6 +51,9 @@ jobs:
     needs:
       - build-musl
 
+    permissions:
+      contents: write
+
     steps:
       # this downloads all artifacts
       - name: Download Artifacts
