@@ -1,0 +1,66 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+\.[0-9]+\.[0-9]+'
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  FETCH_DEPTH: 0 # pull in the tags for the version string
+  GH_TOKEN: ${{ github.token }}
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-musl:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ env.FETCH_DEPTH }}
+          ref: ${{ env.GITHUB_REF }}
+
+      - name: Install target toolchain
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+
+      - name: Install toolchain dependencies
+        shell: bash
+        run: |
+          sudo apt-get update && sudo apt-get install -y pkg-config musl-tools build-essential curl
+
+      - name: Build
+        run: |
+          export CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+          cargo build --release --target x86_64-unknown-linux-musl --bin laser-pdf
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: musl
+          retention-days: 1
+          path: |
+            target/x86_64-unknown-linux-musl/release/laser-pdf
+
+  release:
+    runs-on: ubuntu-22.04
+    needs:
+      - build-musl
+
+    steps:
+      # this downloads all artifacts
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Rename Files
+        run: |
+          mv musl/laser-pdf laser-pdf-linux-x86_64
+
+      - name: Create Release
+        run: |
+          gh release --repo laser-pdf/laser-pdf create "$GITHUB_REF_NAME" \
+            laser-pdf-linux-x86_64
