@@ -63,4 +63,4 @@ jobs:
       - name: Create Release
         run: |
           gh release --repo laser-pdf/laser-pdf create "$GITHUB_REF_NAME" \
-            laser-pdf-linux-x86_64
+            laser-pdf-linux-x86_64 --title "$GITHUB_REF_NAME"
