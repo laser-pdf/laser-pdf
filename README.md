@@ -20,6 +20,8 @@ Unlike CSS, which can sometimes produce unexpected layouts, laser-pdf prioritize
 
 ## Quick Start
 
+(These instructions might need some work. Don't fully trust them yet.)
+
 ### Rust API
 
 (A simple function using this in a multi-page context is still missing.)
