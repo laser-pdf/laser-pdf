@@ -4,8 +4,8 @@ use crate::*;
 /// In a breakable context: if `first_height` is less than `min_height` a pre-break happens first,
 /// in which case the element will be shrunk to fit the `full_height`. In an unbreakable context it
 /// will simply overflow such that the element is never scaled smaller than the `min_height`.
-pub struct ShrinkToFit<'a, E: Element> {
-    pub element: &'a E,
+pub struct ShrinkToFit<E: Element> {
+    pub element: E,
     pub min_height: f32,
 }
 
@@ -17,7 +17,7 @@ struct Layout {
     height: f32,
 }
 
-impl<'a, E: Element> ShrinkToFit<'a, E> {
+impl<E: Element> ShrinkToFit<E> {
     fn layout(
         &self,
         width: WidthConstraint,
@@ -81,7 +81,7 @@ impl<'a, E: Element> ShrinkToFit<'a, E> {
     }
 }
 
-impl<'a, E: Element> Element for ShrinkToFit<'a, E> {
+impl<E: Element> Element for ShrinkToFit<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let layout = self.layout(ctx.width, ctx.first_height, Some(ctx.full_height));
 
@@ -172,7 +172,7 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("TEST", &font, 100.);
-                let text = &text
+                let text = text
                     .debug(1)
                     .show_max_width()
                     .show_last_location_max_height();
@@ -202,7 +202,7 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("TEST", &font, 100.);
-                let text = &text
+                let text = text
                     .debug(1)
                     .show_max_width()
                     .show_last_location_max_height();
@@ -232,7 +232,7 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("T E S T", &font, 1024.);
-                let text = &text
+                let text = text
                     .debug(1)
                     .show_max_width()
                     .show_last_location_max_height();
@@ -262,13 +262,13 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("Test", &font, 20.);
-                let text = &text
+                let text = text
                     .debug(1)
                     .show_max_width()
                     .show_last_location_max_height();
 
                 let bottom = AlignLocationBottom(text);
-                let bottom = &bottom.debug(2);
+                let bottom = bottom.debug(2);
 
                 let shrink_to_fit = ShrinkToFit {
                     element: bottom,
@@ -295,7 +295,7 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("Test", &font, 100.);
-                let text = &text
+                let text = text
                     .debug(1)
                     .show_max_width()
                     .show_last_location_max_height();
@@ -309,7 +309,7 @@ mod tests {
                     }),
                     ..StyledBox::new(text)
                 };
-                let wrapper = &wrapper.debug(2);
+                let wrapper = wrapper.debug(2);
 
                 let shrink_to_fit = ShrinkToFit {
                     element: wrapper,
@@ -336,7 +336,7 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
                 let text = Text::basic("Test", &font, 100.);
-                let text = &text
+                let text = text
                     .debug(1)
                     .show_max_width()
                     .show_last_location_max_height();
@@ -350,7 +350,7 @@ mod tests {
                     }),
                     ..StyledBox::new(text)
                 };
-                let wrapper = &wrapper.debug(2);
+                let wrapper = wrapper.debug(2);
                 let shrink_to_fit = ShrinkToFit {
                     element: wrapper,
                     min_height: 10.,
@@ -363,9 +363,9 @@ mod tests {
                         dash_pattern: None,
                         cap_style: LineCapStyle::Round,
                     }),
-                    ..StyledBox::new(&shrink_to_fit)
+                    ..StyledBox::new(shrink_to_fit)
                 };
-                let wrapper_1 = &wrapper_1.debug(3);
+                let wrapper_1 = wrapper_1.debug(3);
 
                 let shrink_to_fit_1 = ShrinkToFit {
                     element: wrapper_1,

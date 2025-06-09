@@ -352,7 +352,7 @@ mod tests {
     use fonts::{ShapedGlyph, builtin::BuiltinFont, truetype::TruetypeFont};
     use insta::*;
 
-    use crate::test_utils::binary_snapshots::*;
+    use crate::{elements::ref_element::RefElement, test_utils::binary_snapshots::*};
 
     use super::*;
 
@@ -680,11 +680,23 @@ mod tests {
                 collapse: false,
                 content: |content: ColumnContent| {
                     content
-                        .add(&rich_text.debug(0))?
-                        .add(&Padding::right(140., &rich_text.debug(1).show_max_width()))?
-                        .add(&Padding::right(160., &rich_text.debug(2).show_max_width()))?
-                        .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
-                        .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;
+                        .add(&RefElement(&rich_text).debug(0))?
+                        .add(&Padding::right(
+                            140.,
+                            RefElement(&rich_text).debug(1).show_max_width(),
+                        ))?
+                        .add(&Padding::right(
+                            160.,
+                            RefElement(&rich_text).debug(2).show_max_width(),
+                        ))?
+                        .add(&Padding::right(
+                            180.,
+                            RefElement(&rich_text).debug(3).show_max_width(),
+                        ))?
+                        .add(&Padding::right(
+                            194.,
+                            RefElement(&rich_text).debug(4).show_max_width(),
+                        ))?;
                     None
                 },
             };
@@ -748,11 +760,23 @@ mod tests {
                 collapse: false,
                 content: |content: ColumnContent| {
                     content
-                        .add(&rich_text.debug(0))?
-                        .add(&Padding::right(145., &rich_text.debug(1).show_max_width()))?
-                        .add(&Padding::right(160., &rich_text.debug(2).show_max_width()))?
-                        .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
-                        .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;
+                        .add(&RefElement(&rich_text).debug(0))?
+                        .add(&Padding::right(
+                            145.,
+                            RefElement(&rich_text).debug(1).show_max_width(),
+                        ))?
+                        .add(&Padding::right(
+                            160.,
+                            RefElement(&rich_text).debug(2).show_max_width(),
+                        ))?
+                        .add(&Padding::right(
+                            180.,
+                            RefElement(&rich_text).debug(3).show_max_width(),
+                        ))?
+                        .add(&Padding::right(
+                            194.,
+                            RefElement(&rich_text).debug(4).show_max_width(),
+                        ))?;
                     None
                 },
             };
@@ -823,11 +847,23 @@ mod tests {
                     collapse: false,
                     content: |content: ColumnContent| {
                         content
-                            .add(&rich_text.debug(0).show_max_width())?
-                            .add(&Padding::right(140., &rich_text.debug(1).show_max_width()))?
-                            .add(&Padding::right(155., &rich_text.debug(2).show_max_width()))?
-                            .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
-                            .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;
+                            .add(&RefElement(&rich_text).debug(0).show_max_width())?
+                            .add(&Padding::right(
+                                140.,
+                                RefElement(&rich_text).debug(1).show_max_width(),
+                            ))?
+                            .add(&Padding::right(
+                                155.,
+                                RefElement(&rich_text).debug(2).show_max_width(),
+                            ))?
+                            .add(&Padding::right(
+                                180.,
+                                RefElement(&rich_text).debug(3).show_max_width(),
+                            ))?
+                            .add(&Padding::right(
+                                194.,
+                                RefElement(&rich_text).debug(4).show_max_width(),
+                            ))?;
                         None
                     },
                 };
@@ -897,11 +933,23 @@ mod tests {
                     collapse: false,
                     content: |content: ColumnContent| {
                         content
-                            .add(&rich_text.debug(0).show_max_width())?
-                            .add(&Padding::right(140., &rich_text.debug(1).show_max_width()))?
-                            .add(&Padding::right(155., &rich_text.debug(2).show_max_width()))?
-                            .add(&Padding::right(180., &rich_text.debug(3).show_max_width()))?
-                            .add(&Padding::right(194., &rich_text.debug(4).show_max_width()))?;
+                            .add(&RefElement(&rich_text).debug(0).show_max_width())?
+                            .add(&Padding::right(
+                                140.,
+                                RefElement(&rich_text).debug(1).show_max_width(),
+                            ))?
+                            .add(&Padding::right(
+                                155.,
+                                RefElement(&rich_text).debug(2).show_max_width(),
+                            ))?
+                            .add(&Padding::right(
+                                180.,
+                                RefElement(&rich_text).debug(3).show_max_width(),
+                            ))?
+                            .add(&Padding::right(
+                                194.,
+                                RefElement(&rich_text).debug(4).show_max_width(),
+                            ))?;
                         None
                     },
                 };

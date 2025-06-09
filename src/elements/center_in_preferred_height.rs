@@ -1,8 +1,8 @@
 use crate::*;
 
-pub struct CenterInPreferredHeight<'a, E: Element>(pub &'a E);
+pub struct CenterInPreferredHeight<E: Element>(pub E);
 
-impl<'a, E: Element> Element for CenterInPreferredHeight<'a, E> {
+impl<E: Element> Element for CenterInPreferredHeight<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let layout = self.layout(ctx.width, ctx.first_height, Some(ctx.full_height));
 
@@ -99,7 +99,7 @@ struct Layout {
     size: ElementSize,
 }
 
-impl<'a, E: Element> CenterInPreferredHeight<'a, E> {
+impl<E: Element> CenterInPreferredHeight<E> {
     fn layout(
         &self,
         width: WidthConstraint,
@@ -129,7 +129,10 @@ impl<'a, E: Element> CenterInPreferredHeight<'a, E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{record_passes::RecordPasses, *};
+    use crate::{
+        elements::ref_element::RefElement,
+        test_utils::{record_passes::RecordPasses, *},
+    };
     use insta::*;
 
     #[test]
@@ -153,7 +156,7 @@ mod tests {
                     width: 3.,
                 });
 
-                let element = CenterInPreferredHeight(&content);
+                let element = CenterInPreferredHeight(RefElement(&content));
 
                 let ret = callback.call(element);
 
@@ -193,7 +196,7 @@ mod tests {
                     width: 3.,
                 });
 
-                let element = CenterInPreferredHeight(&content);
+                let element = CenterInPreferredHeight(RefElement(&content));
 
                 let ret = callback.call(element);
 
@@ -233,7 +236,7 @@ mod tests {
                     width: 3.,
                 });
 
-                let element = CenterInPreferredHeight(&content);
+                let element = CenterInPreferredHeight(RefElement(&content));
 
                 let ret = callback.call(element);
 
@@ -272,7 +275,7 @@ mod tests {
                     width: 3.,
                 });
 
-                let element = CenterInPreferredHeight(&content);
+                let element = CenterInPreferredHeight(RefElement(&content));
 
                 let ret = callback.call(element);
 

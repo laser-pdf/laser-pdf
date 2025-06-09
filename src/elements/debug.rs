@@ -2,14 +2,14 @@ use utils::mm_to_pt;
 
 use crate::*;
 
-pub struct Debug<'a, E: Element + ?Sized> {
-    pub element: &'a E,
+pub struct Debug<E: Element> {
+    pub element: E,
     pub color: u8,
     pub show_max_width: bool,
     pub show_last_location_max_height: bool,
 }
 
-impl<'a, E: Element + ?Sized> Debug<'a, E> {
+impl<E: Element> Debug<E> {
     pub fn show_max_width(self) -> Self {
         Self {
             show_max_width: true,
@@ -25,7 +25,7 @@ impl<'a, E: Element + ?Sized> Debug<'a, E> {
     }
 }
 
-impl<'a, E: Element + ?Sized> Element for Debug<'a, E> {
+impl<E: Element> Element for Debug<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         self.element.first_location_usage(ctx)
     }

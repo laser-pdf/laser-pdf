@@ -3,14 +3,14 @@ use crate::{
     *,
 };
 
-pub struct Titled<'a, T: Element, C: Element> {
-    pub title: &'a T,
-    pub content: &'a C,
+pub struct Titled<T: Element, C: Element> {
+    pub title: T,
+    pub content: C,
     pub gap: f32,
     pub collapse_on_empty_content: bool,
 }
 
-impl<'a, T: Element, C: Element> Element for Titled<'a, T, C> {
+impl<T: Element, C: Element> Element for Titled<T, C> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let title_size = self.title.measure(MeasureCtx {
             width: ctx.width,
@@ -207,7 +207,7 @@ impl<'a, T: Element, C: Element> Element for Titled<'a, T, C> {
     }
 }
 
-impl<'a, T: Element, C: Element> Titled<'a, T, C> {
+impl<T: Element, C: Element> Titled<T, C> {
     fn y_offset(&self, title_size: ElementSize) -> f32 {
         title_size.height.map(|h| h + self.gap).unwrap_or(0.)
     }
@@ -244,7 +244,10 @@ impl<'a, T: Element, C: Element> Titled<'a, T, C> {
 mod tests {
     use super::*;
     use crate::{
-        elements::{force_break::ForceBreak, none::NoneElement, rectangle::Rectangle},
+        elements::{
+            force_break::ForceBreak, none::NoneElement, rectangle::Rectangle,
+            ref_element::RefElement,
+        },
         test_utils::{
             build_element::BuildElementCtx,
             record_passes::{Break, DrawPass, RecordPasses},
@@ -266,12 +269,12 @@ mod tests {
             let element = Titled {
                 gap: 1.,
                 collapse_on_empty_content: true,
-                title: &Rectangle {
+                title: Rectangle {
                     size: (1., 2.),
                     fill: None,
                     outline: None,
                 },
-                content: &NoneElement,
+                content: NoneElement,
             };
 
             let output = configuration.run(&element);
@@ -310,8 +313,8 @@ mod tests {
 
                 let ret = callback.call(Titled {
                     gap,
-                    title: &title,
-                    content: &content,
+                    title: RefElement(&title),
+                    content: RefElement(&content),
                     collapse_on_empty_content: false,
                 });
 
@@ -436,8 +439,8 @@ mod tests {
 
                 let ret = callback.call(Titled {
                     gap,
-                    title: &title,
-                    content: &content,
+                    title: RefElement(&title),
+                    content: RefElement(&content),
                     collapse_on_empty_content: false,
                 });
 
@@ -568,8 +571,8 @@ mod tests {
 
                 let ret = callback.call(Titled {
                     gap,
-                    title: &title,
-                    content: &content,
+                    title: RefElement(&title),
+                    content: RefElement(&content),
                     collapse_on_empty_content: false,
                 });
 

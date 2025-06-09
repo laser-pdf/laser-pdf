@@ -1,8 +1,8 @@
 use crate::*;
 
-pub struct AlignLocationBottom<'a, E: Element>(pub &'a E);
+pub struct AlignLocationBottom<E: Element>(pub E);
 
-impl<'a, E: Element> Element for AlignLocationBottom<'a, E> {
+impl<E: Element> Element for AlignLocationBottom<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let layout = self.layout(ctx.width, ctx.first_height, Some(ctx.full_height), 0);
 
@@ -96,7 +96,7 @@ struct Layout {
     size: ElementSize,
 }
 
-impl<'a, E: Element> AlignLocationBottom<'a, E> {
+impl<E: Element> AlignLocationBottom<E> {
     fn layout(
         &self,
         width: WidthConstraint,
@@ -149,7 +149,10 @@ impl<'a, E: Element> AlignLocationBottom<'a, E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{record_passes::RecordPasses, *};
+    use crate::{
+        elements::ref_element::RefElement,
+        test_utils::{record_passes::RecordPasses, *},
+    };
     use insta::*;
 
     #[test]
@@ -172,7 +175,7 @@ mod tests {
                     width: 3.,
                 });
 
-                let element = AlignLocationBottom(&content);
+                let element = AlignLocationBottom(RefElement(&content));
 
                 let ret = callback.call(element);
 
@@ -210,7 +213,7 @@ mod tests {
                     width: 3.,
                 });
 
-                let element = AlignLocationBottom(&content);
+                let element = AlignLocationBottom(RefElement(&content));
 
                 let ret = callback.call(element);
 
@@ -248,7 +251,7 @@ mod tests {
                     width: 3.,
                 });
 
-                let element = AlignLocationBottom(&content);
+                let element = AlignLocationBottom(RefElement(&content));
 
                 let ret = callback.call(element);
 
@@ -287,7 +290,7 @@ mod tests {
                     width: 3.,
                 });
 
-                let element = AlignLocationBottom(&content);
+                let element = AlignLocationBottom(RefElement(&content));
 
                 let ret = callback.call(element);
 

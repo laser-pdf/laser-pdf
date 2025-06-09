@@ -18,6 +18,7 @@ pub mod padding;
 pub mod page;
 pub mod pin_below;
 pub mod rectangle;
+pub mod ref_element;
 pub mod repeat_after_break;
 pub mod repeat_bottom;
 pub mod rich_text;

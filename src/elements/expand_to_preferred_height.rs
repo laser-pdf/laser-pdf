@@ -1,8 +1,8 @@
 use crate::{utils::max_optional_size, *};
 
-pub struct ExpandToPreferredHeight<'a, E: Element>(pub &'a E);
+pub struct ExpandToPreferredHeight<E: Element>(pub E);
 
-impl<'a, E: Element> Element for ExpandToPreferredHeight<'a, E> {
+impl<E: Element> Element for ExpandToPreferredHeight<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         self.0.first_location_usage(ctx)
     }
@@ -106,7 +106,7 @@ mod tests {
                 let content = Text::basic(LOREM_IPSUM, &font, 32.);
                 let content = content.debug(1);
 
-                callback.call(&ExpandToPreferredHeight(&content).debug(0));
+                callback.call(&ExpandToPreferredHeight(content).debug(0));
             },
         );
         assert_binary_snapshot!(".pdf", bytes);
@@ -129,7 +129,7 @@ mod tests {
                 let content = Text::basic(LOREM_IPSUM, &font, 12.);
                 let content = content.debug(1);
 
-                callback.call(&ExpandToPreferredHeight(&content).debug(0));
+                callback.call(&ExpandToPreferredHeight(content).debug(0));
             },
         );
         assert_binary_snapshot!(".pdf", bytes);

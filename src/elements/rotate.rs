@@ -8,12 +8,12 @@ pub enum Rotation {
     QuarterRight,
 }
 
-pub struct Rotate<'a, E: Element> {
-    pub element: &'a E,
+pub struct Rotate<E: Element> {
+    pub element: E,
     pub rotation: Rotation,
 }
 
-impl<'a, E: Element> Element for Rotate<'a, E> {
+impl<E: Element> Element for Rotate<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let element_width_constraint = WidthConstraint {
             max: ctx.full_height,
@@ -139,7 +139,7 @@ impl<'a, E: Element> Element for Rotate<'a, E> {
 mod tests {
     use super::*;
     use crate::{
-        elements::none::NoneElement,
+        elements::{none::NoneElement, ref_element::RefElement},
         test_utils::{record_passes::RecordPasses, *},
     };
     use insta::*;
@@ -168,7 +168,7 @@ mod tests {
                 });
 
                 let element = Rotate {
-                    element: &content,
+                    element: RefElement(&content),
                     rotation: Rotation::QuarterRight,
                 };
 
@@ -209,7 +209,7 @@ mod tests {
                 });
 
                 let element = Rotate {
-                    element: &content,
+                    element: RefElement(&content),
                     rotation: Rotation::QuarterLeft,
                 };
 
@@ -246,7 +246,7 @@ mod tests {
                 let content = RecordPasses::new(NoneElement);
 
                 let element = Rotate {
-                    element: &content,
+                    element: RefElement(&content),
                     rotation: Rotation::QuarterRight,
                 };
 

@@ -447,7 +447,7 @@ pub trait Element {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize;
 
-    fn with_padding_top(&self, padding: f32) -> Padding<Self>
+    fn with_padding_top(self, padding: f32) -> Padding<Self>
     where
         Self: Sized,
     {
@@ -460,7 +460,7 @@ pub trait Element {
         }
     }
 
-    fn with_vertical_padding(&self, padding: f32) -> Padding<Self>
+    fn with_vertical_padding(self, padding: f32) -> Padding<Self>
     where
         Self: Sized,
     {
@@ -473,7 +473,7 @@ pub trait Element {
         }
     }
 
-    fn debug(&self, color: u8) -> elements::debug::Debug<Self>
+    fn debug(self, color: u8) -> elements::debug::Debug<Self>
     where
         Self: Sized,
     {

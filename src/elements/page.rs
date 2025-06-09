@@ -1,7 +1,7 @@
 use crate::*;
 
-pub struct Page<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> {
-    pub primary: &'a P,
+pub struct Page<P: Element, D: Fn(&mut DecorationElements, usize, usize)> {
+    pub primary: P,
     pub border_left: f32,
     pub border_right: f32,
     pub border_top: f32,
@@ -9,7 +9,7 @@ pub struct Page<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> {
     pub decoration_elements: D,
 }
 
-impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for Page<'a, P, D> {
+impl<P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for Page<P, D> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         if ctx.first_height < ctx.full_height {
             FirstLocationUsage::WillSkip
@@ -172,7 +172,7 @@ impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for P
     }
 }
 
-impl<'a, P: Element, D: Fn(&mut DecorationElements, usize, usize)> Page<'a, P, D> {
+impl<P: Element, D: Fn(&mut DecorationElements, usize, usize)> Page<P, D> {
     fn width(&self, width: WidthConstraint) -> f32 {
         width.max - self.border_left - self.border_right
     }
@@ -240,7 +240,10 @@ mod tests {
     use insta::assert_debug_snapshot;
 
     use super::*;
-    use crate::test_utils::{record_passes::RecordPasses, *};
+    use crate::{
+        elements::ref_element::RefElement,
+        test_utils::{record_passes::RecordPasses, *},
+    };
     use X::*;
     use Y::*;
 
@@ -277,7 +280,7 @@ mod tests {
                 });
 
                 let element = Page {
-                    primary: &primary,
+                    primary: RefElement(&primary),
                     border_left: 2.,
                     border_right: 3.,
                     border_top: 4.,
@@ -341,7 +344,7 @@ mod tests {
                 });
 
                 let element = Page {
-                    primary: &primary,
+                    primary: RefElement(&primary),
                     border_left: 2.,
                     border_right: 3.,
                     border_top: 4.,

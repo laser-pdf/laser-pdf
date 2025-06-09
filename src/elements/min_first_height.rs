@@ -1,11 +1,11 @@
 use crate::*;
 
-pub struct MinFirstHeight<'a, E: Element> {
-    pub element: &'a E,
+pub struct MinFirstHeight<E: Element> {
+    pub element: E,
     pub min_first_height: f32,
 }
 
-impl<'a, E: Element> Element for MinFirstHeight<'a, E> {
+impl<E: Element> Element for MinFirstHeight<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         use FirstLocationUsage::*;
 
@@ -132,7 +132,7 @@ struct Layout {
     measured: Option<MeasureOutput>,
 }
 
-impl<'a, E: Element> MinFirstHeight<'a, E> {
+impl<E: Element> MinFirstHeight<E> {
     #[inline(always)]
     fn layout(&self, width: WidthConstraint, first_height: f32, full_height: f32) -> Layout {
         let mut measured = None;
@@ -173,7 +173,7 @@ impl<'a, E: Element> MinFirstHeight<'a, E> {
 mod tests {
     use super::*;
     use crate::{
-        elements::{none::NoneElement, text::Text},
+        elements::{none::NoneElement, ref_element::RefElement, text::Text},
         fonts::builtin::BuiltinFont,
         test_utils::{record_passes::RecordPasses, *},
     };
@@ -200,7 +200,7 @@ mod tests {
                 });
 
                 let element = MinFirstHeight {
-                    element: &content,
+                    element: RefElement(&content),
                     min_first_height: 10.,
                 };
 
@@ -241,7 +241,7 @@ mod tests {
                 });
 
                 let element = MinFirstHeight {
-                    element: &content,
+                    element: RefElement(&content),
                     min_first_height: 10.,
                 };
 
@@ -272,7 +272,7 @@ mod tests {
                 let font = BuiltinFont::courier(callback.pdf());
 
                 let content = Text::basic(LOREM_IPSUM, &font, 12.);
-                let content = &content.debug(1).show_max_width();
+                let content = content.debug(1).show_max_width();
 
                 callback.call(
                     &MinFirstHeight {
@@ -309,7 +309,7 @@ mod tests {
                 let content = RecordPasses::new(NoneElement);
 
                 let element = MinFirstHeight {
-                    element: &content,
+                    element: RefElement(&content),
                     min_first_height: 10.,
                 };
 

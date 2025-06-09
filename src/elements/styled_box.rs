@@ -3,8 +3,8 @@ use crate::{
     *,
 };
 
-pub struct StyledBox<'a, E: Element> {
-    pub element: &'a E,
+pub struct StyledBox<E: Element> {
+    pub element: E,
     pub padding_left: f32,
     pub padding_right: f32,
     pub padding_top: f32,
@@ -14,8 +14,8 @@ pub struct StyledBox<'a, E: Element> {
     pub outline: Option<LineStyle>,
 }
 
-impl<'a, E: Element> StyledBox<'a, E> {
-    pub fn new(element: &'a E) -> Self {
+impl<E: Element> StyledBox<E> {
+    pub fn new(element: E) -> Self {
         StyledBox {
             element,
             padding_top: 0.,
@@ -52,7 +52,7 @@ impl Common {
     }
 }
 
-impl<'a, E: Element> StyledBox<'a, E> {
+impl<E: Element> StyledBox<E> {
     fn common(&self, width: WidthConstraint) -> Common {
         let extra_outline_offset = self.outline.map(|o| o.thickness).unwrap_or(0.0);
 
@@ -197,7 +197,7 @@ impl<'a, E: Element> StyledBox<'a, E> {
     }
 }
 
-impl<'a, E: Element> Element for StyledBox<'a, E> {
+impl<E: Element> Element for StyledBox<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let common = self.common(ctx.width);
         let first_height = common.height(ctx.first_height);
@@ -347,7 +347,7 @@ impl<'a, E: Element> Element for StyledBox<'a, E> {
 mod tests {
     use super::*;
     use crate::{
-        elements::{none::NoneElement, rectangle::Rectangle, text::Text},
+        elements::{none::NoneElement, rectangle::Rectangle, ref_element::RefElement, text::Text},
         fonts::builtin::BuiltinFont,
         test_utils::{
             record_passes::{Break, BreakableDraw, DrawPass, RecordPasses},
@@ -385,7 +385,7 @@ mod tests {
                     padding_top: 3.,
                     padding_bottom: 4.,
 
-                    ..StyledBox::new(&content)
+                    ..StyledBox::new(RefElement(&content))
                 };
 
                 let ret = callback.call(element);
@@ -451,7 +451,7 @@ mod tests {
                     padding_top: 3.,
                     padding_bottom: 4.,
 
-                    ..StyledBox::new(&content)
+                    ..StyledBox::new(RefElement(&content))
                 };
 
                 let ret = callback.call(element);
@@ -524,7 +524,7 @@ mod tests {
 
             callback.call(
                 &StyledBox {
-                    element: &first,
+                    element: first,
                     padding_left: 1.,
                     padding_right: 2.,
                     padding_top: 3.,
@@ -567,7 +567,7 @@ mod tests {
                         dash_pattern: None,
                         cap_style: LineCapStyle::Butt,
                     }),
-                    ..StyledBox::new(&first)
+                    ..StyledBox::new(first)
                 }
                 .debug(0)
                 .show_max_width()

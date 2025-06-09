@@ -2,10 +2,10 @@ use crate::*;
 
 use self::utils::{add_optional_size, max_optional_size};
 
-pub struct ChangingTitle<'a, F: Element, R: Element, C: Element> {
-    pub first_title: &'a F,
-    pub remaining_title: &'a R,
-    pub content: &'a C,
+pub struct ChangingTitle<F: Element, R: Element, C: Element> {
+    pub first_title: F,
+    pub remaining_title: R,
+    pub content: C,
     pub gap: f32,
     pub collapse: bool,
 }
@@ -25,7 +25,7 @@ struct Common {
     breakable: Option<CommonBreakable>,
 }
 
-impl<'a, F: Element, R: Element, C: Element> ChangingTitle<'a, F, R, C> {
+impl<F: Element, R: Element, C: Element> ChangingTitle<F, R, C> {
     fn common(
         &self,
         width: WidthConstraint,
@@ -120,7 +120,7 @@ impl<'a, F: Element, R: Element, C: Element> ChangingTitle<'a, F, R, C> {
     }
 }
 
-impl<'a, F: Element, R: Element, C: Element> Element for ChangingTitle<'a, F, R, C> {
+impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let common = self.common(ctx.width, ctx.first_height, Some(ctx.full_height));
         let breakable = common.breakable.unwrap();
@@ -361,7 +361,7 @@ mod tests {
     use crate::{
         elements::{none::NoneElement, text::Text, titled::Titled},
         fonts::builtin::BuiltinFont,
-        test_utils::{binary_snapshots::*, FranticJumper},
+        test_utils::{FranticJumper, binary_snapshots::*},
     };
     use insta::*;
 
@@ -381,9 +381,9 @@ mod tests {
 
             callback.call(
                 &ChangingTitle {
-                    first_title: &first,
-                    remaining_title: &remaining,
-                    content: &content,
+                    first_title: first,
+                    remaining_title: remaining,
+                    content,
                     gap: 5.,
                     collapse: true,
                 }
@@ -414,9 +414,9 @@ mod tests {
 
                 callback.call(
                     &ChangingTitle {
-                        first_title: &first,
-                        remaining_title: &remaining,
-                        content: &content,
+                        first_title: first,
+                        remaining_title: remaining,
+                        content,
                         gap: 5.,
                         collapse: true,
                     }
@@ -443,9 +443,9 @@ mod tests {
 
             callback.call(
                 &ChangingTitle {
-                    first_title: &first,
-                    remaining_title: &remaining,
-                    content: &content,
+                    first_title: first,
+                    remaining_title: remaining,
+                    content,
                     gap: 5.,
                     collapse: true,
                 }
@@ -471,9 +471,9 @@ mod tests {
 
             callback.call(
                 &ChangingTitle {
-                    first_title: &first,
-                    remaining_title: &remaining,
-                    content: &content,
+                    first_title: first,
+                    remaining_title: remaining,
+                    content,
                     gap: 5.,
                     collapse: false,
                 }
@@ -505,9 +505,9 @@ mod tests {
 
             callback.call(
                 &ChangingTitle {
-                    first_title: &first,
-                    remaining_title: &remaining,
-                    content: &content,
+                    first_title: first,
+                    remaining_title: remaining,
+                    content,
                     gap: 5.,
                     collapse: true,
                 }
@@ -532,16 +532,16 @@ mod tests {
                 let font = BuiltinFont::courier(callback.pdf());
 
                 let title = Text::basic("title", &font, 12.);
-                let title = &title.debug(1);
+                let title = title.debug(1);
 
                 let first = Text::basic("first", &font, 12.);
-                let first = &first.debug(3);
+                let first = first.debug(3);
 
                 let remaining = Text::basic("remaining\nremaining", &font, 12.);
-                let remaining = &remaining.debug(4);
+                let remaining = remaining.debug(4);
 
                 let content = Text::basic(LOREM_IPSUM, &font, 32.);
-                let content = &content.debug(5);
+                let content = content.debug(5);
 
                 let changing_title = ChangingTitle {
                     first_title: first,
@@ -550,7 +550,7 @@ mod tests {
                     gap: 5.,
                     collapse: true,
                 };
-                let changing_title = &changing_title.debug(2);
+                let changing_title = changing_title.debug(2);
 
                 callback.call(
                     &Titled {

@@ -1,15 +1,15 @@
 use crate::*;
 
-pub struct Padding<'a, E: Element> {
+pub struct Padding<E: Element> {
     pub left: f32,
     pub right: f32,
     pub top: f32,
     pub bottom: f32,
-    pub element: &'a E,
+    pub element: E,
 }
 
-impl<'a, E: Element> Padding<'a, E> {
-    pub fn left(left: f32, element: &'a E) -> Self {
+impl<E: Element> Padding<E> {
+    pub fn left(left: f32, element: E) -> Self {
         Padding {
             left,
             right: 0.,
@@ -19,7 +19,7 @@ impl<'a, E: Element> Padding<'a, E> {
         }
     }
 
-    pub fn right(right: f32, element: &'a E) -> Self {
+    pub fn right(right: f32, element: E) -> Self {
         Padding {
             left: 0.,
             right,
@@ -29,7 +29,7 @@ impl<'a, E: Element> Padding<'a, E> {
         }
     }
 
-    pub fn top(top: f32, element: &'a E) -> Self {
+    pub fn top(top: f32, element: E) -> Self {
         Padding {
             left: 0.,
             right: 0.,
@@ -39,7 +39,7 @@ impl<'a, E: Element> Padding<'a, E> {
         }
     }
 
-    pub fn bottom(bottom: f32, element: &'a E) -> Self {
+    pub fn bottom(bottom: f32, element: E) -> Self {
         Padding {
             left: 0.,
             right: 0.,
@@ -50,7 +50,7 @@ impl<'a, E: Element> Padding<'a, E> {
     }
 }
 
-impl<'a, E: Element> Element for Padding<'a, E> {
+impl<E: Element> Element for Padding<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         self.element.first_location_usage(FirstLocationUsageCtx {
             width: self.width(ctx.width),
@@ -132,7 +132,7 @@ impl<'a, E: Element> Element for Padding<'a, E> {
     }
 }
 
-impl<'a, E: Element> Padding<'a, E> {
+impl<E: Element> Padding<E> {
     fn width(&self, constraint: WidthConstraint) -> WidthConstraint {
         WidthConstraint {
             max: constraint.max - self.left - self.right,
@@ -190,7 +190,7 @@ mod tests {
                 right: 13.,
                 top: 14.,
                 bottom: 15.,
-                element: &proxy,
+                element: proxy,
             })
         });
 

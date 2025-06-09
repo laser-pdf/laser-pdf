@@ -50,7 +50,7 @@ impl<E: SerdeElement> SerdeElement for Debug<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::debug::Debug {
-            element: &SerdeElementElement {
+            element: SerdeElementElement {
                 element: &*self.element,
                 fonts,
             },
@@ -156,7 +156,7 @@ impl<E: SerdeElement> SerdeElement for HAlign<E> {
     ) {
         callback.call(&elements::h_align::HAlign(
             self.alignment,
-            &SerdeElementElement {
+            SerdeElementElement {
                 element: &*self.element,
                 fonts,
             },
@@ -186,7 +186,7 @@ impl<E: SerdeElement> SerdeElement for Padding<E> {
             right: self.right,
             top: self.top,
             bottom: self.bottom,
-            element: &SerdeElementElement {
+            element: SerdeElementElement {
                 element: &*self.element,
                 fonts,
             },
@@ -213,7 +213,7 @@ impl<E: SerdeElement> SerdeElement for StyledBox<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::styled_box::StyledBox {
-            element: &SerdeElementElement {
+            element: SerdeElementElement {
                 element: &*self.element,
                 fonts,
             },
@@ -461,11 +461,11 @@ impl<E: SerdeElement> SerdeElement for Titled<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::titled::Titled {
-            title: &SerdeElementElement {
+            title: SerdeElementElement {
                 element: &*self.title,
                 fonts,
             },
-            content: &SerdeElementElement {
+            content: SerdeElementElement {
                 element: &*self.content,
                 fonts,
             },
@@ -527,15 +527,15 @@ impl<E: SerdeElement> SerdeElement for ChangingTitle<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::changing_title::ChangingTitle {
-            first_title: &SerdeElementElement {
+            first_title: SerdeElementElement {
                 element: &*self.first_title,
                 fonts,
             },
-            remaining_title: &SerdeElementElement {
+            remaining_title: SerdeElementElement {
                 element: &*self.remaining_title,
                 fonts,
             },
-            content: &SerdeElementElement {
+            content: SerdeElementElement {
                 element: &*self.content,
                 fonts,
             },
@@ -593,11 +593,11 @@ impl<E: SerdeElement> SerdeElement for RepeatBottom<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::repeat_bottom::RepeatBottom {
-            content: &SerdeElementElement {
+            content: SerdeElementElement {
                 element: &*self.content,
                 fonts,
             },
-            bottom: &SerdeElementElement {
+            bottom: SerdeElementElement {
                 element: &*self.bottom,
                 fonts,
             },
@@ -624,11 +624,11 @@ impl<E: SerdeElement> SerdeElement for PinBelow<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::pin_below::PinBelow {
-            content: &SerdeElementElement {
+            content: SerdeElementElement {
                 element: &*self.content,
                 fonts,
             },
-            pinned_element: &SerdeElementElement {
+            pinned_element: SerdeElementElement {
                 element: &*self.pinned_element,
                 fonts,
             },
@@ -682,7 +682,7 @@ impl<E: SerdeElement> SerdeElement for MinFirstHeight<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::min_first_height::MinFirstHeight {
-            element: &SerdeElementElement {
+            element: SerdeElementElement {
                 element: &*self.element,
                 fonts,
             },
@@ -703,7 +703,7 @@ impl<E: SerdeElement> SerdeElement for AlignLocationBottom<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::align_location_bottom::AlignLocationBottom(
-            &SerdeElementElement {
+            SerdeElementElement {
                 element: &*self.element,
                 fonts,
             },
@@ -724,7 +724,7 @@ impl<E: SerdeElement> SerdeElement for AlignPreferredHeightBottom<E> {
     ) {
         callback.call(
             &elements::align_preferred_height_bottom::AlignPreferredHeightBottom(
-                &SerdeElementElement {
+                SerdeElementElement {
                     element: &*self.element,
                     fonts,
                 },
@@ -745,7 +745,7 @@ impl<E: SerdeElement> SerdeElement for ExpandToPreferredHeight<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(
-            &elements::expand_to_preferred_height::ExpandToPreferredHeight(&SerdeElementElement {
+            &elements::expand_to_preferred_height::ExpandToPreferredHeight(SerdeElementElement {
                 element: &*self.element,
                 fonts,
             }),
@@ -766,7 +766,7 @@ impl<E: SerdeElement> SerdeElement for ShrinkToFit<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::shrink_to_fit::ShrinkToFit {
-            element: &SerdeElementElement {
+            element: SerdeElementElement {
                 element: &*self.element,
                 fonts,
             },
@@ -788,7 +788,7 @@ impl<E: SerdeElement> SerdeElement for Rotate<E> {
         callback: impl CompositeElementCallback,
     ) {
         callback.call(&elements::rotate::Rotate {
-            element: &SerdeElementElement {
+            element: SerdeElementElement {
                 element: &*self.element,
                 fonts,
             },

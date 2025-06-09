@@ -347,28 +347,28 @@ mod tests {
         let bytes = test_element_bytes(params, |mut callback| {
             let font = TruetypeFont::new(callback.pdf(), FONT);
 
-            let normal = Text::basic("Hello, World", &font, 32.);
-
-            let character_spacing = Text {
-                extra_character_spacing: 16.,
-                ..Text::basic("Hello, World", &font, 32.)
-            };
-
-            let word_spacing = Text {
-                extra_word_spacing: 16.,
-                ..Text::basic("Hello, World", &font, 32.)
-            };
-
-            let both = Text {
-                extra_character_spacing: 16.,
-                extra_word_spacing: 16.,
-                ..Text::basic("Hello, World", &font, 32.)
-            };
-
             callback.call(&Column {
                 gap: 12.,
                 collapse: false,
                 content: |content| {
+                    let normal = Text::basic("Hello, World", &font, 32.);
+
+                    let character_spacing = Text {
+                        extra_character_spacing: 16.,
+                        ..Text::basic("Hello, World", &font, 32.)
+                    };
+
+                    let word_spacing = Text {
+                        extra_word_spacing: 16.,
+                        ..Text::basic("Hello, World", &font, 32.)
+                    };
+
+                    let both = Text {
+                        extra_character_spacing: 16.,
+                        extra_word_spacing: 16.,
+                        ..Text::basic("Hello, World", &font, 32.)
+                    };
+
                     content
                         .add(&normal.debug(0).show_max_width())?
                         .add(&character_spacing.debug(1).show_max_width())?
@@ -390,20 +390,20 @@ mod tests {
         let bytes = test_element_bytes(params, |mut callback| {
             let font = TruetypeFont::new(callback.pdf(), FONT);
 
-            let a = Text::basic("Hello\u{00AD}Wrld", &font, 32.);
-            let b = Text::basic("A Hello\u{00AD}Wrld", &font, 32.);
-            let c = Text::basic("A\u{00A0}Hello\u{00AD}Wrld", &font, 32.);
-            let d = Text::basic("Hello\u{00AD}Wrld\u{00AD}", &font, 32.);
-
             callback.call(&Column {
                 gap: 12.,
                 collapse: false,
                 content: |content| {
+                    let a = Text::basic("Hello\u{00AD}Wrld", &font, 32.);
+                    let b = Text::basic("A Hello\u{00AD}Wrld", &font, 32.);
+                    let c = Text::basic("A\u{00A0}Hello\u{00AD}Wrld", &font, 32.);
+                    let d = Text::basic("Hello\u{00AD}Wrld\u{00AD}", &font, 32.);
+
                     content
-                        .add(&Padding::right(100., &a.debug(0).show_max_width()))?
-                        .add(&Padding::right(120., &b.debug(0).show_max_width()))?
-                        .add(&Padding::right(120., &c.debug(0).show_max_width()))?
-                        .add(&Padding::right(20., &d.debug(0).show_max_width()))?;
+                        .add(&Padding::right(100., a.debug(0).show_max_width()))?
+                        .add(&Padding::right(120., b.debug(0).show_max_width()))?
+                        .add(&Padding::right(120., c.debug(0).show_max_width()))?
+                        .add(&Padding::right(20., d.debug(0).show_max_width()))?;
 
                     None
                 },

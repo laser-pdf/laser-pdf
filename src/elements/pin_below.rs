@@ -2,9 +2,9 @@ use crate::*;
 
 use self::utils::{add_optional_size, max_optional_size};
 
-pub struct PinBelow<'a, C: Element, B: Element> {
-    pub content: &'a C,
-    pub pinned_element: &'a B,
+pub struct PinBelow<C: Element, B: Element> {
+    pub content: C,
+    pub pinned_element: B,
     pub gap: f32,
     pub collapse: bool,
 }
@@ -18,7 +18,7 @@ struct Common {
     content_first_location_usage: Option<FirstLocationUsage>,
 }
 
-impl<'a, C: Element, B: Element> PinBelow<'a, C, B> {
+impl<C: Element, B: Element> PinBelow<C, B> {
     fn common(
         &self,
         width: WidthConstraint,
@@ -80,7 +80,7 @@ impl<'a, C: Element, B: Element> PinBelow<'a, C, B> {
     }
 }
 
-impl<'a, C: Element, B: Element> Element for PinBelow<'a, C, B> {
+impl<C: Element, B: Element> Element for PinBelow<C, B> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let common = self.common(ctx.width, ctx.first_height, Some(ctx.full_height));
 
@@ -217,7 +217,7 @@ mod tests {
     use crate::{
         elements::{none::NoneElement, text::Text, titled::Titled},
         fonts::builtin::BuiltinFont,
-        test_utils::{binary_snapshots::*, FranticJumper},
+        test_utils::{FranticJumper, binary_snapshots::*},
     };
     use insta::*;
 
@@ -234,8 +234,8 @@ mod tests {
 
             callback.call(
                 &PinBelow {
-                    content: &content,
-                    pinned_element: &bottom,
+                    content,
+                    pinned_element: bottom,
                     gap: 5.,
                     collapse: true,
                 }
@@ -258,8 +258,8 @@ mod tests {
 
             callback.call(
                 &PinBelow {
-                    content: &content,
-                    pinned_element: &bottom,
+                    content,
+                    pinned_element: bottom,
                     gap: 5.,
                     collapse: true,
                 }
@@ -282,8 +282,8 @@ mod tests {
 
             callback.call(
                 &PinBelow {
-                    content: &content,
-                    pinned_element: &bottom,
+                    content,
+                    pinned_element: bottom,
                     gap: 5.,
                     collapse: false,
                 }
@@ -311,8 +311,8 @@ mod tests {
 
                 callback.call(
                     &PinBelow {
-                        content: &content,
-                        pinned_element: &bottom,
+                        content,
+                        pinned_element: bottom,
                         gap: 5.,
                         collapse: false,
                     }
@@ -342,8 +342,8 @@ mod tests {
 
             callback.call(
                 &PinBelow {
-                    content: &content,
-                    pinned_element: &bottom,
+                    content,
+                    pinned_element: bottom,
                     gap: 10.,
                     collapse: false,
                 }
@@ -372,8 +372,8 @@ mod tests {
 
             callback.call(
                 &PinBelow {
-                    content: &content,
-                    pinned_element: &bottom,
+                    content,
+                    pinned_element: bottom,
                     gap: 10.,
                     collapse: true,
                 }
@@ -393,13 +393,13 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
                 let title = Text::basic("title", &font, 12.);
-                let title = &title.debug(1);
+                let title = title.debug(1);
 
                 let content = Text::basic("content", &font, 32.);
-                let content = &content.debug(3);
+                let content = content.debug(3);
 
                 let bottom = Text::basic("bottom", &font, 12.);
-                let bottom = &bottom.debug(4);
+                let bottom = bottom.debug(4);
 
                 let repeat_bottom = PinBelow {
                     content,
@@ -407,7 +407,7 @@ mod tests {
                     gap: 5.,
                     collapse: true,
                 };
-                let repeat_bottom = &repeat_bottom.debug(2);
+                let repeat_bottom = repeat_bottom.debug(2);
 
                 callback.call(
                     &Titled {
