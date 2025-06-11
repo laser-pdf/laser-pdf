@@ -1,15 +1,15 @@
 [package]
 name = "laser-pdf"
 version = "0.1.0"
+license = "MIT"
+keywords = ["pdf"]
+repository = "https://github.com/laser-pdf/laser-pdf"
+description = "A Rust library for programmatic PDF generation with precise, predictable layout control."
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# printpdf = { path = "../printpdf", version = "0.3.2" }
-# printpdf = { git = "https://github.com/escola-ch/printpdf-fork.git" }
-# stb_truetype = "0.3.1"
-# lopdf = { version = "0.27", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 usvg = { version = "0.43.0", default-features = false }
 svgtypes = "0.5.0"
