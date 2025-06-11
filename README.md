@@ -24,7 +24,7 @@ Unlike CSS, which can sometimes produce unexpected layouts, laser-pdf prioritize
 
 ### Rust API
 
-(A simple function using this in a multi-page context is still missing.)
+(A simple function convenient multi-page generation is still missing.)
 
 ```rust
 use laser_pdf::*;
@@ -48,10 +48,13 @@ let body = Text::basic("This is the document body content.", &font, 12.0);
 let content = Column {
     gap: 10.0,
     collapse: true,
-    content: |callback| {
-        callback(&Padding::all(title, 5.0))?;
-        callback(&body)?;
-        Some(())
+    content: |content| {
+        content
+          .add(&Padding::all(title, 5.0))?
+          .add(&body)?;
+
+        // Returns an option to support short-circuiting.
+        None
     }
 };
 
