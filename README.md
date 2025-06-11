@@ -151,10 +151,10 @@ Elements can collapse on each axis independently. When an element collapses in t
 ⚠️ **Pre-1.0**: The library is under active development. While used in production at Escola, the API may change before the 1.0 release. Element names and some APIs are still being refined.
 
 **Roadmap to 1.0:**
-- Finalize element naming conventions
-- Publish to crates.io
-- Release PHP bindings as open source
-- Complete documentation
+- [ ] Finalize element naming conventions
+- [x] Publish to crates.io
+- [ ] Release PHP bindings as open source
+- [ ] Complete documentation
 
 ## Development
 
