@@ -8,6 +8,24 @@ pub struct Column<C: Fn(ColumnContent) -> Option<()>> {
     pub collapse: bool,
 }
 
+impl<C: Fn(ColumnContent) -> Option<()>> Column<C> {
+    pub fn new(content: C) -> Self {
+        Column {
+            content,
+            gap: 0.,
+            collapse: true,
+        }
+    }
+
+    pub fn with_gap(self, gap: f32) -> Self {
+        Column { gap, ..self }
+    }
+
+    pub fn with_collapse(self, collapse: bool) -> Self {
+        Column { collapse, ..self }
+    }
+}
+
 impl<C: Fn(ColumnContent) -> Option<()>> Element for Column<C> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let mut ret = FirstLocationUsage::NoneHeight;

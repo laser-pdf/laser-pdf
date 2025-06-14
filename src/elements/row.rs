@@ -13,6 +13,36 @@ pub struct Row<F: Fn(&mut RowContent)> {
     pub content: F,
 }
 
+impl<F: Fn(&mut RowContent)> Row<F> {
+    pub fn new(content: F) -> Self {
+        Row {
+            gap: 0.,
+            expand: false,
+            collapse: true,
+            content,
+        }
+    }
+
+    pub fn with_gap(self, gap: f32) -> Self {
+        Row { gap, ..self }
+    }
+
+    pub fn with_expand(self, expand: bool) -> Self {
+        Row { expand, ..self }
+    }
+
+    pub fn with_collapse(self, collapse: bool) -> Self {
+        Row { collapse, ..self }
+    }
+
+    pub fn expand(self) -> Self {
+        Row {
+            expand: true,
+            ..self
+        }
+    }
+}
+
 impl<F: Fn(&mut RowContent)> Element for Row<F> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         FirstLocationUsage::WillUse
