@@ -1,5 +1,9 @@
 use crate::*;
 
+/// A vertical gap element that creates empty vertical space.
+/// 
+/// This element takes up the specified height (or available height if smaller)
+/// without rendering any content. Useful for adding spacing between elements.
 pub struct VGap(pub f32);
 
 impl Element for VGap {

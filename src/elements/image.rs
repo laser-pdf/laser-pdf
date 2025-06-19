@@ -9,7 +9,12 @@ use super::svg::Svg;
 
 const INCH_TO_MM: f32 = 25.4;
 
+/// An image element that can render both pixel images and SVG graphics.
+/// 
+/// The image is automatically scaled to fit the available width while maintaining
+/// aspect ratio. Supports various image formats through the `Image` enum.
 pub struct ImageElement<'a> {
+    /// Reference to the image data (pixel or SVG)
     pub image: &'a Image,
 }
 

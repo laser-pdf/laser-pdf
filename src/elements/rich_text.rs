@@ -6,21 +6,48 @@ use crate::*;
 
 use serde::{Deserialize, Serialize};
 
+/// A text span with formatting properties.
+///
+/// Represents a portion of text with specific formatting that can be
+/// combined with other spans to create rich text content.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Span {
+    /// The text content
     pub text: String,
+    /// Whether the text should be bold
     pub bold: bool,
+    /// Whether the text should be italic
     pub italic: bool,
+    /// Whether the text should be underlined
     pub underline: bool,
+    /// Text color as RGBA
     pub color: u32,
+    /// Whether to use the smaller font size
     pub small: bool,
 }
 
+/// Rich text element that renders text with mixed formatting.
+///
+/// Unlike the basic `Text` element, `RichText` can contain multiple spans
+/// with different formatting (bold, italic, colors, sizes) within the same text block.
+///
+/// The line height is calculated once based on all fonts in the `FontSet`. This means that if some
+/// fonts are larger than the rest and not being used on a specific line, or only small text is used
+/// the line height will not change for that line.
 pub struct RichText<'a, F: Font> {
+    /// Array of text spans with individual formatting
     pub spans: &'a [Span],
+    /// Base font size for normal text
     pub size: f32,
+
+    /// Font size for small text spans.
+    ///
+    /// If this is larger than `size`, `size` will be used for small text.
     pub small_size: f32,
+
+    /// Additional line height spacing
     pub extra_line_height: f32,
+    /// Font set providing regular, bold, italic, and bold-italic variants
     pub fonts: FontSet<'a, F>,
 }
 

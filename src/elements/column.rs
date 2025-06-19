@@ -2,9 +2,49 @@ use crate::*;
 
 use self::utils::add_optional_size_with_gap;
 
+/// A container that arranges child elements vertically with optional gaps.
+///
+/// Elements are laid out from top to bottom with configurable spacing between them.
+/// Supports page breaking and collapsing behavior for empty elements.
+///
+/// ## Gap Behavior
+///
+/// Gaps are only applied between elements that have actual height. Elements with
+/// `None` height (collapsed elements) don't get gaps before or after them.
+///
+/// ## Collapse Behavior
+///
+/// When `collapse: true` (default):
+/// - If all children have `None` height, the column returns `None` height
+/// - If all children have `None` width, the column returns `None` width
+/// - The gaps around a child with a `None` height are collapsed into one.
+///
+/// When `collapse: false`:
+/// - Empty columns return `Some(0.0)` for height/width instead of `None`
+/// - Useful when you need a column to always occupy space even when empty
+/// - A child with a `None` height will still have a gap on either side
+///
+/// ## Page Breaking
+///
+/// In breakable contexts, when a child element causes a page break, the column's
+/// accumulated height is reset and continues on the new page.
 pub struct Column<C: Fn(ColumnContent) -> Option<()>> {
+    /// Closure that gets called for adding the content.
+    ///
+    /// The closure is basically an internal iterator that produces elements by calling
+    /// [ColumnContent::add]. For short circuiting with the `?` operator [ColumnContent::add] and
+    /// this closure return an [Option].
+    ///
+    /// If the column is in a context that measures it before drawing (such as `BreakWhole`), this
+    /// function will be called twice. In more complicated nested layouts it could be called more
+    /// than that (though in real world layouts this effect should be minimal as not all containers
+    /// need a measure pass before drawing). Because of this it's beneficial to keep expensive
+    /// computations and allocation outside of this closure.
     pub content: C,
+    /// Vertical spacing between elements in millimeters
     pub gap: f32,
+    /// Whether to collapse to None size when all children are collapsed.
+    /// When false, empty columns return Some(0.0) instead of None.
     pub collapse: bool,
 }
 

@@ -2,7 +2,12 @@ use utils::mm_to_pt;
 
 use crate::{utils::pt_to_mm, *};
 
+/// An SVG graphics element that renders vector graphics from a usvg tree.
+///
+/// The SVG is automatically scaled to fit the available width while maintaining its aspect ratio.
+/// Uses the `svg2pdf` crate for rendering the parsed `usvg` tree.
 pub struct Svg<'a> {
+    /// Reference to the parsed SVG tree
     pub data: &'a usvg::Tree,
 }
 

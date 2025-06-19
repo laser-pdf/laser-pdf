@@ -1,5 +1,10 @@
 use crate::*;
 
+/// Forces a break after it. Breaking mostly means page breaking, but the same mechanism could be
+/// used for columns or other advanced layout usecases.
+///
+/// This element takes up no space but causes the layout to continue on the next page or column when
+/// used in a breakable context.
 pub struct ForceBreak;
 
 impl Element for ForceBreak {

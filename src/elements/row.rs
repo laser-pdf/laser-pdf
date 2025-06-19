@@ -6,10 +6,49 @@ use crate::{
 
 use super::none::NoneElement;
 
+/// A container that arranges child elements horizontally with flexible sizing.
+///
+/// Elements can be sized as self-sized, fixed width, or expanding to fill available space.
+/// The `expand` option makes all children the same height by passing the maximum height
+/// and break count as `preferred_height` and `preferred_height_break_count`, enabling
+/// features like bottom alignment and background fills.
+///
+/// The `preferred_height_break_count` represents the number of page breaks, with
+/// `preferred_height` being the height on the final page. For example, if
+/// `preferred_height_break_count = 2` and `preferred_height = 15.0`, it means
+/// \"break twice, then use 15mm on the final page\".
+///
+/// ## Flex System
+///
+/// - `Flex::SelfSized`: Element uses its natural width
+/// - `Flex::Fixed(width)`: Element uses the specified width  
+/// - `Flex::Expand(weight)`: Element gets a portion of remaining space based on weight
+///
+/// Remaining space is calculated as: total_width - sum(self_sized_widths) - sum(fixed_widths)
+/// Then distributed proportionally: element_width = remaining_space * (weight / total_weights)
+///
+/// ## Performance Note
+///
+/// When `expand: false`, only self-sized elements are measured in the first pass.
+/// When `expand: true`, all elements must be measured before drawing to determine
+/// the maximum height, which requires an additional measurement pass.
 pub struct Row<F: Fn(&mut RowContent)> {
+    /// Horizontal spacing between elements in millimeters
     pub gap: f32,
+    /// Whether to expand all children to the same height by passing preferred_height
     pub expand: bool,
+    /// Whether to collapse when all children have None height/width
     pub collapse: bool,
+    /// Closure that gets called for adding the content.
+    ///
+    /// The closure is basically an internal iterator that produces elements by calling
+    /// [RowContent::add].
+    ///
+    /// This closure will be called at least twice because the non-expanded elements need to be
+    /// measured first. Depending on the surrounding context it could be called more than that
+    /// (though in real world layouts this effect should be minimal as not all containers need a
+    /// measure pass before drawing). Because of this it's beneficial to keep expensive computations
+    /// and allocations outside of this closure.
     pub content: F,
 }
 
@@ -262,10 +301,16 @@ enum Pass<'a, 'b, 'c> {
     },
 }
 
+/// Flex behavior determining how row elements are sized horizontally.
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub enum Flex {
+    /// Expand to fill available space proportionally based on weight.
+    /// Remaining space after self-sized and fixed elements is distributed
+    /// proportionally: weight / sum_of_all_weights.
     Expand(u8),
+    /// Use the element's natural width
     SelfSized,
+    /// Use a fixed width in millimeters
     Fixed(f32),
 }
 
@@ -296,6 +341,10 @@ fn add_height(
 }
 
 impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
+    /// Add a flexible gap that expands to fill space.
+    ///
+    /// This is equivalent to adding a `NoneElement` with `Flex::Expand(gap)`.
+    /// Useful for pushing elements apart or centering them with flexible spacing.
     pub fn flex_gap(&mut self, gap: u8) {
         self.add(&NoneElement, Flex::Expand(gap));
     }

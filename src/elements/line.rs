@@ -1,6 +1,11 @@
 use crate::{utils::*, *};
 
+/// A horizontal line element with configurable styling.
+/// 
+/// The line spans the full available width when drawn in an expanding context.
+/// Line thickness, color, dash patterns, and cap styles are configurable.
 pub struct Line {
+    /// Line styling including thickness, color, dash pattern, and cap style
     pub style: LineStyle,
 }
 

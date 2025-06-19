@@ -11,15 +11,25 @@ pub enum TextAlign {
     Right,
 }
 
+/// A text element that renders text content with various styling options.
 pub struct Text<'a, F: Font> {
+    /// The text content to render
     pub text: &'a str,
+    /// Font reference
     pub font: &'a F,
+    /// Font size in points
     pub size: f32,
+    /// Text color as RGBA (default: black 0x00_00_00_FF)
     pub color: u32,
+    /// Whether to underline the text
     pub underline: bool,
+    /// Additional spacing between characters
     pub extra_character_spacing: f32,
+    /// Additional spacing between words
     pub extra_word_spacing: f32,
+    /// Additional line height
     pub extra_line_height: f32,
+    /// Text alignment
     pub align: TextAlign,
 }
 

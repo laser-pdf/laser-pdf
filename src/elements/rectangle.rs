@@ -2,9 +2,16 @@ use pdf_writer::Name;
 
 use crate::{utils::*, *};
 
+/// A rectangular shape element with optional fill and outline.
+/// 
+/// The rectangle is rendered with the specified width and height and can have
+/// both a fill color and an outline with configurable thickness and color.
 pub struct Rectangle {
+    /// Size as (width_mm, height_mm)
     pub size: (f32, f32),
+    /// Optional fill color as RGBA (None for transparent)
     pub fill: Option<u32>,
+    /// Optional outline as (thickness_mm, color_rgba)
     pub outline: Option<(f32, u32)>,
 }
 

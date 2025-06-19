@@ -1,5 +1,14 @@
 use crate::*;
 
+/// A null element that takes up no space.
+///
+/// It uses `None` as the size on both axes, meaning it will trigger collapsing in containers that
+/// support it, such as a `Column` with `collapse: true`. Collapsing means that for example the gaps
+/// before and after the element will be combined into one and if all elements in a container are
+/// collapsed, the container itself will also have a `None` size on the relevant axis.
+///
+/// This element is useful for conditional layouts where you may want to
+/// include an element or nothing at all based on some condition.
 pub struct NoneElement;
 
 impl Element for NoneElement {

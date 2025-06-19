@@ -2,9 +2,16 @@ use kurbo::Shape;
 
 use crate::{utils::*, *};
 
+/// A circular shape element with optional fill and outline.
+/// 
+/// The circle is rendered with the specified radius and can have both
+/// a fill color and an outline with configurable thickness and color.
 pub struct Circle {
+    /// Radius of the circle in millimeters
     pub radius: f32,
+    /// Optional fill color as RGBA (None for transparent)
     pub fill: Option<u32>,
+    /// Optional outline as (thickness_mm, color_rgba)
     pub outline: Option<(f32, u32)>,
 }
 

@@ -177,7 +177,8 @@ cargo insta review
 
 ### Contributing
 
-The project uses [insta](https://insta.rs/) for snapshot testing, including binary PDF snapshots for visual regression testing.
+The project uses [insta](https://insta.rs/) for snapshot testing, including binary PDF snapshots for
+visual regression testing.
 
 ## License
 
@@ -186,7 +187,3 @@ Licensed under the [MIT License](LICENSE).
 ## Used By
 
 - [Escola](https://www.escola.ch) - Production PDF generation for educational documents
-
----
-
-*Built with ❤️ for precise, predictable PDF layouts*
