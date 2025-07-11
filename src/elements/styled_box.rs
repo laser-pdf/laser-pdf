@@ -302,10 +302,11 @@ impl<E: Element> Element for StyledBox<E> {
                             _ => (),
                         }
 
-                        break_count = break_count.max(location_idx + 1);
-
                         let ret = common.location(pdf, &location);
-                        last_location = location;
+                        if location_idx >= break_count {
+                            last_location = location;
+                        }
+                        break_count = break_count.max(location_idx + 1);
                         ret
                     },
                 }),
@@ -347,7 +348,12 @@ impl<E: Element> Element for StyledBox<E> {
 mod tests {
     use super::*;
     use crate::{
-        elements::{none::NoneElement, rectangle::Rectangle, ref_element::RefElement, text::Text},
+        elements::{
+            rectangle::Rectangle,
+            ref_element::RefElement,
+            row::{Flex, Row},
+            text::Text,
+        },
         fonts::builtin::BuiltinFont,
         test_utils::{
             record_passes::{Break, BreakableDraw, DrawPass, RecordPasses},
@@ -568,6 +574,66 @@ mod tests {
                         cap_style: LineCapStyle::Butt,
                     }),
                     ..StyledBox::new(first)
+                }
+                .debug(0)
+                .show_max_width()
+                .show_last_location_max_height(),
+            );
+        });
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
+    fn test_last_location() {
+        use crate::test_utils::binary_snapshots::*;
+        use insta::*;
+
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let font = BuiltinFont::courier(callback.pdf());
+
+            let text_a = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam mauris \
+                massa, sollicitudin nec nunc eu, lacinia venenatis felis. Etiam non tempus nisl, \
+                euismod accumsan arcu. Vivamus aliquam lorem a odio maximus volutpat. Phasellus \
+                volutpat leo quis varius posuere. Nam sagittis nisl eget suscipit pretium. Donec \
+                varius tortor eget nibh maximus sagittis. Duis id libero eu mi vulputate congue id \
+                eu est. Maecenas pellentesque massa id dui fringilla, et porta nulla imperdiet. \
+                Sed eu est rutrum, scelerisque tortor ac, lacinia turpis. \
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam mauris \
+                massa, sollicitudin nec nunc eu, lacinia venenatis felis. Etiam non tempus nisl, \
+                euismod accumsan arcu. Vivamus aliquam lorem a odio maximus volutpat. Phasellus \
+                volutpat leo quis varius posuere. Nam sagittis nisl eget suscipit pretium. Donec \
+                varius tortor eget nibh maximus sagittis. Duis id libero eu mi vulputate congue id \
+                eu est. Maecenas pellentesque massa id dui fringilla, et porta nulla imperdiet. \
+                Sed eu est rutrum, scelerisque tortor ac, lacinia turpis. \
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam mauris \
+                massa, sollicitudin nec nunc eu, lacinia venenatis felis. Etiam non tempus nisl, \
+                euismod accumsan arcu. Vivamus aliquam lorem a odio maximus volutpat. Phasellus \
+                volutpat leo quis varius posuere. Nam sagittis nisl eget suscipit pretium. Donec \
+                varius tortor eget nibh maximus sagittis. Duis id libero eu mi vulputate congue id \
+                eu est. Maecenas pellentesque massa id dui fringilla, et porta nulla imperdiet. \
+                Sed eu est rutrum, scelerisque tortor ac, lacinia turpis.";
+            let text_b = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam mauris \
+                massa, sollicitudin nec nunc eu, lacinia venenatis felis. Etiam non tempus nisl, \
+                euismod accumsan arcu. Vivamus aliquam lorem a odio maximus volutpat. Phasellus \
+                volutpat leo quis varius posuere. Nam sagittis nisl eget suscipit pretium. Donec \
+                varius tortor eget nibh maximus sagittis. Duis id libero eu mi vulputate congue id \
+                eu est. Maecenas pellentesque massa id dui fringilla, et porta nulla imperdiet. \
+                Sed eu est rutrum, scelerisque tortor ac, lacinia turpis. \
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam mauris \
+                massa, sollicitudin nec nunc eu, lacinia venenatis felis. Etiam non tempus nisl, \
+                euismod accumsan arcu. Vivamus aliquam lorem a odio maximus volutpat. Phasellus \
+                volutpat leo quis varius posuere. Nam sagittis nisl eget suscipit pretium. Donec \
+                varius tortor eget nibh maximus sagittis. Duis id libero eu mi vulputate congue id \
+                eu est. Maecenas pellentesque massa id dui fringilla, et porta nulla imperdiet. \
+                Sed eu est rutrum, scelerisque tortor ac, lacinia turpis.";
+
+            callback.call(
+                &StyledBox {
+                    fill: Some(0x00_00_FF_FF),
+                    ..StyledBox::new(Row::new(|content| {
+                        content.add(&Text::basic(text_a, &font, 24.), Flex::Expand(1));
+                        content.add(&Text::basic(text_b, &font, 24.), Flex::Expand(1));
+                    }))
                 }
                 .debug(0)
                 .show_max_width()
