@@ -1,0 +1,6 @@
+---
+source: src/elements/max_width.rs
+expression: bytes
+extension: pdf
+snapshot_kind: binary
+---

@@ -82,4 +82,5 @@ define_serde_element_value!(ElementValue {
     ExpandToPreferredHeight<ElementValue>,
     ShrinkToFit<ElementValue>,
     Rotate<ElementValue>,
+    MaxWidth<ElementValue>,
 });

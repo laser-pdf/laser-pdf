@@ -796,3 +796,25 @@ impl<E: SerdeElement> SerdeElement for Rotate<E> {
         });
     }
 }
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct MaxWidth<E> {
+    pub element: Box<E>,
+    pub max_width: f32,
+}
+
+impl<E: SerdeElement> SerdeElement for MaxWidth<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::max_width::MaxWidth {
+            element: SerdeElementElement {
+                element: &*self.element,
+                fonts,
+            },
+            max_width: self.max_width,
+        });
+    }
+}
