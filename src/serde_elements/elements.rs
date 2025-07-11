@@ -170,8 +170,6 @@ pub struct Padding<E> {
     pub right: f32,
     pub top: f32,
     pub bottom: f32,
-
-    #[serde(alias = "elem")]
     pub element: Box<E>,
 }
 
