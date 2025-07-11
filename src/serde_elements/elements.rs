@@ -838,7 +838,7 @@ pub enum PageNumberText {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PageNumber {
-    pub skip_pages: u32,
+    pub skip_pages: usize,
     pub pos: (elements::page::X, elements::page::Y),
     pub text: PageNumberText,
     pub font: String,
@@ -852,7 +852,7 @@ pub struct DecorationElement<E> {
     pub element: E,
     pub pos: (elements::page::X, elements::page::Y),
     pub width: Option<f32>,
-    pub skip_pages: u32,
+    pub skip_pages: usize,
     pub repeat: bool,
 }
 
@@ -884,50 +884,59 @@ impl<E: SerdeElement> SerdeElement for Page<E> {
             border_bottom: self.border_bottom,
             decoration_elements: |content, page, page_count| {
                 for decoration_element in &self.decoration_elements {
-                    content.add(
-                        &SerdeElementElement {
-                            element: &decoration_element.element,
-                            fonts,
-                        },
-                        decoration_element.pos,
-                        decoration_element.width,
-                    );
+                    if page == decoration_element.skip_pages
+                        || decoration_element.repeat && page > decoration_element.skip_pages
+                    {
+                        content.add(
+                            &SerdeElementElement {
+                                element: &decoration_element.element,
+                                fonts,
+                            },
+                            decoration_element.pos,
+                            decoration_element.width,
+                        );
+                    }
                 }
 
                 for page_number in &self.page_numbers {
-                    content.add(
-                        &elements::text::Text {
-                            underline: page_number.underline,
-                            ..elements::text::Text::basic(
-                                // Since the decoration_elements callback is only called when
-                                // drawing it shouldn't be a problem to be allocating a string here,
-                                // but it could potentially be optimized by reusing the buffer.
-                                &match page_number.text {
-                                    PageNumberText::Current {
-                                        ref before,
-                                        ref after,
-                                    } => {
-                                        format!("{before}{}{after}", page + 1)
-                                    }
-                                    PageNumberText::Total {
-                                        ref before,
-                                        ref after,
-                                    } => format!("{before}{page_count}{after}"),
-                                    PageNumberText::CurrentAndTotal {
-                                        ref before,
-                                        ref between,
-                                        ref after,
-                                    } => {
-                                        format!("{before}{}{between}{page_count}{after}", page + 1)
-                                    }
-                                },
-                                &*fonts[&page_number.font],
-                                page_number.size,
-                            )
-                        },
-                        page_number.pos,
-                        Option::None,
-                    );
+                    if page >= page_number.skip_pages {
+                        content.add(
+                            &elements::text::Text {
+                                underline: page_number.underline,
+                                ..elements::text::Text::basic(
+                                    // Since the decoration_elements callback is only called when
+                                    // drawing it shouldn't be a problem to be allocating a string here,
+                                    // but it could potentially be optimized by reusing the buffer.
+                                    &match page_number.text {
+                                        PageNumberText::Current {
+                                            ref before,
+                                            ref after,
+                                        } => {
+                                            format!("{before}{}{after}", page + 1)
+                                        }
+                                        PageNumberText::Total {
+                                            ref before,
+                                            ref after,
+                                        } => format!("{before}{page_count}{after}"),
+                                        PageNumberText::CurrentAndTotal {
+                                            ref before,
+                                            ref between,
+                                            ref after,
+                                        } => {
+                                            format!(
+                                                "{before}{}{between}{page_count}{after}",
+                                                page + 1
+                                            )
+                                        }
+                                    },
+                                    &*fonts[&page_number.font],
+                                    page_number.size,
+                                )
+                            },
+                            page_number.pos,
+                            Option::None,
+                        );
+                    }
                 }
             },
         });
