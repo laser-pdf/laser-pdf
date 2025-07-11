@@ -429,7 +429,7 @@ mod tests {
             unimplemented!()
         }
 
-        fn resource_name(&self) -> pdf_writer::Name {
+        fn resource_name(&self) -> pdf_writer::Name<'_> {
             unimplemented!()
         }
 

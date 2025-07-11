@@ -1,19 +1,7 @@
-// use pdf_writer::Name;
-
 pub mod builtin;
 pub mod truetype;
 
 use std::ops::Range;
-
-use pdf_writer::writers::ShowPositioned;
-
-use crate::{Location, Pdf};
-
-// use pdf_writer::Content;
-
-// pub struct HMetrics {
-//     pub advance_width: f32,
-// }
 
 pub struct GeneralMetrics {
     pub ascent: u32,
@@ -51,19 +39,11 @@ pub trait Font {
         word_spacing: i32,
     ) -> Self::Shaped<'a>;
 
-    // fn remap(&self, pdf: &mut crate::Pdf, glyph_id: u16) -> u16;
-
     fn encode(&self, pdf: &mut crate::Pdf, glyph_id: u32, text: &str) -> EncodedGlyph;
 
-    fn resource_name(&self) -> pdf_writer::Name;
+    fn resource_name(&self) -> pdf_writer::Name<'_>;
 
     fn general_metrics(&self) -> GeneralMetrics;
 
     fn units_per_em(&self) -> u16;
-
-    // fn resource_name<'a>(&'a self) -> Name<'a>;
-
-    // fn codepoint_h_metrics(&self, codepoint: u32) -> HMetrics;
-
-    // fn general_metrics(&self) -> GeneralMetrics;
 }

@@ -119,7 +119,7 @@ impl<'a> TestConfiguration<'a> {
 }
 
 impl ElementTestParams {
-    pub fn configurations(&self) -> impl Iterator<Item = TestConfiguration> {
+    pub fn configurations(&self) -> impl Iterator<Item = TestConfiguration<'_>> {
         [
             (false, false, false),
             (false, false, true),

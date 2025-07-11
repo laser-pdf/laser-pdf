@@ -164,7 +164,7 @@ impl Font for BuiltinFont {
         EncodedGlyph::OneByte(glyph_id as u8)
     }
 
-    fn resource_name(&self) -> pdf_writer::Name {
+    fn resource_name(&self) -> pdf_writer::Name<'_> {
         Name(self.resource_name.as_bytes())
     }
 

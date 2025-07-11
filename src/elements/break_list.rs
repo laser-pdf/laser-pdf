@@ -506,11 +506,12 @@ mod tests {
 
                 let element = BreakList {
                     gap,
-                    content: |mut content| {
-                        content = content.add(&child_0)?;
-                        content = content.add(&child_1)?;
-                        content = content.add(&child_2)?;
-                        content = content.add(&child_3)?;
+                    content: |content| {
+                        content
+                            .add(&child_0)?
+                            .add(&child_1)?
+                            .add(&child_2)?
+                            .add(&child_3)?;
 
                         None
                     },

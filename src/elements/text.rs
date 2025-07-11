@@ -296,12 +296,8 @@ mod tests {
     use fonts::truetype::TruetypeFont;
     use insta::*;
 
+    use crate::fonts::builtin::BuiltinFont;
     use crate::test_utils::binary_snapshots::*;
-    use crate::{
-        DrawCtx, ElementSize,
-        fonts::builtin::BuiltinFont,
-        test_utils::{ElementProxy, ElementTestParams},
-    };
 
     use super::*;
 
@@ -421,58 +417,4 @@ mod tests {
         });
         assert_binary_snapshot!(".pdf", bytes);
     }
-
-    // #[test]
-    // fn test_text() {
-    //     // A fake document for adding the font to.
-    //     let doc = PdfDocument::empty("i contain a font");
-
-    //     let font = BuiltinFont::helvetica(&doc);
-
-    //     let text_element = Text {
-    //         ..Text::basic("i am a line\nso am i", &font, 12.)
-    //     };
-
-    //     let element = ElementProxy {
-    //         before_draw: &|ctx: &mut DrawCtx| {
-    //             // These seem to be stored in a map by name and when drawing a font with the same
-    //             // needs to exist in the document being drawn on.
-    //             ctx.pdf
-    //                 .document
-    //                 .add_builtin_font(printpdf::BuiltinFont::Helvetica)
-    //                 .unwrap();
-    //         },
-    //         ..ElementProxy::new(text_element)
-    //     };
-
-    //     for mut output in (ElementTestParams {
-    //         first_height: 4.,
-    //         full_height: 5.,
-    //         ..Default::default()
-    //     })
-    //     .run(&element)
-    //     {
-    //         if let Some(ref mut b) = output.breakable {
-    //             b.assert_break_count(if output.first_height == 4. { 2 } else { 1 });
-    //         }
-
-    //         output.assert_size(ElementSize {
-    //             width: Some(output.width.constrain(19.291312152)),
-
-    //             // Note: I'm not sure this line height is correct. When running the same test with
-    //             // Nimbus Sans L, which is supposed to be fully metrically compatible with
-    //             // helvetica (at least according to the readme in
-    //             // https://git.ghostscript.com/?p=user/tor/urw-base-12.git), the height ends up
-    //             // being slightly more. On the x axis it matches exactly though. It's possible that
-    //             // the bounding box in afm is not meant to be the equivalent of ascent + descent +
-    //             // line gap in ttf. NimbusSans-Regular.afm from the following repo has the same
-    //             // numbers https://git.ghostscript.com/?p=urw-core35-fonts.git as the Adobe one
-    //             // and when running with NimbusSans-Regular.ttf from that repo the numbers are much
-    //             // closer, which is reassuring (that one uses 2048 units per em so that should
-    //             // explain the slight difference). The numbers for that one are 19.293924914062497
-    //             // and 4.86792298828125.
-    //             height: Some(4.893736415999999 * if output.breakable.is_some() { 1. } else { 2. }),
-    //         });
-    //     }
-    // }
 }

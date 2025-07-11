@@ -84,24 +84,6 @@ struct Doc {
 
 impl Doc {
     fn new(params: TestElementParams) -> Self {
-        // let (document, ..) = PdfDocument::new(
-        //     "test",
-        //     Mm(params.page_size.0),
-        //     Mm(params.page_size.1),
-        //     "Layer 0",
-        // );
-
-        // let document = document
-        //     .with_document_id("0000".to_string())
-        //     .with_instance_id("0000".to_string())
-        //     .with_xmp_document_id("0000".to_string())
-        //     .with_xmp_instance_id("0000".to_string())
-        //     .with_creation_date(OffsetDateTime::unix_epoch())
-        //     .with_mod_date(OffsetDateTime::unix_epoch())
-        //     .with_metadata_date(OffsetDateTime::unix_epoch());
-
-        // TODO??
-
         let mut pdf = Pdf::new();
         pdf.add_page(params.page_size);
 
@@ -337,7 +319,7 @@ pub fn test_element_bytes(params: TestElementParams, build_element: impl Fn(Call
             FirstLocationUsage::WillSkip => {
                 assert!(measure.break_count >= 1);
 
-                let skipped_measure = Doc::new(TestElementParams {
+                let _skipped_measure = Doc::new(TestElementParams {
                     first_height: full_height,
                     ..params
                 })
