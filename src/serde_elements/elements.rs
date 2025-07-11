@@ -818,3 +818,118 @@ impl<E: SerdeElement> SerdeElement for MaxWidth<E> {
         });
     }
 }
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum PageNumberText {
+    Current {
+        before: String,
+        after: String,
+    },
+    Total {
+        before: String,
+        after: String,
+    },
+    CurrentAndTotal {
+        before: String,
+        between: String,
+        after: String,
+    },
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PageNumber {
+    pub skip_pages: u32,
+    pub pos: (elements::page::X, elements::page::Y),
+    pub text: PageNumberText,
+    pub font: String,
+    pub size: f32,
+    pub color: u32,
+    pub underline: bool,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct DecorationElement<E> {
+    pub element: E,
+    pub pos: (elements::page::X, elements::page::Y),
+    pub width: Option<f32>,
+    pub skip_pages: u32,
+    pub repeat: bool,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Page<E> {
+    pub primary: Box<E>,
+    pub border_left: f32,
+    pub border_right: f32,
+    pub border_top: f32,
+    pub border_bottom: f32,
+    pub decoration_elements: Vec<DecorationElement<E>>,
+    pub page_numbers: Vec<PageNumber>,
+}
+
+impl<E: SerdeElement> SerdeElement for Page<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::page::Page {
+            primary: SerdeElementElement {
+                element: &*self.primary,
+                fonts,
+            },
+            border_left: self.border_left,
+            border_right: self.border_right,
+            border_top: self.border_top,
+            border_bottom: self.border_bottom,
+            decoration_elements: |content, page, page_count| {
+                for decoration_element in &self.decoration_elements {
+                    content.add(
+                        &SerdeElementElement {
+                            element: &decoration_element.element,
+                            fonts,
+                        },
+                        decoration_element.pos,
+                        decoration_element.width,
+                    );
+                }
+
+                for page_number in &self.page_numbers {
+                    content.add(
+                        &elements::text::Text {
+                            underline: page_number.underline,
+                            ..elements::text::Text::basic(
+                                // Since the decoration_elements callback is only called when
+                                // drawing it shouldn't be a problem to be allocating a string here,
+                                // but it could potentially be optimized by reusing the buffer.
+                                &match page_number.text {
+                                    PageNumberText::Current {
+                                        ref before,
+                                        ref after,
+                                    } => {
+                                        format!("{before}{}{after}", page + 1)
+                                    }
+                                    PageNumberText::Total {
+                                        ref before,
+                                        ref after,
+                                    } => format!("{before}{page_count}{after}"),
+                                    PageNumberText::CurrentAndTotal {
+                                        ref before,
+                                        ref between,
+                                        ref after,
+                                    } => {
+                                        format!("{before}{}{between}{page_count}{after}", page + 1)
+                                    }
+                                },
+                                &*fonts[&page_number.font],
+                                page_number.size,
+                            )
+                        },
+                        page_number.pos,
+                        Option::None,
+                    );
+                }
+            },
+        });
+    }
+}
