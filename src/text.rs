@@ -354,9 +354,7 @@ impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
     fn advance(&mut self) {
         self.current = None;
     }
-}
 
-impl<'a, 'b, F: Font> LineGenerator<'a, 'b, F> {
     pub fn next(&mut self, max_width: u32, incomplete: bool) -> Option<Line<F::Shaped<'a>>> {
         let Some(start) = self.current().map(|(p, _)| p.shaped_start.clone()) else {
             return None;
