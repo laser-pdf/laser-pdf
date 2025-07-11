@@ -903,6 +903,7 @@ impl<E: SerdeElement> SerdeElement for Page<E> {
                         content.add(
                             &elements::text::Text {
                                 underline: page_number.underline,
+                                color: page_number.color,
                                 ..elements::text::Text::basic(
                                     // Since the decoration_elements callback is only called when
                                     // drawing it shouldn't be a problem to be allocating a string here,
