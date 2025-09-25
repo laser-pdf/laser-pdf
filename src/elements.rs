@@ -22,7 +22,7 @@ pub mod rectangle;
 pub mod ref_element;
 pub mod repeat_after_break;
 pub mod repeat_bottom;
-pub mod rich_text;
+// pub mod rich_text;
 pub mod rotate;
 pub mod row;
 pub mod shrink_to_fit;

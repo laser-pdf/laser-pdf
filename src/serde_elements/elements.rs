@@ -3,7 +3,7 @@ use std::ops::Index;
 use elements::rotate::Rotation;
 
 use crate::{
-    elements::{h_align::HorizontalAlignment, rich_text::Span, row::Flex, text::TextAlign},
+    elements::{h_align::HorizontalAlignment, row::Flex, text::TextAlign},
     *,
 };
 
@@ -96,7 +96,7 @@ impl SerdeElement for Text {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct RichText {
-    pub spans: Vec<Span>,
+    pub spans: Vec<()>,
     pub size: f32,
     pub small_size: f32,
     pub extra_line_height: f32,
@@ -112,18 +112,18 @@ impl SerdeElement for RichText {
         fonts: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
-        callback.call(&elements::rich_text::RichText {
-            spans: &self.spans,
-            size: self.size,
-            small_size: self.small_size,
-            extra_line_height: self.extra_line_height,
-            fonts: FontSet {
-                regular: &*fonts[&self.regular],
-                bold: &*fonts[&self.bold],
-                italic: &*fonts[&self.italic],
-                bold_italic: &*fonts[&self.bold_italic],
-            },
-        });
+        // callback.call(&elements::rich_text::RichText {
+        //     spans: &self.spans,
+        //     size: self.size,
+        //     small_size: self.small_size,
+        //     extra_line_height: self.extra_line_height,
+        //     fonts: FontSet {
+        //         regular: &*fonts[&self.regular],
+        //         bold: &*fonts[&self.bold],
+        //         italic: &*fonts[&self.italic],
+        //         bold_italic: &*fonts[&self.bold_italic],
+        //     },
+        // });
     }
 }
 

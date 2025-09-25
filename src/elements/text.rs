@@ -69,7 +69,7 @@ impl<'a, F: Font> Text<'a, F> {
     }
 
     #[inline(always)]
-    fn render_lines<'b, L: Iterator<Item = Line<F::Shaped<'a>>>>(
+    fn render_lines<'c, L: Iterator<Item = Line<'a, 'c, F>>>(
         &self,
         text: &str,
         lines: L,
@@ -77,7 +77,10 @@ impl<'a, F: Font> Text<'a, F> {
         ascent: f32,
         line_height: f32,
         width: f32,
-    ) -> (f32, f32) {
+    ) -> (f32, f32)
+    where
+        'a: 'c,
+    {
         let mut max_width = width;
         let mut last_line_full_width = 0;
 
@@ -166,12 +169,15 @@ impl<'a, F: Font> Text<'a, F> {
     }
 
     #[inline(always)]
-    fn layout_lines<'b, L: Iterator<Item = Line<F::Shaped<'a>>>>(
+    fn layout_lines<'c, L: Iterator<Item = Line<'a, 'c, F>>>(
         &self,
         lines: L,
         line_height: f32,
         measure_ctx: Option<&mut MeasureCtx>,
-    ) -> (f32, f32) {
+    ) -> (f32, f32)
+    where
+        'a: 'c,
+    {
         let mut max_width = 0;
         let mut last_line_full_width = 0;
         let mut line_count = 0;
@@ -216,7 +222,7 @@ impl<'a, F: Font> Text<'a, F> {
     fn break_into_lines<R>(
         &'a self,
         width: f32,
-        f: impl for<'b> FnOnce(Lines<'a, 'b, F>) -> R,
+        f: impl for<'b, 'c> FnOnce(Lines<'a, 'b, 'c, F>) -> R,
     ) -> R {
         lines(
             self.font,

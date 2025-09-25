@@ -7,12 +7,14 @@ pub mod test_utils;
 pub mod text;
 pub mod utils;
 
+use std::rc::Rc;
+
 use elements::padding::Padding;
-use pdf_writer::{Content, Name, Rect, Ref};
-// use elements::padding::Padding;
 use fonts::Font;
-// use printpdf::{CurTransMat, Mm, PdfDocumentReference, PdfLayerReference};
+use pdf_writer::{Content, Name, Rect, Ref};
 use serde::{Deserialize, Serialize};
+
+use crate::fonts::truetype::TruetypeFont;
 
 pub const EMPTY_FIELD: &str = "—";
 

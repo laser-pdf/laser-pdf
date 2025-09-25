@@ -443,6 +443,10 @@ mod tests {
         fn units_per_em(&self) -> u16 {
             1
         }
+
+        fn fallback_fonts(&self) -> impl Iterator<Item = &Self> + Clone {
+            std::iter::empty()
+        }
     }
 
     #[test]

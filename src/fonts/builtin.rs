@@ -185,6 +185,10 @@ impl Font for BuiltinFont {
             line_height: line_height as u32,
         }
     }
+
+    fn fallback_fonts(&self) -> impl Iterator<Item = &Self> + Clone {
+        std::iter::empty()
+    }
 }
 
 #[cfg(test)]

@@ -11,6 +11,7 @@ pub struct GeneralMetrics {
 #[derive(Debug, Clone)]
 pub struct ShapedGlyph {
     pub unsafe_to_break: bool,
+    /// Zero is reserved for glyphs not found in the font.
     pub glyph_id: u32,
     pub text_range: Range<usize>,
     /// without kerning
@@ -46,4 +47,6 @@ pub trait Font {
     fn general_metrics(&self) -> GeneralMetrics;
 
     fn units_per_em(&self) -> u16;
+
+    fn fallback_fonts(&self) -> impl Iterator<Item = &Self> + Clone;
 }

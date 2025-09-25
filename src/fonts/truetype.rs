@@ -20,13 +20,14 @@ use ttf_parser::GlyphId;
 use super::{Font, ShapedGlyph};
 
 pub struct TruetypeFont {
-    pub index: usize,
-    pub name: Vec<u8>,
-    pub face: Face<'static>,
-    pub plan: ShapePlan,
+    index: usize,
+    name: Vec<u8>,
+    face: Face<'static>,
+    plan: ShapePlan,
     plan_no_ligatures: OnceCell<ShapePlan>,
     // pub remapper: GlyphRemapper,
     // pub font: Face<'a>,
+    fallback_fonts: Option<Rc<[Rc<TruetypeFont>]>>,
 }
 
 impl TruetypeFont {
@@ -63,6 +64,14 @@ impl TruetypeFont {
             face,
             plan,
             plan_no_ligatures: OnceCell::new(),
+            fallback_fonts: None,
+        }
+    }
+
+    pub fn with_fallback_fonts(self, fallback_fonts: Rc<[Rc<TruetypeFont>]>) -> Self {
+        TruetypeFont {
+            fallback_fonts: Some(fallback_fonts),
+            ..self
         }
     }
 
@@ -158,6 +167,13 @@ impl Font for TruetypeFont {
 
     fn units_per_em(&self) -> u16 {
         self.face.units_per_em() as u16
+    }
+
+    fn fallback_fonts(&self) -> impl Iterator<Item = &Self> + Clone {
+        self.fallback_fonts
+            .iter()
+            .flat_map(|x| x.iter())
+            .map(|x| &**x)
     }
 }
 
