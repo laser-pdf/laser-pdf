@@ -1,6 +1,5 @@
-use fonts::GeneralMetrics;
-use text::{Line, Lines, draw_line, lines};
-use utils::{mm_to_pt, pt_to_mm, set_fill_color};
+use text::{Line, Lines, Piece, draw_line, lines};
+use utils::{mm_to_pt, pt_to_mm};
 
 use crate::{fonts::Font, *};
 
@@ -33,11 +32,6 @@ pub struct Text<'a, F: Font> {
     pub align: TextAlign,
 }
 
-struct FontMetrics {
-    ascent: f32,
-    line_height: f32,
-}
-
 impl<'a, F: Font> Text<'a, F> {
     pub fn basic(text: &'a str, font: &'a F, size: f32) -> Self {
         Text {
@@ -53,51 +47,34 @@ impl<'a, F: Font> Text<'a, F> {
         }
     }
 
-    fn compute_font_metrics(&self) -> FontMetrics {
-        let GeneralMetrics {
-            ascent,
-            line_height,
-        } = self.font.general_metrics();
-
-        let units_per_em = self.font.units_per_em() as f32;
-
-        FontMetrics {
-            ascent: pt_to_mm(ascent as f32 * self.size / units_per_em),
-            line_height: pt_to_mm(line_height as f32 * self.size / units_per_em)
-                + self.extra_line_height,
-        }
-    }
-
     #[inline(always)]
-    fn render_lines<'c, L: Iterator<Item = Line<'a, 'c, F>>>(
+    fn render_lines<'c, L: Iterator<Item = Line<'c, F, impl Iterator<Item = &'c Piece<'c, F>>>>>(
         &self,
-        text: &str,
         lines: L,
         mut ctx: DrawCtx,
-        ascent: f32,
-        line_height: f32,
         width: f32,
     ) -> (f32, f32)
     where
-        'a: 'c,
+        F: 'c,
     {
         let mut max_width = width;
-        let mut last_line_full_width = 0;
+        let mut last_line_full_width = 0.;
 
         let mut x = ctx.location.pos.0;
-        let mut y = ctx.location.pos.1 - ascent;
+
+        // This in points because there's no reason to work with mm here.
+        let mut y = mm_to_pt(ctx.location.pos.1);
 
         let mut height_available = ctx.first_height;
 
         let mut line_count = 0;
         let mut draw_rect = 0;
 
+        let mut height = 0.;
+
         let start = |pdf: &mut Pdf, location: &Location| {
             let layer = location.layer(pdf);
-            layer
-                .save_state()
-                .set_font(self.font.resource_name(), self.size);
-            set_fill_color(layer, self.color);
+            layer.save_state();
             layer.begin_text();
         };
 
@@ -108,8 +85,11 @@ impl<'a, F: Font> Text<'a, F> {
         start(ctx.pdf, &ctx.location);
 
         for line in lines {
-            let line_width =
-                pt_to_mm(line.width as f32 / self.font.units_per_em() as f32 * self.size);
+            let line_height = pt_to_mm(line.height_above_baseline + line.height_below_baseline);
+            let height_above_baseline = line.height_above_baseline;
+            let height_below_baseline = line.height_below_baseline;
+
+            let line_width = pt_to_mm(line.width);
             max_width = max_width.max(line_width);
 
             last_line_full_width = line.width + line.trailing_whitespace_width;
@@ -121,19 +101,16 @@ impl<'a, F: Font> Text<'a, F> {
                     let new_location = (breakable.do_break)(
                         ctx.pdf,
                         draw_rect,
-                        if line_count == 0 {
-                            None
-                        } else {
-                            Some(line_count as f32 * line_height)
-                        },
+                        if line_count == 0 { None } else { Some(height) },
                     );
                     draw_rect += 1;
                     x = new_location.pos.0;
-                    y = new_location.pos.1 - ascent;
+                    y = mm_to_pt(new_location.pos.1);
                     height_available = breakable.full_height;
                     ctx.location.page_idx = new_location.page_idx;
                     ctx.location.layer_idx = new_location.layer_idx;
                     line_count = 0;
+                    height = 0.;
 
                     start(ctx.pdf, &ctx.location);
                 }
@@ -149,38 +126,35 @@ impl<'a, F: Font> Text<'a, F> {
 
             let x = x + x_offset;
 
-            layer.set_text_matrix([1.0, 0.0, 0.0, 1.0, mm_to_pt(x), mm_to_pt(y)]);
+            y -= height_above_baseline;
 
-            draw_line(ctx.pdf, &ctx.location, self.font, text, line);
+            layer.set_text_matrix([1.0, 0.0, 0.0, 1.0, mm_to_pt(x), y]);
 
-            y -= line_height;
+            draw_line(ctx.pdf, &ctx.location, line);
+
+            y -= height_below_baseline;
             height_available -= line_height;
             line_count += 1;
+            height += line_height;
         }
 
         end(ctx.pdf, &ctx.location);
 
-        (
-            max_width.max(pt_to_mm(
-                last_line_full_width as f32 / self.font.units_per_em() as f32 * self.size,
-            )),
-            line_count as f32 * line_height,
-        )
+        (max_width.max(pt_to_mm(last_line_full_width)), height)
     }
 
     #[inline(always)]
-    fn layout_lines<'c, L: Iterator<Item = Line<'a, 'c, F>>>(
+    fn layout_lines<'c, L: Iterator<Item = Line<'c, F, impl Iterator<Item = &'c Piece<'c, F>>>>>(
         &self,
         lines: L,
-        line_height: f32,
         measure_ctx: Option<&mut MeasureCtx>,
     ) -> (f32, f32)
     where
-        'a: 'c,
+        F: 'c,
     {
-        let mut max_width = 0;
-        let mut last_line_full_width = 0;
-        let mut line_count = 0;
+        let mut max_width: f32 = 0.;
+        let mut last_line_full_width: f32 = 0.;
+        let mut height = 0.;
 
         // This function is a bit hacky because it's both used for measure and for determining the
         // max line width in unconstrained-width contexts.
@@ -191,6 +165,8 @@ impl<'a, F: Font> Text<'a, F> {
         };
 
         for line in lines {
+            let line_height = line.height_above_baseline + line.height_below_baseline;
+
             if let Some(&mut MeasureCtx {
                 breakable: Some(ref mut breakable),
                 ..
@@ -199,7 +175,7 @@ impl<'a, F: Font> Text<'a, F> {
                 if height_available < line_height {
                     *breakable.break_count += 1;
                     height_available = breakable.full_height;
-                    line_count = 0;
+                    height = 0.;
                 }
             }
 
@@ -207,32 +183,25 @@ impl<'a, F: Font> Text<'a, F> {
             last_line_full_width = line.width + line.trailing_whitespace_width;
 
             height_available -= line_height;
-            line_count += 1;
+            height += line_height;
         }
 
-        (
-            pt_to_mm(
-                max_width.max(last_line_full_width) as f32 / self.font.units_per_em() as f32
-                    * self.size,
-            ),
-            line_count as f32 * line_height,
-        )
+        (pt_to_mm(max_width.max(last_line_full_width)), height)
     }
 
     fn break_into_lines<R>(
-        &'a self,
+        &self,
         width: f32,
-        f: impl for<'b, 'c> FnOnce(Lines<'a, 'b, 'c, F>) -> R,
+        f: impl for<'b> FnOnce(Lines<'b, F, std::slice::Iter<'b, Piece<'b, F>>>) -> R,
     ) -> R {
         lines(
             self.font,
-            (self.extra_character_spacing / self.size * self.font.units_per_em() as f32) as i32,
-            (self.extra_word_spacing / self.size * self.font.units_per_em() as f32) as i32,
-            // The ceil is to prevent rounding errors from causing problems in cases where the
-            // element gets measured and then the measured width gets used for draw, such as in
-            // HAlign.
-            (mm_to_pt(width) / self.size * self.font.units_per_em() as f32).ceil() as u32,
+            self.extra_character_spacing,
+            self.extra_word_spacing,
+            mm_to_pt(width),
             self.text,
+            self.size,
+            self.color,
             f,
         )
     }
@@ -240,23 +209,23 @@ impl<'a, F: Font> Text<'a, F> {
 
 impl<'a, F: Font> Element for Text<'a, F> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        let FontMetrics {
-            ascent: _,
-            line_height,
-        } = self.compute_font_metrics();
+        self.break_into_lines(ctx.width.max, |mut lines| {
+            // There's always at least one line.
+            let first_line = lines.next().unwrap();
 
-        if line_height > ctx.first_height {
-            FirstLocationUsage::WillSkip
-        } else {
-            FirstLocationUsage::WillUse
-        }
+            let line_height = first_line.height_above_baseline + first_line.height_below_baseline;
+
+            if line_height > ctx.first_height {
+                FirstLocationUsage::WillSkip
+            } else {
+                FirstLocationUsage::WillUse
+            }
+        })
     }
 
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
-        let FontMetrics { line_height, .. } = self.compute_font_metrics();
-
         let size = self.break_into_lines(ctx.width.max, |lines| {
-            self.layout_lines(lines, line_height, Some(&mut ctx))
+            self.layout_lines(lines, Some(&mut ctx))
         });
 
         ElementSize {
@@ -266,11 +235,6 @@ impl<'a, F: Font> Element for Text<'a, F> {
     }
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
-        let FontMetrics {
-            ascent,
-            line_height,
-        } = self.compute_font_metrics();
-
         // For left alignment we don't need to pre-layout because the
         // x offset is always zero.
         let width = if ctx.width.expand {
@@ -279,15 +243,12 @@ impl<'a, F: Font> Element for Text<'a, F> {
             0.
         } else {
             // TODO: Figure out a way to avoid shaping twice here.
-            self.break_into_lines(ctx.width.max, |lines| {
-                self.layout_lines(lines, line_height, None).0
-            })
+            self.break_into_lines(ctx.width.max, |lines| self.layout_lines(lines, None).0)
         };
 
         let width_constraint = ctx.width;
-        let size = self.break_into_lines(ctx.width.max, |lines| {
-            self.render_lines(self.text, lines, ctx, ascent, line_height, width)
-        });
+        let size =
+            self.break_into_lines(ctx.width.max, |lines| self.render_lines(lines, ctx, width));
 
         ElementSize {
             width: Some(width_constraint.constrain(size.0)),

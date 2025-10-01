@@ -3,24 +3,26 @@ use std::{iter::Peekable, sync::LazyLock};
 use icu_properties::LineBreak;
 use icu_segmenter::LineBreakIteratorUtf8;
 
-use crate::fonts::{Font, ShapedGlyph};
+use crate::fonts::{Font, GeneralMetrics, ShapedGlyph};
 
 pub fn pieces<'a, F: Font, R>(
     font: &'a F,
-    character_spacing: i32,
-    word_spacing: i32,
+    character_spacing: f32,
+    word_spacing: f32,
     text: &'a str,
+    size: f32,
+    color: u32,
     f: impl for<'b, 'c> FnOnce(Pieces<'a, 'b, 'c, F>) -> R,
 ) -> R {
     LINE_SEGMENTER.with(|segmenter| {
-        let shaped_hyphen = font.shape(super::HYPHEN, 0, 0).next().unwrap();
+        let shaped_hyphen = font.shape(super::HYPHEN, 0., 0.).next().unwrap();
 
         let shaped = super::shaping::shape(
             font,
             font.fallback_fonts(),
             text,
-            character_spacing,
-            word_spacing,
+            character_spacing / size,
+            word_spacing / size,
         );
 
         // let shaped = font.shape(text, character_spacing, word_spacing);
@@ -32,6 +34,10 @@ pub fn pieces<'a, F: Font, R>(
             shaped: shaped.iter(),
             segments,
             shaped_hyphen,
+            size,
+            color,
+            main_font: font,
+            main_font_metrics: font.general_metrics(),
         })
     })
 }
@@ -44,16 +50,22 @@ static LINE_BREAK_MAP: LazyLock<
     icu_properties::maps::CodePointMapDataBorrowed<'static, icu_properties::LineBreak>,
 > = LazyLock::new(icu_properties::maps::line_break);
 
-pub struct Piece<'a, 'b, F> {
+pub struct Piece<'a, F> {
     pub text: &'a str,
-    pub shaped_start: std::slice::Iter<'b, (&'a F, ShapedGlyph)>,
-    pub width: u32,
-    pub trailing_whitespace_width: u32,
-    /// Only applies at the end of the line, otherwise, it should not be counted towards the width.
-    pub trailing_hyphen_width: u32,
+    pub shaped: Vec<(&'a F, ShapedGlyph)>,
+    pub width: f32,
+    pub height_above_baseline: f32,
+    pub height_below_baseline: f32,
+    pub trailing_whitespace_width: f32,
+
+    /// Only applies when the piece is at the end of the line. Otherwise, it will not be counted
+    /// towards the width and not displayed.
+    pub trailing_hyphen: Option<(f32, &'a F, ShapedGlyph)>,
     pub mandatory_break_after: bool,
     pub glyph_count: usize,
     pub empty: bool,
+    pub size: f32,
+    pub color: u32,
 }
 
 pub struct Pieces<'a, 'b, 'c, F> {
@@ -63,11 +75,15 @@ pub struct Pieces<'a, 'b, 'c, F> {
     // shaped: &'c [(&'a F, ShapedGlyph)],
     shaped: std::slice::Iter<'c, (&'a F, ShapedGlyph)>,
     segments: Peekable<LineBreakIteratorUtf8<'b, 'a>>,
-    pub shaped_hyphen: ShapedGlyph,
+    main_font: &'a F,
+    main_font_metrics: GeneralMetrics,
+    shaped_hyphen: ShapedGlyph,
+    size: f32,
+    color: u32,
 }
 
 impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
-    type Item = Piece<'a, 'c, F>;
+    type Item = Piece<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut shaped = self.shaped.clone();
@@ -104,10 +120,17 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
         })
         .peekable();
 
-        let mut width = 0;
-        let mut whitespace_width = 0;
+        let mut width = 0.;
+        let mut whitespace_width = 0.;
         let mut glyph_count = 0;
         let mut mandatory_break_after = false;
+
+        // A line and its the pieces is always at least as high as the main font. Otherwise empty
+        // lines pieces would have no height. We could special case the empty line case, but that
+        // would lead to the the possibility of an empty line being higher than a line that only has
+        // glyphs from a fallback font.
+        let mut height_above_baseline = self.main_font_metrics.height_above_baseline;
+        let mut height_below_baseline = self.main_font_metrics.height_below_baseline;
 
         while let Some(glyph) = iter.next() {
             glyph_count += 1;
@@ -117,7 +140,7 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
                 &self.text[glyph.1.text_range.clone()],
                 " " | "\u{00A0}" | "　"
             ) {
-                whitespace_width += glyph.1.x_advance as u32;
+                whitespace_width += glyph.1.x_advance;
             } else if matches!(
                 self.text[glyph.1.text_range.clone()]
                     .chars()
@@ -135,24 +158,45 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
                 mandatory_break_after = true;
             } else {
                 width += whitespace_width;
-                whitespace_width = 0;
-                width += glyph.1.x_advance as u32;
+                whitespace_width = 0.;
+                width += glyph.1.x_advance;
             }
+
+            let metrics = glyph.0.general_metrics();
+
+            height_above_baseline = height_above_baseline.max(metrics.height_above_baseline);
+            height_below_baseline = height_below_baseline.max(metrics.height_below_baseline);
         }
 
         let text = &self.text[current..segment];
 
-        let trailing_hyphen_width = text
+        let trailing_hyphen = text
             .ends_with('\u{00AD}')
-            .then_some(self.shaped_hyphen.x_advance as u32)
-            .unwrap_or(0);
+            .then_some((self.main_font, self.shaped_hyphen.clone()));
 
         let piece = Piece {
             text,
-            shaped_start: self.shaped.clone(),
-            width,
-            trailing_whitespace_width: whitespace_width,
-            trailing_hyphen_width,
+            shaped: self
+                .shaped
+                .by_ref()
+                .take(glyph_count)
+                .map(|&(f, ref g)| {
+                    (
+                        f,
+                        ShapedGlyph {
+                            text_range: (g.text_range.start - current)
+                                ..(g.text_range.end - current),
+                            ..g.clone()
+                        },
+                    )
+                })
+                .collect(),
+            width: width * self.size,
+            height_above_baseline: height_above_baseline * self.size,
+            height_below_baseline: height_below_baseline * self.size,
+            trailing_whitespace_width: whitespace_width * self.size,
+            trailing_hyphen: trailing_hyphen
+                .map(|(font, glyph)| (glyph.x_advance * self.size, font, glyph)),
             mandatory_break_after,
             glyph_count,
 
@@ -160,6 +204,9 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
             // proabably find a way to filter out newlines entirely so that they don't show up after
             // line breaking (and maybe also don't get shaped?).
             empty: glyph_count == 0 || (glyph_count == 1 && mandatory_break_after),
+
+            size: self.size,
+            color: self.color,
         };
 
         self.current = self.current.and(Some(segment));
@@ -199,11 +246,11 @@ mod tests {
                     text_range: i..i + c.len_utf8(),
                     // we don't match newlines here because they produce the missing glyph which has
                     // a non-zero width.
-                    x_advance_font: if matches!(c, '\u{00ad}') { 0 } else { 1 },
-                    x_advance: if matches!(c, '\u{00ad}') { 0 } else { 1 },
-                    x_offset: 0,
-                    y_offset: 0,
-                    y_advance: 0,
+                    x_advance_font: if matches!(c, '\u{00ad}') { 0. } else { 1. },
+                    x_advance: if matches!(c, '\u{00ad}') { 0. } else { 1. },
+                    x_offset: 0.,
+                    y_offset: 0.,
+                    y_advance: 0.,
                 })
             } else {
                 None
@@ -217,7 +264,7 @@ mod tests {
         where
             Self: 'a;
 
-        fn shape<'a>(&'a self, text: &'a str, _: i32, _: i32) -> Self::Shaped<'a> {
+        fn shape<'a>(&'a self, text: &'a str, _: f32, _: f32) -> Self::Shaped<'a> {
             FakeShaped {
                 inner: text.char_indices(),
             }
@@ -232,23 +279,19 @@ mod tests {
         }
 
         fn general_metrics(&self) -> crate::fonts::GeneralMetrics {
-            unimplemented!()
+            crate::fonts::GeneralMetrics {
+                height_above_baseline: 0.5,
+                height_below_baseline: 0.5,
+            }
         }
 
-        fn units_per_em(&self) -> u16 {
-            1
-        }
-
-        fn fallback_fonts(&self) -> impl Iterator<Item = &Self> + Clone {
-            std::iter::empty()
+        fn fallback_fonts(&self) -> &[Self] {
+            &[]
         }
     }
 
-    fn collect_piece<'a, 'b>(
-        text: &'a str,
-        piece: Piece<'a, 'b, FakeFont>,
-    ) -> (&'a str, u32, u32, bool) {
-        let line = piece.shaped_start.take(piece.text.len());
+    fn collect_piece<'a>(text: &'a str, piece: Piece<'a, FakeFont>) -> (&'a str, f32, f32, bool) {
+        let line = piece.shaped.into_iter();
 
         let by_range = {
             let mut line = line.clone();
@@ -285,10 +328,10 @@ mod tests {
     fn test_empty() {
         let text = "";
 
-        pieces(&FakeFont, 0, 0, text, |pieces| {
+        pieces(&FakeFont, 0., 0., text, |pieces| {
             let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
 
-            assert_eq!(&pieces, &[("", 0, 0, false)]);
+            assert_eq!(&pieces, &[("", 0., 0., false)]);
         });
     }
 
@@ -296,10 +339,10 @@ mod tests {
     fn test_one() {
         let text = "abcde";
 
-        pieces(&FakeFont, 0, 0, text, |pieces| {
+        pieces(&FakeFont, 0., 0., text, |pieces| {
             let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
 
-            assert_eq!(&pieces, &[("abcde", 5, 0, false)]);
+            assert_eq!(&pieces, &[("abcde", 5., 0., false)]);
         });
     }
 
@@ -307,12 +350,12 @@ mod tests {
     fn test_two() {
         let text = "deadbeef defaced";
 
-        pieces(&FakeFont, 0, 0, text, |pieces| {
+        pieces(&FakeFont, 0., 0., text, |pieces| {
             let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
 
             assert_eq!(
                 &pieces,
-                &[("deadbeef ", 8, 1, false), ("defaced", 7, 0, false)]
+                &[("deadbeef ", 8., 1., false), ("defaced", 7., 0., false)]
             );
         });
     }
@@ -321,15 +364,15 @@ mod tests {
     fn test_three() {
         let text = "deadbeef defaced fart";
 
-        pieces(&FakeFont, 0, 0, text, |pieces| {
+        pieces(&FakeFont, 0., 0., text, |pieces| {
             let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
 
             assert_eq!(
                 &pieces,
                 &[
-                    ("deadbeef ", 8, 1, false),
-                    ("defaced ", 7, 1, false),
-                    ("fart", 4, 0, false)
+                    ("deadbeef ", 8., 1., false),
+                    ("defaced ", 7., 1., false),
+                    ("fart", 4., 0., false)
                 ],
             );
         });
@@ -339,10 +382,10 @@ mod tests {
     fn test_just_newline() {
         let text = "\n";
 
-        pieces(&FakeFont, 0, 0, text, |pieces| {
+        pieces(&FakeFont, 0., 0., text, |pieces| {
             let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
 
-            assert_eq!(&pieces, &[("\n", 0, 0, true), ("", 0, 0, false)]);
+            assert_eq!(&pieces, &[("\n", 0., 0., true), ("", 0., 0., false)]);
         });
     }
 
@@ -350,10 +393,10 @@ mod tests {
     fn test_surrounded_newline() {
         let text = "abc\ndef";
 
-        pieces(&FakeFont, 0, 0, text, |pieces| {
+        pieces(&FakeFont, 0., 0., text, |pieces| {
             let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
 
-            assert_eq!(&pieces, &[("abc\n", 3, 0, true), ("def", 3, 0, false)]);
+            assert_eq!(&pieces, &[("abc\n", 3., 0., true), ("def", 3., 0., false)]);
         });
     }
 
@@ -361,15 +404,15 @@ mod tests {
     fn test_newline_at_start() {
         let text = "\nabc def";
 
-        pieces(&FakeFont, 0, 0, text, |pieces| {
+        pieces(&FakeFont, 0., 0., text, |pieces| {
             let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
 
             assert_eq!(
                 &pieces,
                 &[
-                    ("\n", 0, 0, true),
-                    ("abc ", 3, 1, false),
-                    ("def", 3, 0, false),
+                    ("\n", 0., 0., true),
+                    ("abc ", 3., 1., false),
+                    ("def", 3., 0., false),
                 ]
             );
         });
@@ -379,15 +422,15 @@ mod tests {
     fn test_trailing_newline() {
         let text = "abc def\n";
 
-        pieces(&FakeFont, 0, 0, text, |pieces| {
+        pieces(&FakeFont, 0., 0., text, |pieces| {
             let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
 
             assert_eq!(
                 &pieces,
                 &[
-                    ("abc ", 3, 1, false),
-                    ("def\n", 3, 0, true),
-                    ("", 0, 0, false),
+                    ("abc ", 3., 1., false),
+                    ("def\n", 3., 0., true),
+                    ("", 0., 0., false),
                 ]
             );
         });
@@ -397,10 +440,10 @@ mod tests {
     fn test_just_spaces() {
         let text = "        ";
 
-        pieces(&FakeFont, 0, 0, text, |pieces| {
+        pieces(&FakeFont, 0., 0., text, |pieces| {
             let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
 
-            assert_eq!(&pieces, &[("        ", 0, 8, false)]);
+            assert_eq!(&pieces, &[("        ", 0., 8., false)]);
         });
     }
 
@@ -408,19 +451,19 @@ mod tests {
     fn test_mixed_whitespace() {
         let text = "    abc    \ndef  the\tjflkdsa";
 
-        pieces(&FakeFont, 0, 0, text, |pieces| {
+        pieces(&FakeFont, 0., 0., text, |pieces| {
             let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
 
             assert_eq!(
                 &pieces,
                 &[
-                    ("    ", 0, 4, false),
+                    ("    ", 0., 4., false),
                     // It's somewhat unclear whether the trailing spaces should count toward the
                     // width here.
-                    ("abc    \n", 3, 4, true),
-                    ("def  ", 3, 2, false),
-                    ("the\t", 4, 0, false),
-                    ("jflkdsa", 7, 0, false),
+                    ("abc    \n", 3., 4., true),
+                    ("def  ", 3., 2., false),
+                    ("the\t", 4., 0., false),
+                    ("jflkdsa", 7., 0., false),
                 ],
             );
         });

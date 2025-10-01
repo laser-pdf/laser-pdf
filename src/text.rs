@@ -2,14 +2,17 @@ mod lines;
 mod pieces;
 mod shaping;
 
+use itertools::Itertools;
 use pdf_writer::{Str, writers::PositionedItems};
 
 use crate::{
     Location, Pdf,
     fonts::{EncodedGlyph, Font},
+    utils::set_fill_color,
 };
 
 pub use lines::*;
+pub use pieces::*;
 
 // TODO: Move somewhere else?
 const PDFA_LIMIT: usize = 32767;
@@ -20,77 +23,102 @@ const HYPHEN: &str = "-";
 pub fn draw_line<'a, F: Font>(
     pdf: &mut Pdf,
     location: &Location,
-    font: &'a F,
-    text: &str,
-    line: Line<'a, '_, F>,
+    line: Line<'a, F, impl Iterator<Item = &'a Piece<'a, F>>>,
 ) {
-    let mut run = Vec::with_capacity(line.size_hint().0.min(PDFA_LIMIT));
-
     fn draw_run(items: &mut PositionedItems, run: &mut Vec<u8>) {
         for chunk in run.chunks(PDFA_LIMIT) {
             items.show(Str(chunk));
         }
     }
 
-    let hyphen = (line.trailing_hyphen_width != 0).then(|| {
-        (
-            font.encode(pdf, line.shaped_hyphen.glyph_id, HYPHEN),
-            line.shaped_hyphen.x_advance_font,
-            line.shaped_hyphen.x_advance,
-            line.shaped_hyphen.x_offset,
-        )
-    });
+    let mut line = line.peekable();
 
-    let glyphs: Vec<_> = line
-        // we don't want to filter out all unknown glyphs
-        .filter(|glyph| !["\n", "\r", "\r\n"].contains(&&text[glyph.1.text_range.clone()]))
-        .map(|glyph| {
-            // TODO: use the right fonts and stuff!!!!!
-            let encoded = glyph
-                .0
-                .encode(pdf, glyph.1.glyph_id, &text[glyph.1.text_range.clone()]);
+    // TODO: does that capacity make sense?
+    let mut glyphs = Vec::with_capacity(line.size_hint().0);
 
-            (
-                encoded,
-                glyph.1.x_advance_font,
-                glyph.1.x_advance,
-                glyph.1.x_offset,
-            )
-        })
-        .chain(hyphen)
-        .collect();
-
-    let layer = location.layer(pdf);
-    let mut positioned = layer.show_positioned();
-    let mut items = positioned.items();
+    let mut run = Vec::with_capacity(line.size_hint().0.min(PDFA_LIMIT));
 
     let mut adjustment = 0.;
 
-    for (encoded, x_advance_font, x_advance, x_offset) in glyphs {
-        adjustment += x_offset as f32;
+    let mut current_font = None;
+    let mut current_size = None;
+    let mut current_color = None;
 
-        if adjustment != 0. {
-            if !run.is_empty() {
-                draw_run(&mut items, &mut run);
-                run.clear();
+    while let Some(next) = line.peek() {
+        let font = next.font;
+        let size = next.size;
+        let color = next.color;
+
+        let same_state = line.peeking_take_while(|x| {
+            std::ptr::eq(x.font, font) && x.size == size && x.color == color
+        });
+
+        // Should always be empty at this point because we drain it.
+        assert!(glyphs.is_empty());
+
+        glyphs.extend(
+            same_state
+                // we don't want to filter out all unknown glyphs
+                .filter(|glyph| !["\n", "\r", "\r\n"].contains(&glyph.text))
+                .map(|glyph| {
+                    let encoded = font.encode(pdf, glyph.shaped_glyph.glyph_id, glyph.text);
+
+                    (
+                        encoded,
+                        glyph.shaped_glyph.x_advance_font,
+                        glyph.shaped_glyph.x_advance,
+                        glyph.shaped_glyph.x_offset,
+                    )
+                }),
+        );
+
+        run.clear();
+
+        let layer = location.layer(pdf);
+
+        if !current_font.map(|f| std::ptr::eq(f, font)).unwrap_or(false)
+            || current_size != Some(size)
+        {
+            layer.set_font(font.resource_name(), size);
+        }
+
+        if current_color != Some(color) {
+            set_fill_color(layer, color);
+        }
+
+        current_font = Some(font);
+        current_size = Some(size);
+        current_color = Some(color);
+
+        let mut positioned = layer.show_positioned();
+        let mut items = positioned.items();
+
+        for (encoded, x_advance_font, x_advance, x_offset) in glyphs.drain(..) {
+            adjustment += x_offset as f32;
+
+            if adjustment != 0. {
+                if !run.is_empty() {
+                    draw_run(&mut items, &mut run);
+                    run.clear();
+                }
+
+                // For some absurd reason the PDF spec specifies these to be thousandths instead of
+                // being in glyph space, which would be the value from the font.
+                items.adjust(-(adjustment * 1000.));
+                adjustment = 0.;
             }
 
-            // For some absurd reason the PDF spec specifies these to be thousandths instead of
-            // being in glyph space, which would be the value from the font.
-            items.adjust(-(adjustment * 1000. / font.units_per_em() as f32));
-            adjustment = 0.;
+            match encoded {
+                EncodedGlyph::OneByte(byte) => run.push(byte),
+                EncodedGlyph::TwoBytes(ref bytes) => run.extend_from_slice(bytes),
+            }
+
+            adjustment += x_advance - x_advance_font;
+            adjustment -= x_offset;
         }
 
-        match encoded {
-            EncodedGlyph::OneByte(byte) => run.push(byte),
-            EncodedGlyph::TwoBytes(ref bytes) => run.extend_from_slice(bytes),
+        if !run.is_empty() {
+            draw_run(&mut items, &mut run);
         }
-
-        adjustment += (x_advance - x_advance_font) as f32;
-        adjustment -= x_offset as f32;
-    }
-
-    if !run.is_empty() {
-        draw_run(&mut items, &mut run);
     }
 }

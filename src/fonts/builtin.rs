@@ -131,7 +131,7 @@ impl<'a> Iterator for Shaped<'a> {
         self.chars.next().map(|(i, c)| {
             let metrics = self.font.char_metrics_by_codepoint.get(&(c as u32));
 
-            let advance = metrics.map_or(0, |m| m.wx as i32); // i hope those are ints in practice
+            let advance = metrics.map_or(0., |m| m.wx as f32 / 1000.);
 
             ShapedGlyph {
                 unsafe_to_break: false,
@@ -139,9 +139,9 @@ impl<'a> Iterator for Shaped<'a> {
                 text_range: i..i + c.len_utf8(),
                 x_advance_font: advance,
                 x_advance: advance,
-                x_offset: 0,
-                y_offset: 0,
-                y_advance: 0,
+                x_offset: 0.,
+                y_offset: 0.,
+                y_advance: 0.,
             }
         })
     }
@@ -153,7 +153,7 @@ impl Font for BuiltinFont {
     where
         Self: 'a;
 
-    fn shape<'a>(&'a self, text: &'a str, _: i32, _: i32) -> Self::Shaped<'a> {
+    fn shape<'a>(&'a self, text: &'a str, _: f32, _: f32) -> Self::Shaped<'a> {
         Shaped {
             font: self,
             chars: text.char_indices(),
@@ -168,10 +168,6 @@ impl Font for BuiltinFont {
         Name(self.resource_name.as_bytes())
     }
 
-    fn units_per_em(&self) -> u16 {
-        1000
-    }
-
     fn general_metrics(&self) -> super::GeneralMetrics {
         let bbox = self.metrics.font_bbox;
 
@@ -181,13 +177,13 @@ impl Font for BuiltinFont {
         let ascent = line_height + self.metrics.descender;
 
         super::GeneralMetrics {
-            ascent: ascent as u32,
-            line_height: line_height as u32,
+            height_above_baseline: (ascent / 1000.) as f32,
+            height_below_baseline: (-self.metrics.descender / 1000.) as f32,
         }
     }
 
-    fn fallback_fonts(&self) -> impl Iterator<Item = &Self> + Clone {
-        std::iter::empty()
+    fn fallback_fonts(&self) -> &[Self] {
+        &[]
     }
 }
 

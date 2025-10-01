@@ -4,18 +4,20 @@ use crate::fonts::{Font, ShapedGlyph};
 
 pub fn shape<'a, F: Font>(
     font: &'a F,
-    mut fallback_fonts: impl Iterator<Item = &'a F> + Clone,
+    fallback_fonts: &'a [F],
     text: &'a str,
-    character_spacing: i32,
-    word_spacing: i32,
+    character_spacing: f32,
+    word_spacing: f32,
 ) -> Vec<(&'a F, ShapedGlyph)> {
     let mut shaped = font.shape(text, character_spacing, word_spacing).peekable();
 
     let mut buff = Vec::new();
 
+    let next_font = fallback_fonts.first();
+
     while let Some(glyph) = shaped.next() {
         if glyph.glyph_id == 0
-            && let Some(next_font) = fallback_fonts.next()
+            && let Some(next_font) = next_font
         {
             let others = shaped.peeking_take_while(|g| g.glyph_id == 0);
 
@@ -27,7 +29,7 @@ pub fn shape<'a, F: Font>(
             buff.extend(
                 shape(
                     next_font,
-                    fallback_fonts.clone(),
+                    &fallback_fonts[1..],
                     &text[text_range.clone()],
                     character_spacing,
                     word_spacing,
@@ -85,11 +87,11 @@ mod tests {
                     unsafe_to_break: false,
                     glyph_id: if found { c as u32 } else { 0 },
                     text_range: i..i + c.len_utf8(),
-                    x_advance_font: 1,
-                    x_advance: 1,
-                    x_offset: 0,
-                    y_offset: 0,
-                    y_advance: 0,
+                    x_advance_font: 1.,
+                    x_advance: 1.,
+                    x_offset: 0.,
+                    y_offset: 0.,
+                    y_advance: 0.,
                 })
             } else {
                 None
@@ -103,7 +105,7 @@ mod tests {
         where
             Self: 'a;
 
-        fn shape<'a>(&'a self, text: &'a str, _: i32, _: i32) -> Self::Shaped<'a> {
+        fn shape<'a>(&'a self, text: &'a str, _: f32, _: f32) -> Self::Shaped<'a> {
             FakeShaped {
                 font: *self,
                 inner: text.char_indices(),
@@ -122,12 +124,8 @@ mod tests {
             unimplemented!()
         }
 
-        fn units_per_em(&self) -> u16 {
-            1
-        }
-
-        fn fallback_fonts(&self) -> impl Iterator<Item = &Self> + Clone {
-            [&FakeFont::B, &FakeFont::C].into_iter()
+        fn fallback_fonts(&self) -> &[Self] {
+            &[FakeFont::B, FakeFont::C]
         }
     }
 
@@ -137,7 +135,7 @@ mod tests {
 
         let text = "ABCabc123ABC";
 
-        let shaped = shape(&font, font.fallback_fonts(), text, 0, 0);
+        let shaped = shape(&font, font.fallback_fonts(), text, 0., 0.);
 
         insta::assert_debug_snapshot!(shaped, @r"
         [

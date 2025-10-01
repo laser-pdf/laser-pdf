@@ -27,7 +27,7 @@ pub struct TruetypeFont {
     plan_no_ligatures: OnceCell<ShapePlan>,
     // pub remapper: GlyphRemapper,
     // pub font: Face<'a>,
-    fallback_fonts: Option<Rc<[Rc<TruetypeFont>]>>,
+    fallback_fonts: Option<Rc<[TruetypeFont]>>,
 }
 
 impl TruetypeFont {
@@ -68,7 +68,7 @@ impl TruetypeFont {
         }
     }
 
-    pub fn with_fallback_fonts(self, fallback_fonts: Rc<[Rc<TruetypeFont>]>) -> Self {
+    pub fn with_fallback_fonts(self, fallback_fonts: Rc<[TruetypeFont]>) -> Self {
         TruetypeFont {
             fallback_fonts: Some(fallback_fonts),
             ..self
@@ -104,13 +104,18 @@ impl Font for TruetypeFont {
     fn shape<'b>(
         &'b self,
         text: &'b str,
-        character_spacing: i32,
-        word_spacing: i32,
+        character_spacing: f32,
+        word_spacing: f32,
     ) -> Self::Shaped<'b> {
         // In basically all real cases we should end up always taking and returnung the same buffer
         // here. But even in the worst case this should still be better than allocating a new buffer
         // every time.
         let mut buffer = UNICODE_BUFFER.take();
+
+        // We need those to be a tofu instead of a space, so the fallback includes them.
+        buffer.set_not_found_variation_selector_glyph(0);
+
+        buffer.set_cluster_level(rustybuzz::BufferClusterLevel::MonotoneCharacters);
 
         buffer.push_str(text);
 
@@ -119,7 +124,7 @@ impl Font for TruetypeFont {
 
         let shaped = shape_with_plan(
             &self.face,
-            if character_spacing == 0 {
+            if character_spacing == 0. {
                 &self.plan
             } else {
                 self.plan_no_ligatures()
@@ -155,25 +160,19 @@ impl Font for TruetypeFont {
     }
 
     fn general_metrics(&self) -> GeneralMetrics {
-        let ascent = self.face.ascender();
+        let units_per_em = self.face.units_per_em() as f32;
 
         GeneralMetrics {
-            ascent: ascent as u32,
+            height_above_baseline: self.face.ascender() as f32 / units_per_em,
 
             // It seems that descent is positive in some fonts and negative in others.
-            line_height: (ascent + self.face.descender().abs() + self.face.line_gap()) as u32,
+            height_below_baseline: (self.face.descender().abs() + self.face.line_gap()) as f32
+                / units_per_em,
         }
     }
 
-    fn units_per_em(&self) -> u16 {
-        self.face.units_per_em() as u16
-    }
-
-    fn fallback_fonts(&self) -> impl Iterator<Item = &Self> + Clone {
-        self.fallback_fonts
-            .iter()
-            .flat_map(|x| x.iter())
-            .map(|x| &**x)
+    fn fallback_fonts(&self) -> &[Self] {
+        self.fallback_fonts.as_deref().unwrap_or(&[])
     }
 }
 
@@ -194,8 +193,8 @@ pub struct Shaped<'a> {
     face: &'a Face<'static>,
     buffer: Rc<Buffer>,
     i: usize,
-    character_spacing: i32,
-    word_spacing: i32,
+    character_spacing: f32,
+    word_spacing: f32,
 }
 
 impl<'a> Iterator for Shaped<'a> {
@@ -236,14 +235,16 @@ impl<'a> Iterator for Shaped<'a> {
 
         let text_range = start..(end as usize);
 
-        let mut x_advance = position.x_advance;
+        let units_per_em = self.face.units_per_em() as f32;
+
+        let mut x_advance = position.x_advance as f32 / units_per_em;
 
         if matches!(&self.text[text_range.clone()], " " | "\u{00A0}" | "　") {
             x_advance += self.word_spacing;
         }
 
         // for characters made from multiple glyphs
-        if self.character_spacing != 0
+        if self.character_spacing != 0.
             && self
                 .buffer
                 .0
@@ -257,7 +258,8 @@ impl<'a> Iterator for Shaped<'a> {
         let x_advance_font = self
             .face
             .glyph_hor_advance(GlyphId(info.glyph_id as u16))
-            .unwrap() as i32;
+            .unwrap() as f32
+            / units_per_em;
 
         Some(ShapedGlyph {
             unsafe_to_break: info.unsafe_to_break(),
@@ -265,9 +267,9 @@ impl<'a> Iterator for Shaped<'a> {
             text_range,
             x_advance_font,
             x_advance,
-            x_offset: position.x_offset,
-            y_offset: position.y_offset,
-            y_advance: position.y_advance,
+            x_offset: position.x_offset as f32 / units_per_em,
+            y_offset: position.y_offset as f32 / units_per_em,
+            y_advance: position.y_advance as f32 / units_per_em,
         })
     }
 
@@ -463,7 +465,7 @@ mod tests {
 
         let text = "Rewriting software in\nRust.";
 
-        let shaped = font.shape(text, 0, 0);
+        let shaped = font.shape(text, 0., 0.);
         let shaped = shaped.clone();
 
         let shaped_vec: Vec<_> = shaped.collect();
@@ -481,11 +483,51 @@ mod tests {
 
         let text = "Rewriting ";
 
-        let shaped = font.shape(text, 0, 0);
+        let shaped = font.shape(text, 0., 0.);
         let shaped = shaped.clone();
 
         let shaped_vec: Vec<_> = shaped.collect();
 
         insta::assert_debug_snapshot!(shaped_vec);
+    }
+
+    #[test]
+    fn test_emoji_shaping() {
+        const FONT: &[u8] = include_bytes!("../../../sws/inc/font/noto_emoji/regular.ttf");
+        const NUNITO: &[u8] = include_bytes!("../../../sws/inc/font/nunito/nunito_regular.ttf");
+
+        let mut pdf = Pdf::new();
+
+        let font = TruetypeFont::new(&mut pdf, &FONT);
+        let nunito = TruetypeFont::new(&mut pdf, &NUNITO);
+
+        // dbg!(font.general_metrics().line_height as f32 / font.face.units_per_em() as f32);
+        // dbg!(nunito.general_metrics().line_height as f32 / nunito.face.units_per_em() as f32);
+        // dbg!(font.general_metrics().ascent as f32 / font.face.units_per_em() as f32);
+        // dbg!(nunito.general_metrics().ascent as f32 / nunito.face.units_per_em() as f32);
+        // todo!();
+
+        // let text = "☀️";
+        let text = "\u{fe0f}";
+
+        let shaped = nunito.shape(text, 0., 0.);
+        let shaped = shaped.clone();
+
+        let shaped_vec: Vec<_> = shaped.collect();
+
+        insta::assert_debug_snapshot!(shaped_vec, @r"
+        [
+            ShapedGlyph {
+                unsafe_to_break: false,
+                glyph_id: 897,
+                text_range: 0..3,
+                x_advance_font: 0.258,
+                x_advance: 0.0,
+                x_offset: 0.0,
+                y_advance: 0.0,
+                y_offset: 0.0,
+            },
+        ]
+        ");
     }
 }
