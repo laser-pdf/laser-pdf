@@ -24,7 +24,7 @@ pub fn draw_line<'a, F: Font>(
     text: &str,
     line: Line<'a, '_, F>,
 ) {
-    let mut run = Vec::with_capacity(line.size_hint().0);
+    let mut run = Vec::with_capacity(line.size_hint().0.min(PDFA_LIMIT));
 
     fn draw_run(items: &mut PositionedItems, run: &mut Vec<u8>) {
         for chunk in run.chunks(PDFA_LIMIT) {
