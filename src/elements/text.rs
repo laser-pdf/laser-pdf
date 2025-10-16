@@ -1,7 +1,8 @@
-use text::{Line, Lines, Piece, draw_line, lines};
-use utils::{mm_to_pt, pt_to_mm};
-
-use crate::{fonts::Font, *};
+use crate::{
+    elements::new_rich_text::{RichText, Span},
+    fonts::Font,
+    *,
+};
 
 #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TextAlign {
@@ -47,213 +48,38 @@ impl<'a, F: Font> Text<'a, F> {
         }
     }
 
-    #[inline(always)]
-    fn render_lines<'c, L: Iterator<Item = Line<'c, F, impl Iterator<Item = &'c Piece<'c, F>>>>>(
-        &self,
-        lines: L,
-        mut ctx: DrawCtx,
-        width: f32,
-    ) -> (f32, f32)
-    where
-        F: 'c,
-    {
-        let mut max_width = width;
-        let mut last_line_full_width = 0.;
-
-        let mut x = ctx.location.pos.0;
-
-        // This in points because there's no reason to work with mm here.
-        let mut y = mm_to_pt(ctx.location.pos.1);
-
-        let mut height_available = ctx.first_height;
-
-        let mut line_count = 0;
-        let mut draw_rect = 0;
-
-        let mut height = 0.;
-
-        let start = |pdf: &mut Pdf, location: &Location| {
-            let layer = location.layer(pdf);
-            layer.save_state();
-            layer.begin_text();
-        };
-
-        let end = |pdf: &mut Pdf, location: &Location| {
-            location.layer(pdf).end_text().restore_state();
-        };
-
-        start(ctx.pdf, &ctx.location);
-
-        for line in lines {
-            let line_height = pt_to_mm(line.height_above_baseline + line.height_below_baseline);
-            let height_above_baseline = line.height_above_baseline;
-            let height_below_baseline = line.height_below_baseline;
-
-            let line_width = pt_to_mm(line.width);
-            max_width = max_width.max(line_width);
-
-            last_line_full_width = line.width + line.trailing_whitespace_width;
-
-            if height_available < line_height {
-                if let Some(ref mut breakable) = ctx.breakable {
-                    end(ctx.pdf, &ctx.location);
-
-                    let new_location = (breakable.do_break)(
-                        ctx.pdf,
-                        draw_rect,
-                        if line_count == 0 { None } else { Some(height) },
-                    );
-                    draw_rect += 1;
-                    x = new_location.pos.0;
-                    y = mm_to_pt(new_location.pos.1);
-                    height_available = breakable.full_height;
-                    ctx.location.page_idx = new_location.page_idx;
-                    ctx.location.layer_idx = new_location.layer_idx;
-                    line_count = 0;
-                    height = 0.;
-
-                    start(ctx.pdf, &ctx.location);
-                }
-            }
-
-            let layer = ctx.location.layer(ctx.pdf);
-
-            let x_offset = match self.align {
-                TextAlign::Left => 0.,
-                TextAlign::Center => (width - line_width) / 2.,
-                TextAlign::Right => width - line_width,
-            };
-
-            let x = x + x_offset;
-
-            y -= height_above_baseline;
-
-            layer.set_text_matrix([1.0, 0.0, 0.0, 1.0, mm_to_pt(x), y]);
-
-            draw_line(ctx.pdf, &ctx.location, line);
-
-            y -= height_below_baseline;
-            height_available -= line_height;
-            line_count += 1;
-            height += line_height;
+    fn as_rich_text(&self) -> RichText<std::iter::Once<Span<'a, F>>> {
+        RichText {
+            spans: std::iter::once(Span {
+                text: self.text,
+                font: self.font,
+                size: self.size,
+                color: self.color,
+                underline: self.underline,
+                extra_character_spacing: self.extra_character_spacing,
+                extra_word_spacing: self.extra_word_spacing,
+                extra_line_height: self.extra_line_height, // TODO: thread this through to the pieces
+            }),
+            align: match self.align {
+                TextAlign::Left => elements::new_rich_text::TextAlign::Left,
+                TextAlign::Center => elements::new_rich_text::TextAlign::Center,
+                TextAlign::Right => elements::new_rich_text::TextAlign::Right,
+            },
         }
-
-        end(ctx.pdf, &ctx.location);
-
-        (max_width.max(pt_to_mm(last_line_full_width)), height)
-    }
-
-    #[inline(always)]
-    fn layout_lines<'c, L: Iterator<Item = Line<'c, F, impl Iterator<Item = &'c Piece<'c, F>>>>>(
-        &self,
-        lines: L,
-        measure_ctx: Option<&mut MeasureCtx>,
-    ) -> (f32, f32)
-    where
-        F: 'c,
-    {
-        let mut max_width: f32 = 0.;
-        let mut last_line_full_width: f32 = 0.;
-        let mut height = 0.;
-
-        // This function is a bit hacky because it's both used for measure and for determining the
-        // max line width in unconstrained-width contexts.
-        let mut height_available = if let Some(&mut MeasureCtx { first_height, .. }) = measure_ctx {
-            first_height
-        } else {
-            f32::INFINITY
-        };
-
-        for line in lines {
-            let line_height = line.height_above_baseline + line.height_below_baseline;
-
-            if let Some(&mut MeasureCtx {
-                breakable: Some(ref mut breakable),
-                ..
-            }) = measure_ctx
-            {
-                if height_available < line_height {
-                    *breakable.break_count += 1;
-                    height_available = breakable.full_height;
-                    height = 0.;
-                }
-            }
-
-            max_width = max_width.max(line.width);
-            last_line_full_width = line.width + line.trailing_whitespace_width;
-
-            height_available -= line_height;
-            height += line_height;
-        }
-
-        (pt_to_mm(max_width.max(last_line_full_width)), height)
-    }
-
-    fn break_into_lines<R>(
-        &self,
-        width: f32,
-        f: impl for<'b> FnOnce(Lines<'b, F, std::slice::Iter<'b, Piece<'b, F>>>) -> R,
-    ) -> R {
-        lines(
-            self.font,
-            self.extra_character_spacing,
-            self.extra_word_spacing,
-            mm_to_pt(width),
-            self.text,
-            self.size,
-            self.color,
-            f,
-        )
     }
 }
 
-impl<'a, F: Font> Element for Text<'a, F> {
+impl<'a, F: Font + 'a> Element for Text<'a, F> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        self.break_into_lines(ctx.width.max, |mut lines| {
-            // There's always at least one line.
-            let first_line = lines.next().unwrap();
-
-            let line_height = first_line.height_above_baseline + first_line.height_below_baseline;
-
-            if line_height > ctx.first_height {
-                FirstLocationUsage::WillSkip
-            } else {
-                FirstLocationUsage::WillUse
-            }
-        })
+        self.as_rich_text().first_location_usage(ctx)
     }
 
-    fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
-        let size = self.break_into_lines(ctx.width.max, |lines| {
-            self.layout_lines(lines, Some(&mut ctx))
-        });
-
-        ElementSize {
-            width: Some(ctx.width.constrain(size.0)),
-            height: Some(size.1),
-        }
+    fn measure(&self, ctx: MeasureCtx) -> ElementSize {
+        self.as_rich_text().measure(ctx)
     }
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
-        // For left alignment we don't need to pre-layout because the
-        // x offset is always zero.
-        let width = if ctx.width.expand {
-            ctx.width.max
-        } else if self.align == TextAlign::Left {
-            0.
-        } else {
-            // TODO: Figure out a way to avoid shaping twice here.
-            self.break_into_lines(ctx.width.max, |lines| self.layout_lines(lines, None).0)
-        };
-
-        let width_constraint = ctx.width;
-        let size =
-            self.break_into_lines(ctx.width.max, |lines| self.render_lines(lines, ctx, width));
-
-        ElementSize {
-            width: Some(width_constraint.constrain(size.0)),
-            height: Some(size.1),
-        }
+        self.as_rich_text().draw(ctx)
     }
 }
 

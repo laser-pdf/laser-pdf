@@ -11,7 +11,7 @@ pub enum TextAlign {
     Right,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Span<'a, F> {
     /// The text content to render
     pub text: &'a str,
@@ -29,6 +29,22 @@ pub struct Span<'a, F> {
     pub extra_word_spacing: f32,
     /// Additional line height
     pub extra_line_height: f32,
+}
+
+// This is a manual impl because we don't need the `F: Clone` constraint.
+impl<'a, F> Clone for Span<'a, F> {
+    fn clone(&self) -> Self {
+        Self {
+            text: self.text.clone(),
+            font: self.font.clone(),
+            size: self.size.clone(),
+            color: self.color.clone(),
+            underline: self.underline.clone(),
+            extra_character_spacing: self.extra_character_spacing.clone(),
+            extra_word_spacing: self.extra_word_spacing.clone(),
+            extra_line_height: self.extra_line_height.clone(),
+        }
+    }
 }
 
 pub struct RichText<S> {
