@@ -35,8 +35,8 @@ pub struct Span<'a, F> {
 impl<'a, F> Clone for Span<'a, F> {
     fn clone(&self) -> Self {
         Self {
-            text: self.text.clone(),
-            font: self.font.clone(),
+            text: self.text,
+            font: self.font,
             size: self.size.clone(),
             color: self.color.clone(),
             underline: self.underline.clone(),
@@ -221,7 +221,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
         };
 
         for line in lines {
-            let line_height = line.height_above_baseline + line.height_below_baseline;
+            let line_height = pt_to_mm(line.height_above_baseline + line.height_below_baseline);
 
             if let Some(&mut MeasureCtx {
                 breakable: Some(ref mut breakable),
