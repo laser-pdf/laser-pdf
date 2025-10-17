@@ -4,12 +4,7 @@ use crate::{
     *,
 };
 
-#[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TextAlign {
-    Left,
-    Center,
-    Right,
-}
+pub use elements::new_rich_text::TextAlign;
 
 /// A text element that renders text content with various styling options.
 pub struct Text<'a, F: Font> {
@@ -60,11 +55,7 @@ impl<'a, F: Font> Text<'a, F> {
                 extra_word_spacing: self.extra_word_spacing,
                 extra_line_height: self.extra_line_height, // TODO: thread this through to the pieces
             }),
-            align: match self.align {
-                TextAlign::Left => elements::new_rich_text::TextAlign::Left,
-                TextAlign::Center => elements::new_rich_text::TextAlign::Center,
-                TextAlign::Right => elements::new_rich_text::TextAlign::Right,
-            },
+            align: self.align,
         }
     }
 }

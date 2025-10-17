@@ -95,15 +95,29 @@ impl SerdeElement for Text {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct RichText {
-    pub spans: Vec<()>,
+pub struct RichTextSpan {
+    /// The text content to render
+    pub text: String,
+    /// Font reference
+    pub font: String,
+    /// Font size in points
     pub size: f32,
-    pub small_size: f32,
+    /// Text color as RGBA (default: black 0x00_00_00_FF)
+    pub color: u32,
+    /// Whether to underline the text
+    pub underline: bool,
+    /// Additional spacing between characters
+    pub extra_character_spacing: f32,
+    /// Additional spacing between words
+    pub extra_word_spacing: f32,
+    /// Additional line height
     pub extra_line_height: f32,
-    pub regular: String,
-    pub bold: String,
-    pub italic: String,
-    pub bold_italic: String,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct RichText {
+    pub spans: Vec<RichTextSpan>,
+    pub align: TextAlign,
 }
 
 impl SerdeElement for RichText {
@@ -112,18 +126,19 @@ impl SerdeElement for RichText {
         fonts: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
-        // callback.call(&elements::rich_text::RichText {
-        //     spans: &self.spans,
-        //     size: self.size,
-        //     small_size: self.small_size,
-        //     extra_line_height: self.extra_line_height,
-        //     fonts: FontSet {
-        //         regular: &*fonts[&self.regular],
-        //         bold: &*fonts[&self.bold],
-        //         italic: &*fonts[&self.italic],
-        //         bold_italic: &*fonts[&self.bold_italic],
-        //     },
-        // });
+        callback.call(&elements::new_rich_text::RichText {
+            spans: self.spans.iter().map(|s| elements::new_rich_text::Span {
+                text: &s.text,
+                font: &*fonts[&s.font],
+                size: s.size,
+                color: s.color,
+                underline: s.underline,
+                extra_character_spacing: s.extra_character_spacing,
+                extra_word_spacing: s.extra_word_spacing,
+                extra_line_height: s.extra_line_height,
+            }),
+            align: self.align,
+        });
     }
 }
 
