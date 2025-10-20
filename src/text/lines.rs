@@ -5,6 +5,7 @@ use crate::{
     text::pieces::{Piece, pieces},
 };
 
+// TODO: remove function
 pub fn lines<'a, R, F: Font>(
     font: &'a F,
     character_spacing: f32,
@@ -19,6 +20,7 @@ pub fn lines<'a, R, F: Font>(
         font,
         character_spacing,
         word_spacing,
+        0.,
         text,
         size,
         color,
@@ -254,7 +256,7 @@ impl<'a, F: Font + 'a, P: Iterator<Item = &'a Piece<'a, F>> + Clone> Iterator fo
         ) -> LineGlyph<'c, F> {
             LineGlyph {
                 font,
-                text,
+                text: &text[glyph.text_range.clone()],
                 shaped_glyph: glyph.clone(),
                 size,
                 color,
