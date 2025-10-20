@@ -58,7 +58,8 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
             // There's always at least one line.
             let first_line = lines.next().unwrap();
 
-            let line_height = first_line.height_above_baseline + first_line.height_below_baseline;
+            let line_height =
+                pt_to_mm(first_line.height_above_baseline + first_line.height_below_baseline);
 
             if line_height > ctx.first_height {
                 FirstLocationUsage::WillSkip
