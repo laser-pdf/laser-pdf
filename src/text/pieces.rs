@@ -9,6 +9,7 @@ pub fn pieces<'a, F: Font, R>(
     font: &'a F,
     character_spacing: f32,
     word_spacing: f32,
+    extra_line_height: f32,
     text: &'a str,
     size: f32,
     color: u32,
@@ -36,6 +37,7 @@ pub fn pieces<'a, F: Font, R>(
             shaped_hyphen,
             size,
             color,
+            extra_line_height,
             main_font: font,
             main_font_metrics: font.general_metrics(),
         })
@@ -80,6 +82,7 @@ pub struct Pieces<'a, 'b, 'c, F> {
     shaped_hyphen: ShapedGlyph,
     size: f32,
     color: u32,
+    extra_line_height: f32,
 }
 
 impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
@@ -193,7 +196,9 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
                 .collect(),
             width: width * self.size,
             height_above_baseline: height_above_baseline * self.size,
-            height_below_baseline: height_below_baseline * self.size,
+            // TODO: Would it be better if this was only added to the below-baseline height of the
+            // main font?
+            height_below_baseline: height_below_baseline * self.size + self.extra_line_height,
             trailing_whitespace_width: whitespace_width * self.size,
             trailing_hyphen: trailing_hyphen
                 .map(|(font, glyph)| (glyph.x_advance * self.size, font, glyph)),

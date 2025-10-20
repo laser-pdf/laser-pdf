@@ -259,6 +259,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
                     span.font,
                     span.extra_character_spacing,
                     span.extra_word_spacing,
+                    mm_to_pt(span.extra_line_height),
                     span.text,
                     span.size,
                     span.color,
