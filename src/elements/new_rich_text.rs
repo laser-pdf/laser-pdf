@@ -270,7 +270,10 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
             .flatten()
             .collect::<Vec<_>>();
 
-        let lines = lines_from_pieces(&pieces, mm_to_pt(width));
+        // The `next_up` mitigates a problem when we get passed the width we returned from
+        // measuring. In some cases it would then put one more piece onto the next line. This likely
+        // doesn't fix the problem in all cases. TODO
+        let lines = lines_from_pieces(&pieces, mm_to_pt(width).next_up());
 
         f(lines)
     }
