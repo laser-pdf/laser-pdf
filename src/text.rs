@@ -23,7 +23,7 @@ const HYPHEN: &str = "-";
 pub fn draw_line<'a, F: Font>(
     pdf: &mut Pdf,
     location: &Location,
-    line: Line<'a, F, impl Iterator<Item = &'a Piece<'a, F>>>,
+    line: Line<'a, F, impl Iterator<Item = (&'a F, &'a Piece)>>,
 ) {
     fn draw_run(items: &mut PositionedItems, run: &mut Vec<u8>) {
         for chunk in run.chunks(PDFA_LIMIT) {
@@ -31,7 +31,7 @@ pub fn draw_line<'a, F: Font>(
         }
     }
 
-    let mut line = line.peekable();
+    let mut line = line.iter().peekable();
 
     // TODO: does that capacity make sense?
     let mut glyphs = Vec::with_capacity(line.size_hint().0);

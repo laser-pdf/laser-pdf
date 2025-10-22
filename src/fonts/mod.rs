@@ -41,6 +41,8 @@ pub trait Font {
 
     fn encode(&self, pdf: &mut crate::Pdf, glyph_id: u32, text: &str) -> EncodedGlyph;
 
+    fn index(&self) -> usize;
+
     fn resource_name(&self) -> pdf_writer::Name<'_>;
 
     fn general_metrics(&self) -> GeneralMetrics;

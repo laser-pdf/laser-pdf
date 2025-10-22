@@ -2,53 +2,18 @@ use std::iter::Peekable;
 
 use crate::{
     fonts::{Font, ShapedGlyph},
-    text::pieces::{Piece, pieces},
+    text::pieces::Piece,
 };
 
-// TODO: remove function
-pub fn lines<'a, R, F: Font>(
-    font: &'a F,
-    character_spacing: f32,
-    word_spacing: f32,
+pub fn lines_from_pieces<'a, F: Font, I: Iterator<Item = (&'a F, &'a Piece)>>(
+    pieces: I,
     max_width: f32,
-    text: &'a str,
-    size: f32,
-    color: u32,
-    f: impl for<'b> FnOnce(Lines<'b, F, std::slice::Iter<'b, Piece<'b, F>>>) -> R,
-) -> R {
-    pieces(
-        font,
-        character_spacing,
-        word_spacing,
-        0.,
-        text,
-        size,
-        color,
-        |pieces| {
-            let pieces: Vec<_> = pieces.collect();
-            let pieces = pieces.iter().peekable();
-
-            f(Lines {
-                max_width,
-                consider_last_line_trailing_whitespace: true, // TODO: does this make any sense?
-                pieces: PiecesCursor {
-                    iter: pieces,
-                    current: None,
-                },
-            })
-        },
-    )
-}
-
-pub fn lines_from_pieces<'a, F: Font>(
-    pieces: &'a [Piece<'a, F>],
-    max_width: f32,
-) -> Lines<'a, F, std::slice::Iter<'a, Piece<'a, F>>> {
+) -> Lines<'a, F, I> {
     Lines {
         max_width,
         consider_last_line_trailing_whitespace: true,
         pieces: PiecesCursor {
-            iter: pieces.iter().peekable(),
+            iter: pieces.peekable(),
             current: None,
         },
     }
@@ -62,84 +27,39 @@ pub struct LineGlyph<'a, F> {
     pub color: u32,
 }
 
-pub struct Line<'a, F, P: Iterator<Item = &'a Piece<'a, F>>> {
+pub struct Line<'a, F, P: Iterator<Item = (&'a F, &'a Piece)>> {
     pub empty: bool,
     pub width: f32,
     pub trailing_whitespace_width: f32,
     pub height_above_baseline: f32,
     pub height_below_baseline: f32,
-    iter: std::iter::Chain<
-        std::iter::FlatMap<
-            std::iter::Take<PiecesCursor<'a, Piece<'a, F>, P>>,
-            std::iter::Map<
-                std::iter::Zip<
-                    std::slice::Iter<'a, (&'a F, ShapedGlyph)>,
-                    std::iter::Repeat<(&'a str, f32, u32)>,
-                >,
-                for<'c> fn((&'c (&'c F, ShapedGlyph), (&'c str, f32, u32))) -> LineGlyph<'c, F>,
-            >,
-            for<'b> fn(
-                &'b Piece<'b, F>,
-            ) -> std::iter::Map<
-                std::iter::Zip<
-                    std::slice::Iter<'b, (&'b F, ShapedGlyph)>,
-                    std::iter::Repeat<(&'b str, f32, u32)>,
-                >,
-                for<'c> fn((&'c (&'c F, ShapedGlyph), (&'c str, f32, u32))) -> LineGlyph<'c, F>,
-            >,
-        >,
-        std::option::IntoIter<LineGlyph<'a, F>>,
-    >,
+    pieces: std::iter::Take<PiecesCursor<'a, F, P>>,
+    trailing_hyphen: Option<LineGlyph<'a, F>>,
 }
 
-impl<'a, F, P: Iterator<Item = &'a Piece<'a, F>>> std::fmt::Debug for Line<'a, F, P> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Line")
-            .field("empty", &self.empty)
-            .field("width", &self.width)
-            .field("trailing_whitespace_width", &self.trailing_whitespace_width)
-            .field(
-                "iter",
-                &(), // &self.iter.clone().map(|a| a.1.clone()).collect::<Vec<_>>(),
-            )
-            .finish()
+impl<'a, F: Font, P: Iterator<Item = (&'a F, &'a Piece)>> Line<'a, F, P> {
+    pub fn iter(self) -> impl Iterator<Item = LineGlyph<'a, F>> {
+        self.pieces
+            .flat_map(|(main_font, piece)| {
+                piece.shaped.iter().map(|(font_index, glyph)| LineGlyph {
+                    font: font_index.map_or(main_font, |i| &main_font.fallback_fonts()[i]),
+                    text: &piece.text[glyph.text_range.clone()],
+                    shaped_glyph: glyph.clone(),
+                    size: piece.size,
+                    color: piece.color,
+                })
+            })
+            .chain(self.trailing_hyphen.into_iter())
     }
 }
 
-// impl<P: Iterator + Clone> Clone for Line<P> {
-//     fn clone(&self) -> Self {
-//         Self {
-//             empty: self.empty.clone(),
-//             width: self.width.clone(),
-//             trailing_whitespace_width: self.trailing_whitespace_width.clone(),
-//             height_above_baseline: self.height_above_baseline.clone(),
-//             height_below_baseline: self.height_below_baseline.clone(),
-//             shaped_hyphen: self.shaped_hyphen.clone(),
-//             iter: self.iter.clone(),
-//             trailing_hyphen_width: self.trailing_hyphen_width.clone(),
-//         }
-//     }
-// }
-
-impl<'a, F, P: Iterator<Item = &'a Piece<'a, F>>> Iterator for Line<'a, F, P> {
-    type Item = LineGlyph<'a, F>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
-    }
-}
-
-struct PiecesCursor<'a, T, I: Iterator<Item = &'a T>> {
+struct PiecesCursor<'a, F, I: Iterator<Item = (&'a F, &'a Piece)>> {
     iter: Peekable<I>,
-    current: Option<&'a T>,
+    current: Option<(&'a F, &'a Piece)>,
 }
 
-/// A manual impl of `Clone` because `T` doesn't need to be `Clone`.
-impl<'a, T, I: Iterator<Item = &'a T> + Clone> Clone for PiecesCursor<'a, T, I> {
+/// A manual impl of `Clone` because `F` doesn't need to be `Clone`.
+impl<'a, F, I: Iterator<Item = (&'a F, &'a Piece)> + Clone> Clone for PiecesCursor<'a, F, I> {
     fn clone(&self) -> Self {
         Self {
             iter: self.iter.clone(),
@@ -148,14 +68,14 @@ impl<'a, T, I: Iterator<Item = &'a T> + Clone> Clone for PiecesCursor<'a, T, I> 
     }
 }
 
-impl<'a, T, I: Iterator<Item = &'a T>> PiecesCursor<'a, T, I> {
+impl<'a, F, I: Iterator<Item = (&'a F, &'a Piece)>> PiecesCursor<'a, F, I> {
     // Needs to be one call to avoid lifetime problems.
-    fn current(&mut self) -> Option<(&'a T, bool)> {
+    fn current(&mut self) -> Option<(&'a F, &'a Piece, bool)> {
         if self.current.is_none() {
             self.current = self.iter.next();
         }
 
-        self.current.map(|c| (c, self.iter.peek().is_some()))
+        self.current.map(|c| (c.0, c.1, self.iter.peek().is_some()))
     }
 
     fn advance(&mut self) {
@@ -167,8 +87,8 @@ impl<'a, T, I: Iterator<Item = &'a T>> PiecesCursor<'a, T, I> {
     }
 }
 
-impl<'a, T, I: Iterator<Item = &'a T>> Iterator for PiecesCursor<'a, T, I> {
-    type Item = &'a T;
+impl<'a, F, I: Iterator<Item = (&'a F, &'a Piece)>> Iterator for PiecesCursor<'a, F, I> {
+    type Item = (&'a F, &'a Piece);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current.is_some() {
@@ -179,13 +99,15 @@ impl<'a, T, I: Iterator<Item = &'a T>> Iterator for PiecesCursor<'a, T, I> {
     }
 }
 
-pub struct Lines<'a, F: Font + 'a, P: Iterator<Item = &'a Piece<'a, F>>> {
+pub struct Lines<'a, F: Font + 'a, P: Iterator<Item = (&'a F, &'a Piece)>> {
     max_width: f32,
     consider_last_line_trailing_whitespace: bool,
-    pieces: PiecesCursor<'a, Piece<'a, F>, P>,
+    pieces: PiecesCursor<'a, F, P>,
 }
 
-impl<'a, F: Font + 'a, P: Iterator<Item = &'a Piece<'a, F>> + Clone> Iterator for Lines<'a, F, P> {
+impl<'a, F: Font + 'a, P: Iterator<Item = (&'a F, &'a Piece)> + Clone> Iterator
+    for Lines<'a, F, P>
+{
     type Item = Line<'a, F, P>;
 
     fn next(&mut self) -> Option<Line<'a, F, P>> {
@@ -205,20 +127,21 @@ impl<'a, F: Font + 'a, P: Iterator<Item = &'a Piece<'a, F>> + Clone> Iterator fo
         let mut current_width_whitespace = 0.;
 
         let mut trailing_hyphen = None;
-        let mut last_piece_size = 0.;
-        let mut last_piece_color = 0;
 
         let mut height_above_baseline: f32 = 0.;
         let mut height_below_baseline: f32 = 0.;
 
-        while let Some((piece, has_next)) = self.pieces.current() {
+        while let Some((font, piece, has_next)) = self.pieces.current() {
             // If current_width is zero we have to place the piece on this line, because adding
             // another line would not help.
             if (current_width > 0.)
                 && current_width
                     + current_width_whitespace
                     + piece.width
-                    + piece.trailing_hyphen.as_ref().map_or(0., |h| h.0)
+                    + piece
+                        .trailing_hyphen
+                        .as_ref()
+                        .map_or(0., |h| h.1.x_advance * piece.size)
                     + (!has_next && consider_last_line_trailing_whitespace)
                         .then_some(piece.trailing_whitespace_width)
                         .unwrap_or(0.)
@@ -232,9 +155,18 @@ impl<'a, F: Font + 'a, P: Iterator<Item = &'a Piece<'a, F>> + Clone> Iterator fo
 
             current_width += current_width_whitespace + piece.width;
             current_width_whitespace = piece.trailing_whitespace_width;
-            trailing_hyphen = piece.trailing_hyphen.clone();
-            last_piece_size = piece.size;
-            last_piece_color = piece.color;
+
+            trailing_hyphen = piece.trailing_hyphen.as_ref().map(|x| {
+                let fallback_fonts = font.fallback_fonts();
+
+                LineGlyph {
+                    font: x.0.map_or(font, |i| &fallback_fonts[i]),
+                    text: super::HYPHEN,
+                    shaped_glyph: x.1.clone(),
+                    size: piece.size,
+                    color: piece.color,
+                }
+            });
 
             height_above_baseline = height_above_baseline.max(piece.height_above_baseline);
             height_below_baseline = height_below_baseline.max(piece.height_below_baseline);
@@ -248,70 +180,17 @@ impl<'a, F: Font + 'a, P: Iterator<Item = &'a Piece<'a, F>> + Clone> Iterator fo
             }
         }
 
-        fn map<'c, F: Font>(
-            (&(font, ref glyph), (text, size, color)): (
-                &'c (&'c F, ShapedGlyph),
-                (&'c str, f32, u32),
-            ),
-        ) -> LineGlyph<'c, F> {
-            LineGlyph {
-                font,
-                text: &text[glyph.text_range.clone()],
-                shaped_glyph: glyph.clone(),
-                size,
-                color,
-            }
-        }
-
-        fn piece_glyphs<'a, F: Font>(
-            piece: &'a Piece<'a, F>,
-        ) -> std::iter::Map<
-            std::iter::Zip<
-                std::slice::Iter<'a, (&'a F, ShapedGlyph)>,
-                std::iter::Repeat<(&'a str, f32, u32)>,
-            >,
-            for<'c> fn((&'c (&'c F, ShapedGlyph), (&'c str, f32, u32))) -> LineGlyph<'c, F>,
-        > {
-            piece
-                .shaped
-                .iter()
-                .zip(std::iter::repeat((piece.text, piece.size, piece.color)))
-                .map(map)
-        }
-
         Some(Line {
             empty,
-            width: current_width + trailing_hyphen.as_ref().map_or(0., |h| h.0),
+            width: current_width
+                + trailing_hyphen
+                    .as_ref()
+                    .map_or(0., |h| h.shaped_glyph.x_advance * h.size),
             trailing_whitespace_width: current_width_whitespace,
             height_above_baseline,
             height_below_baseline,
-            iter: start
-                .take(piece_count)
-                .flat_map(
-                    piece_glyphs
-                        as for<'b> fn(
-                            &'b Piece<'b, F>,
-                        ) -> std::iter::Map<
-                            std::iter::Zip<
-                                std::slice::Iter<'b, (&'b F, ShapedGlyph)>,
-                                std::iter::Repeat<(&'b str, f32, u32)>,
-                            >,
-                            for<'c> fn(
-                                (&'c (&'c F, ShapedGlyph), (&'c str, f32, u32)),
-                            ) -> LineGlyph<'c, F>,
-                        >,
-                )
-                .chain(
-                    trailing_hyphen
-                        .map(|h| LineGlyph {
-                            font: h.1,
-                            text: super::HYPHEN,
-                            shaped_glyph: h.2,
-                            size: last_piece_size,
-                            color: last_piece_color,
-                        })
-                        .into_iter(),
-                ),
+            pieces: start.take(piece_count),
+            trailing_hyphen,
         })
     }
 }

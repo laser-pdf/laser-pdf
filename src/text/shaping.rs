@@ -5,10 +5,11 @@ use crate::fonts::{Font, ShapedGlyph};
 pub fn shape<'a, F: Font>(
     font: &'a F,
     fallback_fonts: &'a [F],
+    fallback_font_index: Option<usize>,
     text: &'a str,
     character_spacing: f32,
     word_spacing: f32,
-) -> Vec<(&'a F, ShapedGlyph)> {
+) -> Vec<(Option<usize>, ShapedGlyph)> {
     let mut shaped = font.shape(text, character_spacing, word_spacing).peekable();
 
     let mut buff = Vec::new();
@@ -30,6 +31,7 @@ pub fn shape<'a, F: Font>(
                 shape(
                     next_font,
                     &fallback_fonts[1..],
+                    Some(fallback_font_index.map_or(0, |i| i + 1)),
                     &text[text_range.clone()],
                     character_spacing,
                     word_spacing,
@@ -47,7 +49,7 @@ pub fn shape<'a, F: Font>(
                 }),
             );
         } else {
-            buff.push((font, glyph));
+            buff.push((fallback_font_index, glyph));
         }
     }
 

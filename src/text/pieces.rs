@@ -1,9 +1,23 @@
-use std::{iter::Peekable, sync::LazyLock};
+use std::{borrow::Cow, collections::HashMap, iter::Peekable, sync::LazyLock};
 
 use icu_properties::LineBreak;
 use icu_segmenter::LineBreakIteratorUtf8;
 
 use crate::fonts::{Font, GeneralMetrics, ShapedGlyph};
+
+struct TextPiecesCacheKey<'a> {
+    text: Cow<'a, str>,
+    font_index: usize,
+    size: f32,
+    color: u32,
+    extra_character_spacing: f32,
+    extra_word_spacing: f32,
+    extra_line_height: f32,
+}
+
+pub struct TextPiecesCache {
+    cache: HashMap<TextPiecesCacheKey<'static>, Vec<Piece>>,
+}
 
 pub fn pieces<'a, F: Font, R>(
     font: &'a F,
@@ -21,6 +35,7 @@ pub fn pieces<'a, F: Font, R>(
         let shaped = super::shaping::shape(
             font,
             font.fallback_fonts(),
+            None,
             text,
             character_spacing / size,
             word_spacing / size,
@@ -40,6 +55,7 @@ pub fn pieces<'a, F: Font, R>(
             extra_line_height,
             main_font: font,
             main_font_metrics: font.general_metrics(),
+            fallback_fonts: font.fallback_fonts(),
         })
     })
 }
@@ -52,9 +68,9 @@ static LINE_BREAK_MAP: LazyLock<
     icu_properties::maps::CodePointMapDataBorrowed<'static, icu_properties::LineBreak>,
 > = LazyLock::new(icu_properties::maps::line_break);
 
-pub struct Piece<'a, F> {
-    pub text: &'a str,
-    pub shaped: Vec<(&'a F, ShapedGlyph)>,
+pub struct Piece {
+    pub text: String,
+    pub shaped: Vec<(Option<usize>, ShapedGlyph)>,
     pub width: f32,
     pub height_above_baseline: f32,
     pub height_below_baseline: f32,
@@ -62,7 +78,7 @@ pub struct Piece<'a, F> {
 
     /// Only applies when the piece is at the end of the line. Otherwise, it will not be counted
     /// towards the width and not displayed.
-    pub trailing_hyphen: Option<(f32, &'a F, ShapedGlyph)>,
+    pub trailing_hyphen: Option<(Option<usize>, ShapedGlyph)>,
     pub mandatory_break_after: bool,
     pub glyph_count: usize,
     pub empty: bool,
@@ -73,12 +89,11 @@ pub struct Piece<'a, F> {
 pub struct Pieces<'a, 'b, 'c, F> {
     current: Option<usize>,
     text: &'a str,
-    // current_index: usize,
-    // shaped: &'c [(&'a F, ShapedGlyph)],
-    shaped: std::slice::Iter<'c, (&'a F, ShapedGlyph)>,
+    shaped: std::slice::Iter<'c, (Option<usize>, ShapedGlyph)>,
     segments: Peekable<LineBreakIteratorUtf8<'b, 'a>>,
     main_font: &'a F,
     main_font_metrics: GeneralMetrics,
+    fallback_fonts: &'a [F],
     shaped_hyphen: ShapedGlyph,
     size: f32,
     color: u32,
@@ -86,7 +101,7 @@ pub struct Pieces<'a, 'b, 'c, F> {
 }
 
 impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
-    type Item = Piece<'a, F>;
+    type Item = Piece;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut shaped = self.shaped.clone();
@@ -165,7 +180,9 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
                 width += glyph.1.x_advance;
             }
 
-            let metrics = glyph.0.general_metrics();
+            let font = glyph.0.map_or(self.main_font, |i| &self.fallback_fonts[i]);
+
+            let metrics = font.general_metrics();
 
             height_above_baseline = height_above_baseline.max(metrics.height_above_baseline);
             height_below_baseline = height_below_baseline.max(metrics.height_below_baseline);
@@ -175,10 +192,10 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
 
         let trailing_hyphen = text
             .ends_with('\u{00AD}')
-            .then_some((self.main_font, self.shaped_hyphen.clone()));
+            .then_some(self.shaped_hyphen.clone());
 
         let piece = Piece {
-            text,
+            text: text.to_string(),
             shaped: self
                 .shaped
                 .by_ref()
@@ -200,8 +217,7 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
             // main font?
             height_below_baseline: height_below_baseline * self.size + self.extra_line_height,
             trailing_whitespace_width: whitespace_width * self.size,
-            trailing_hyphen: trailing_hyphen
-                .map(|(font, glyph)| (glyph.x_advance * self.size, font, glyph)),
+            trailing_hyphen: trailing_hyphen.map(|glyph| (None, glyph)), // TODO: fallback if main font has no hyphen
             mandatory_break_after,
             glyph_count,
 

@@ -25,8 +25,6 @@ pub struct TruetypeFont {
     face: Face<'static>,
     plan: ShapePlan,
     plan_no_ligatures: OnceCell<ShapePlan>,
-    // pub remapper: GlyphRemapper,
-    // pub font: Face<'a>,
     fallback_fonts: Option<Rc<[TruetypeFont]>>,
 }
 
@@ -153,6 +151,10 @@ impl Font for TruetypeFont {
             .or_insert_with(|| text.to_string());
 
         EncodedGlyph::TwoBytes(cid.to_be_bytes())
+    }
+
+    fn index(&self) -> usize {
+        self.index
     }
 
     fn resource_name(&self) -> Name<'_> {

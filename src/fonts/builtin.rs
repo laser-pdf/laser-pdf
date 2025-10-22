@@ -8,6 +8,7 @@ use super::{EncodedGlyph, Font, ShapedGlyph};
 use crate::Pdf;
 
 pub struct BuiltinFont {
+    index: usize,
     resource_name: String,
     metrics: FontMetrics,
     char_metrics_by_codepoint: HashMap<u32, CharMetric>,
@@ -49,12 +50,13 @@ impl BuiltinFont {
             .type1_font(id)
             .base_font(pdf_writer::Name(font_name.as_bytes()));
 
-        let idx = pdf.fonts.len();
+        let index = pdf.fonts.len();
         pdf.fonts.push(id);
 
-        let resource_name = format!("F{}", idx);
+        let resource_name = format!("F{}", index);
 
         BuiltinFont {
+            index,
             resource_name,
             metrics,
             char_metrics_by_codepoint,
@@ -162,6 +164,10 @@ impl Font for BuiltinFont {
 
     fn encode(&self, _: &mut crate::Pdf, glyph_id: u32, _: &str) -> EncodedGlyph {
         EncodedGlyph::OneByte(glyph_id as u8)
+    }
+
+    fn index(&self) -> usize {
+        self.index
     }
 
     fn resource_name(&self) -> pdf_writer::Name<'_> {

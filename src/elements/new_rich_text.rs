@@ -105,7 +105,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
 
 impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
     #[inline(always)]
-    fn render_lines<'c, L: Iterator<Item = Line<'c, F, impl Iterator<Item = &'c Piece<'c, F>>>>>(
+    fn render_lines<'c, L: Iterator<Item = Line<'c, F, impl Iterator<Item = (&'c F, &'c Piece)>>>>(
         &self,
         lines: L,
         mut ctx: DrawCtx,
@@ -201,7 +201,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
     }
 
     #[inline(always)]
-    fn layout_lines<'c, L: Iterator<Item = Line<'c, F, impl Iterator<Item = &'c Piece<'c, F>>>>>(
+    fn layout_lines<'c, L: Iterator<Item = Line<'c, F, impl Iterator<Item = (&'c F, &'c Piece)>>>>(
         &self,
         lines: L,
         measure_ctx: Option<&mut MeasureCtx>,
@@ -249,14 +249,23 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
     fn break_into_lines<R>(
         &self,
         width: f32,
-        f: impl for<'b> FnOnce(Lines<'b, F, std::slice::Iter<'b, Piece<'b, F>>>) -> R,
+        f: impl for<'b> FnOnce(
+            Lines<
+                'b,
+                F,
+                std::iter::Map<
+                    std::slice::Iter<'b, (&'b F, Piece)>,
+                    for<'c> fn(&'c (&'c F, Piece)) -> (&'c F, &'c Piece),
+                >,
+            >,
+        ) -> R,
     ) -> R {
         // TODO: caching
         let pieces = self
             .spans
             .clone()
-            .map(|span| {
-                pieces(
+            .flat_map(|span| {
+                let pieces = pieces(
                     span.font,
                     span.extra_character_spacing,
                     span.extra_word_spacing,
@@ -265,15 +274,23 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
                     span.size,
                     span.color,
                     |pieces| pieces.collect::<Vec<_>>(),
-                )
+                );
+
+                pieces.into_iter().map(move |p| (span.font, p))
             })
-            .flatten()
+            // .flatten()
             .collect::<Vec<_>>();
 
         // The `next_up` mitigates a problem when we get passed the width we returned from
         // measuring. In some cases it would then put one more piece onto the next line. This likely
         // doesn't fix the problem in all cases. TODO
-        let lines = lines_from_pieces(&pieces, mm_to_pt(width).next_up());
+        let lines = lines_from_pieces(
+            pieces.iter().map(
+                (|&(font, ref piece)| (font, piece))
+                    as for<'c> fn(&'c (&'c F, Piece)) -> (&'c F, &'c Piece),
+            ),
+            mm_to_pt(width).next_up(),
+        );
 
         f(lines)
     }
