@@ -7,39 +7,10 @@ pub mod test_utils;
 pub mod text;
 pub mod utils;
 
-use std::rc::Rc;
-
 use elements::padding::Padding;
 use fonts::Font;
 use pdf_writer::{Content, Name, Rect, Ref};
 use serde::{Deserialize, Serialize};
-
-use crate::fonts::truetype::TruetypeFont;
-
-pub const EMPTY_FIELD: &str = "—";
-
-#[derive(Debug)]
-pub struct FontSet<'a, F: Font> {
-    pub regular: &'a F,
-    pub bold: &'a F,
-    pub italic: &'a F,
-    pub bold_italic: &'a F,
-}
-
-impl<'a, F: Font> Clone for FontSet<'a, F> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<'a, F: Font> Copy for FontSet<'a, F> {}
-
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-pub enum VAlign {
-    Top,
-    Center,
-    Bottom,
-}
 
 pub type Color = u32;
 
