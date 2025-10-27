@@ -89,6 +89,7 @@ impl<C: Fn(ColumnContent) -> Option<()>> Element for Column<C> {
 
         (self.content)(ColumnContent {
             pass: Pass::Measure {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width_constraint: ctx.width,
                 breakable: ctx.breakable.as_mut().map(|b| BreakableMeasure {
                     break_count: &mut break_count,
@@ -127,6 +128,7 @@ impl<C: Fn(ColumnContent) -> Option<()>> Element for Column<C> {
         (self.content)(ColumnContent {
             pass: Pass::Draw {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: ctx.location,
                 location_offset: &mut location_offset,
                 width_constraint: ctx.width,
@@ -159,10 +161,11 @@ pub struct ColumnContent<'a, 'b, 'r> {
 
 enum Pass<'a, 'b, 'r> {
     InsufficientFirstHeight {
-        ctx: FirstLocationUsageCtx,
+        ctx: FirstLocationUsageCtx<'a>,
         ret: &'r mut FirstLocationUsage,
     },
     Measure {
+        text_pieces_cache: &'a TextPiecesCache,
         width_constraint: WidthConstraint,
         breakable: Option<BreakableMeasure<'a>>,
 
@@ -173,6 +176,7 @@ enum Pass<'a, 'b, 'r> {
     },
     Draw {
         pdf: &'a mut Pdf,
+        text_pieces_cache: &'a TextPiecesCache,
         location: Location,
         location_offset: &'r mut u32,
         width_constraint: WidthConstraint,
@@ -203,6 +207,7 @@ impl<'a, 'b, 'r> ColumnContent<'a, 'b, 'r> {
                 }
             }
             Pass::Measure {
+                text_pieces_cache,
                 width_constraint,
                 ref mut breakable,
                 ref mut height_available,
@@ -212,6 +217,7 @@ impl<'a, 'b, 'r> ColumnContent<'a, 'b, 'r> {
                 // The gap is applied here, but will only be actually applied to the height and
                 // position for subsequent elements if this element ends up having a height.
                 let measure_ctx = MeasureCtx {
+                    text_pieces_cache,
                     width: width_constraint,
                     first_height: *height_available
                         - height.unwrap_or(0.)
@@ -266,6 +272,7 @@ impl<'a, 'b, 'r> ColumnContent<'a, 'b, 'r> {
             }
             Pass::Draw {
                 pdf: &mut ref mut pdf,
+                text_pieces_cache,
                 ref mut location,
                 location_offset: &mut ref mut location_offset,
                 width_constraint,
@@ -278,6 +285,7 @@ impl<'a, 'b, 'r> ColumnContent<'a, 'b, 'r> {
                 // position for subsequent elements if this element ends up having a height.
                 let draw_ctx = DrawCtx {
                     pdf,
+                    text_pieces_cache,
                     location: Location {
                         pos: if height.is_some() {
                             (location.pos.0, location.pos.1 - self.gap)

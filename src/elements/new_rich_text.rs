@@ -1,5 +1,5 @@
 use crate::{
-    text::{Line, Lines, Piece, draw_line, lines_from_pieces, pieces},
+    text::{Line, Piece, draw_line, lines_from_pieces},
     utils::{mm_to_pt, pt_to_mm},
     *,
 };
@@ -54,25 +54,23 @@ pub struct RichText<S> {
 
 impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for RichText<S> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        self.break_into_lines(ctx.width.max, |mut lines| {
-            // There's always at least one line.
-            let first_line = lines.next().unwrap();
+        let mut lines = self.break_into_lines(ctx.text_pieces_cache, ctx.width.max);
+        // There's always at least one line.
+        let first_line = lines.next().unwrap();
 
-            let line_height =
-                pt_to_mm(first_line.height_above_baseline + first_line.height_below_baseline);
+        let line_height =
+            pt_to_mm(first_line.height_above_baseline + first_line.height_below_baseline);
 
-            if line_height > ctx.first_height {
-                FirstLocationUsage::WillSkip
-            } else {
-                FirstLocationUsage::WillUse
-            }
-        })
+        if line_height > ctx.first_height {
+            FirstLocationUsage::WillSkip
+        } else {
+            FirstLocationUsage::WillUse
+        }
     }
 
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
-        let size = self.break_into_lines(ctx.width.max, |lines| {
-            self.layout_lines(lines, Some(&mut ctx))
-        });
+        let lines = self.break_into_lines(ctx.text_pieces_cache, ctx.width.max);
+        let size = self.layout_lines(lines, Some(&mut ctx));
 
         ElementSize {
             width: Some(ctx.width.constrain(size.0)),
@@ -88,13 +86,13 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
         } else if self.align == TextAlign::Left {
             0.
         } else {
-            // TODO: Figure out a way to avoid shaping twice here.
-            self.break_into_lines(ctx.width.max, |lines| self.layout_lines(lines, None).0)
+            let lines = self.break_into_lines(ctx.text_pieces_cache, ctx.width.max);
+            self.layout_lines(lines, None).0
         };
 
         let width_constraint = ctx.width;
-        let size =
-            self.break_into_lines(ctx.width.max, |lines| self.render_lines(lines, ctx, width));
+        let lines = self.break_into_lines(ctx.text_pieces_cache, ctx.width.max);
+        let size = self.render_lines(lines, ctx, width);
 
         ElementSize {
             width: Some(width_constraint.constrain(size.0)),
@@ -246,52 +244,40 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
         (pt_to_mm(max_width.max(last_line_full_width)), height)
     }
 
-    fn break_into_lines<R>(
-        &self,
+    fn break_into_lines<'b>(
+        &'b self,
+        text_pieces_cache: &'b TextPiecesCache,
         width: f32,
-        f: impl for<'b> FnOnce(
-            Lines<
-                'b,
-                F,
-                std::iter::Map<
-                    std::slice::Iter<'b, (&'b F, Piece)>,
-                    for<'c> fn(&'c (&'c F, Piece)) -> (&'c F, &'c Piece),
-                >,
-            >,
-        ) -> R,
-    ) -> R {
-        // TODO: caching
-        let pieces = self
-            .spans
-            .clone()
-            .flat_map(|span| {
-                let pieces = pieces(
-                    span.font,
-                    span.extra_character_spacing,
-                    span.extra_word_spacing,
-                    mm_to_pt(span.extra_line_height),
-                    span.text,
-                    span.size,
-                    span.color,
-                    |pieces| pieces.collect::<Vec<_>>(),
-                );
+    ) -> impl Iterator<Item = Line<'b, F, impl Iterator<Item = (&'b F, &'b Piece)>>>
+    where
+        'a: 'b,
+    {
+        let pieces = self.spans.clone().flat_map(|span| {
+            let pieces = text_pieces_cache.pieces(
+                span.text,
+                span.font,
+                span.size,
+                span.color,
+                span.extra_character_spacing,
+                span.extra_word_spacing,
+                mm_to_pt(span.extra_line_height),
+            );
 
-                pieces.into_iter().map(move |p| (span.font, p))
-            })
-            // .flatten()
-            .collect::<Vec<_>>();
+            pieces.into_iter().map(move |p| (span.font, p))
+        });
+        // .flatten()
+        // .collect::<Vec<_>>();
 
         // The `next_up` mitigates a problem when we get passed the width we returned from
         // measuring. In some cases it would then put one more piece onto the next line. This likely
         // doesn't fix the problem in all cases. TODO
         let lines = lines_from_pieces(
-            pieces.iter().map(
-                (|&(font, ref piece)| (font, piece))
-                    as for<'c> fn(&'c (&'c F, Piece)) -> (&'c F, &'c Piece),
-            ),
+            pieces,
+            // pieces.map((|(font, &piece)| (font, piece))),
+            // pieces
             mm_to_pt(width).next_up(),
         );
 
-        f(lines)
+        lines
     }
 }

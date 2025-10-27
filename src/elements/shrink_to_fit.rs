@@ -20,6 +20,7 @@ struct Layout {
 impl<E: Element> ShrinkToFit<E> {
     fn layout(
         &self,
+        text_pieces_cache: &TextPiecesCache,
         width: WidthConstraint,
         first_height: f32,
         full_height: Option<f32>,
@@ -39,6 +40,7 @@ impl<E: Element> ShrinkToFit<E> {
         };
 
         let size = self.element.measure(MeasureCtx {
+            text_pieces_cache,
             width,
             first_height: available_height,
             breakable: None,
@@ -83,7 +85,12 @@ impl<E: Element> ShrinkToFit<E> {
 
 impl<E: Element> Element for ShrinkToFit<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        let layout = self.layout(ctx.width, ctx.first_height, Some(ctx.full_height));
+        let layout = self.layout(
+            ctx.text_pieces_cache,
+            ctx.width,
+            ctx.first_height,
+            Some(ctx.full_height),
+        );
 
         if layout.pre_break {
             FirstLocationUsage::WillSkip
@@ -96,6 +103,7 @@ impl<E: Element> Element for ShrinkToFit<E> {
 
     fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         let layout = self.layout(
+            ctx.text_pieces_cache,
             ctx.width,
             ctx.first_height,
             ctx.breakable.as_ref().map(|b| b.full_height),
@@ -110,6 +118,7 @@ impl<E: Element> Element for ShrinkToFit<E> {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let layout = self.layout(
+            ctx.text_pieces_cache,
             ctx.width,
             ctx.first_height,
             ctx.breakable.as_ref().map(|b| b.full_height),
@@ -132,6 +141,7 @@ impl<E: Element> Element for ShrinkToFit<E> {
 
         self.element.draw(DrawCtx {
             pdf: ctx.pdf,
+            text_pieces_cache: ctx.text_pieces_cache,
             location: Location {
                 pos: (
                     location.pos.0 / layout.scale_factor,

@@ -4,7 +4,13 @@ pub struct AlignLocationBottom<E: Element>(pub E);
 
 impl<E: Element> Element for AlignLocationBottom<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        let layout = self.layout(ctx.width, ctx.first_height, Some(ctx.full_height), 0);
+        let layout = self.layout(
+            ctx.text_pieces_cache,
+            ctx.width,
+            ctx.first_height,
+            Some(ctx.full_height),
+            0,
+        );
 
         if layout.breaks > 0 {
             FirstLocationUsage::WillSkip
@@ -17,6 +23,7 @@ impl<E: Element> Element for AlignLocationBottom<E> {
 
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let layout = self.layout(
+            ctx.text_pieces_cache,
             ctx.width,
             ctx.first_height,
             ctx.breakable.as_ref().map(|b| b.full_height),
@@ -45,6 +52,7 @@ impl<E: Element> Element for AlignLocationBottom<E> {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let layout = self.layout(
+            ctx.text_pieces_cache,
             ctx.width,
             ctx.first_height,
             ctx.breakable.as_ref().map(|b| b.full_height),
@@ -75,6 +83,7 @@ impl<E: Element> Element for AlignLocationBottom<E> {
 
         self.0.draw(DrawCtx {
             pdf: ctx.pdf,
+            text_pieces_cache: ctx.text_pieces_cache,
             location,
             width: ctx.width,
             first_height: height_available,
@@ -99,6 +108,7 @@ struct Layout {
 impl<E: Element> AlignLocationBottom<E> {
     fn layout(
         &self,
+        text_pieces_cache: &TextPiecesCache,
         width: WidthConstraint,
         first_height: f32,
         full_height: Option<f32>,
@@ -107,6 +117,7 @@ impl<E: Element> AlignLocationBottom<E> {
         let height_available = full_height.unwrap_or(first_height);
 
         let size = self.0.measure(MeasureCtx {
+            text_pieces_cache,
             width,
             first_height: height_available,
             breakable: None,

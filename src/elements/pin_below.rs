@@ -21,6 +21,7 @@ struct Common {
 impl<C: Element, B: Element> PinBelow<C, B> {
     fn common(
         &self,
+        text_pieces_cache: &TextPiecesCache,
         width: WidthConstraint,
         first_height: f32,
         full_height: Option<f32>,
@@ -28,6 +29,7 @@ impl<C: Element, B: Element> PinBelow<C, B> {
         let bottom_first_height = full_height.unwrap_or(first_height);
 
         let bottom_size = self.pinned_element.measure(MeasureCtx {
+            text_pieces_cache,
             width,
             first_height: bottom_first_height,
             breakable: None,
@@ -47,6 +49,7 @@ impl<C: Element, B: Element> PinBelow<C, B> {
                 && (bottom_size.height > Some(first_height)
                     || *content_first_location_usage.insert(self.content.first_location_usage(
                         FirstLocationUsageCtx {
+                            text_pieces_cache,
                             width,
                             first_height,
                             full_height,
@@ -82,7 +85,12 @@ impl<C: Element, B: Element> PinBelow<C, B> {
 
 impl<C: Element, B: Element> Element for PinBelow<C, B> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        let common = self.common(ctx.width, ctx.first_height, Some(ctx.full_height));
+        let common = self.common(
+            ctx.text_pieces_cache,
+            ctx.width,
+            ctx.first_height,
+            Some(ctx.full_height),
+        );
 
         if common.pre_break {
             return FirstLocationUsage::WillSkip;
@@ -90,6 +98,7 @@ impl<C: Element, B: Element> Element for PinBelow<C, B> {
 
         let first_location_usage = common.content_first_location_usage.unwrap_or_else(|| {
             self.content.first_location_usage(FirstLocationUsageCtx {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: ctx.width,
                 first_height: common.first_height,
                 full_height: common.full_height.unwrap(),
@@ -109,6 +118,7 @@ impl<C: Element, B: Element> Element for PinBelow<C, B> {
 
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let common = self.common(
+            ctx.text_pieces_cache,
             ctx.width,
             ctx.first_height,
             ctx.breakable.as_ref().map(|b| b.full_height),
@@ -118,6 +128,7 @@ impl<C: Element, B: Element> Element for PinBelow<C, B> {
         let mut extra_location_min_height = None;
 
         let size = self.content.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: common.first_height,
             breakable: ctx.breakable.as_mut().map(|_| BreakableMeasure {
@@ -138,6 +149,7 @@ impl<C: Element, B: Element> Element for PinBelow<C, B> {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let common = self.common(
+            ctx.text_pieces_cache,
             ctx.width,
             ctx.first_height,
             ctx.breakable.as_ref().map(|b| b.full_height),
@@ -156,6 +168,7 @@ impl<C: Element, B: Element> Element for PinBelow<C, B> {
 
             self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location,
                 width: ctx.width,
                 first_height: common.first_height,
@@ -180,6 +193,7 @@ impl<C: Element, B: Element> Element for PinBelow<C, B> {
         } else {
             self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: ctx.location,
                 width: ctx.width,
                 first_height: common.first_height,
@@ -196,6 +210,7 @@ impl<C: Element, B: Element> Element for PinBelow<C, B> {
         {
             self.pinned_element.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: Location {
                     pos: (current_location.pos.0, current_location.pos.1 - y_offset),
                     ..current_location

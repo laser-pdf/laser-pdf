@@ -4,7 +4,12 @@ pub struct CenterInPreferredHeight<E: Element>(pub E);
 
 impl<E: Element> Element for CenterInPreferredHeight<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        let layout = self.layout(ctx.width, ctx.first_height, Some(ctx.full_height));
+        let layout = self.layout(
+            ctx.text_pieces_cache,
+            ctx.width,
+            ctx.first_height,
+            Some(ctx.full_height),
+        );
 
         if layout.pre_break {
             FirstLocationUsage::WillSkip
@@ -17,6 +22,7 @@ impl<E: Element> Element for CenterInPreferredHeight<E> {
 
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let layout = self.layout(
+            ctx.text_pieces_cache,
             ctx.width,
             ctx.first_height,
             ctx.breakable.as_ref().map(|b| b.full_height),
@@ -33,6 +39,7 @@ impl<E: Element> Element for CenterInPreferredHeight<E> {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let layout = self.layout(
+            ctx.text_pieces_cache,
             ctx.width,
             ctx.first_height,
             ctx.breakable.as_ref().map(|b| b.full_height),
@@ -79,6 +86,7 @@ impl<E: Element> Element for CenterInPreferredHeight<E> {
 
         self.0.draw(DrawCtx {
             pdf: ctx.pdf,
+            text_pieces_cache: ctx.text_pieces_cache,
             location,
             width: ctx.width,
             first_height: height_available,
@@ -102,6 +110,7 @@ struct Layout {
 impl<E: Element> CenterInPreferredHeight<E> {
     fn layout(
         &self,
+        text_pieces_cache: &TextPiecesCache,
         width: WidthConstraint,
         first_height: f32,
         full_height: Option<f32>,
@@ -109,6 +118,7 @@ impl<E: Element> CenterInPreferredHeight<E> {
         let height_available = full_height.unwrap_or(first_height);
 
         let size = self.0.measure(MeasureCtx {
+            text_pieces_cache,
             width,
             first_height: height_available,
             breakable: None,

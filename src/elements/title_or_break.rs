@@ -13,6 +13,7 @@ pub struct TitleOrBreak<'a, T: Element, C: Element> {
 impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
     fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         let title_size = self.title.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: ctx
                 .breakable
@@ -36,6 +37,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
             if y_offset > ctx.first_height || {
                 let first_location_usage =
                     self.content.first_location_usage(FirstLocationUsageCtx {
+                        text_pieces_cache: ctx.text_pieces_cache,
                         width: ctx.width,
                         first_height: ctx.first_height - y_offset,
                         full_height: breakable.full_height,
@@ -52,6 +54,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
             }
 
             content_size = self.content.measure(MeasureCtx {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: ctx.width,
                 first_height,
                 breakable: Some(BreakableMeasure {
@@ -65,6 +68,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
         } else {
             show_title = true;
             content_size = self.content.measure(MeasureCtx {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: ctx.width,
                 first_height: ctx.first_height - y_offset,
                 breakable: None,
@@ -87,6 +91,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
             .map(|b| b.full_height)
             .unwrap_or(ctx.first_height);
         let title_size = self.title.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: title_first_height,
             breakable: None,
@@ -105,6 +110,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
             if y_offset > ctx.first_height || {
                 let first_location_usage =
                     self.content.first_location_usage(FirstLocationUsageCtx {
+                        text_pieces_cache: ctx.text_pieces_cache,
                         width: ctx.width,
                         first_height: ctx.first_height - y_offset,
                         full_height: breakable.full_height,
@@ -125,6 +131,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
 
             content_size = self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: Location {
                     pos: (
                         location.pos.0,
@@ -158,6 +165,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
             show_title = true;
             content_size = self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: Location {
                     pos: (location.pos.0, location.pos.1 - y_offset),
                     ..location
@@ -174,6 +182,7 @@ impl<'a, T: Element, C: Element> Element for TitleOrBreak<'a, T, C> {
         if show_title && !collapse {
             self.title.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: location.clone(),
                 width: ctx.width,
                 first_height: title_first_height,

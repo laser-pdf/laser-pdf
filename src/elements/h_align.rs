@@ -45,6 +45,7 @@ impl<E: Element> Element for HAlign<E> {
             let mut extra_location_min_height = None;
 
             let element_size = self.1.measure(MeasureCtx {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: WidthConstraint {
                     max: width.max,
                     expand: false,

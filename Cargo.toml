@@ -29,6 +29,7 @@ svg2pdf = "0.12.0"
 icu_segmenter = "1.5.0"
 icu_properties = "1.5.1"
 image = "0.25.6"
+elsa = "1.11.2"
 
 [dev-dependencies]
 insta = "1.41.1"

@@ -1,5 +1,9 @@
-use std::{borrow::Cow, collections::HashMap, iter::Peekable, sync::LazyLock};
+use std::{
+    borrow::{Borrow, Cow},
+    iter::Peekable,
+};
 
+use elsa::FrozenMap;
 use icu_properties::LineBreak;
 use icu_segmenter::LineBreakIteratorUtf8;
 
@@ -15,58 +19,125 @@ struct TextPiecesCacheKey<'a> {
     extra_line_height: f32,
 }
 
-pub struct TextPiecesCache {
-    cache: HashMap<TextPiecesCacheKey<'static>, Vec<Piece>>,
+#[derive(Hash, PartialEq, Eq)]
+struct OwnedKey(TextPiecesCacheKey<'static>);
+
+impl<'a> Borrow<TextPiecesCacheKey<'a>> for OwnedKey {
+    fn borrow(&self) -> &TextPiecesCacheKey<'a> {
+        &self.0
+    }
 }
 
-pub fn pieces<'a, F: Font, R>(
-    font: &'a F,
-    character_spacing: f32,
-    word_spacing: f32,
-    extra_line_height: f32,
-    text: &'a str,
-    size: f32,
-    color: u32,
-    f: impl for<'b, 'c> FnOnce(Pieces<'a, 'b, 'c, F>) -> R,
-) -> R {
-    LINE_SEGMENTER.with(|segmenter| {
-        let shaped_hyphen = font.shape(super::HYPHEN, 0., 0.).next().unwrap();
+impl<'a> PartialEq for TextPiecesCacheKey<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.text == other.text
+            && self.font_index == other.font_index
+            && self.size.to_bits() == other.size.to_bits()
+            && self.color == other.color
+            && self.extra_character_spacing.to_bits() == other.extra_character_spacing.to_bits()
+            && self.extra_word_spacing.to_bits() == other.extra_word_spacing.to_bits()
+            && self.extra_line_height.to_bits() == other.extra_line_height.to_bits()
+    }
+}
 
-        let shaped = super::shaping::shape(
-            font,
-            font.fallback_fonts(),
-            None,
-            text,
-            character_spacing / size,
-            word_spacing / size,
-        );
+impl<'a> Eq for TextPiecesCacheKey<'a> {}
 
-        // let shaped = font.shape(text, character_spacing, word_spacing);
-        let segments = segmenter.segment_str(text).peekable();
+impl<'a> std::hash::Hash for TextPiecesCacheKey<'a> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.text.hash(state);
+        self.font_index.hash(state);
+        self.size.to_bits().hash(state);
+        self.color.hash(state);
+        self.extra_character_spacing.to_bits().hash(state);
+        self.extra_word_spacing.to_bits().hash(state);
+        self.extra_line_height.to_bits().hash(state);
+    }
+}
 
-        f(Pieces {
-            current: Some(0),
-            text,
-            shaped: shaped.iter(),
-            segments,
-            shaped_hyphen,
+pub struct TextPiecesCache {
+    line_segmenter: icu_segmenter::LineSegmenter,
+    line_break_map:
+        icu_properties::maps::CodePointMapDataBorrowed<'static, icu_properties::LineBreak>,
+    cache: FrozenMap<OwnedKey, Vec<Piece>>,
+}
+
+impl TextPiecesCache {
+    pub fn new() -> Self {
+        TextPiecesCache {
+            line_segmenter: icu_segmenter::LineSegmenter::new_auto(),
+            line_break_map: icu_properties::maps::line_break(),
+            cache: FrozenMap::new(),
+        }
+    }
+
+    pub fn pieces<'a, F: Font>(
+        &'a self,
+        text: &str,
+        font: &F,
+        size: f32,
+        color: u32,
+        extra_character_spacing: f32,
+        extra_word_spacing: f32,
+        extra_line_height: f32,
+    ) -> &'a [Piece] {
+        assert!(size.is_finite());
+        assert!(extra_character_spacing.is_finite());
+        assert!(extra_word_spacing.is_finite());
+        assert!(extra_line_height.is_finite());
+
+        let key = TextPiecesCacheKey {
+            text: Cow::Borrowed(text),
+            font_index: font.index(),
             size,
             color,
+            extra_character_spacing,
+            extra_word_spacing,
             extra_line_height,
-            main_font: font,
-            main_font_metrics: font.general_metrics(),
-            fallback_fonts: font.fallback_fonts(),
-        })
-    })
-}
+        };
 
-thread_local! {
-    static LINE_SEGMENTER: icu_segmenter::LineSegmenter = icu_segmenter::LineSegmenter::new_auto();
-}
+        if let Some(value) = self.cache.get(&key) {
+            value
+        } else {
+            let shaped_hyphen = font.shape(super::HYPHEN, 0., 0.).next().unwrap();
 
-static LINE_BREAK_MAP: LazyLock<
-    icu_properties::maps::CodePointMapDataBorrowed<'static, icu_properties::LineBreak>,
-> = LazyLock::new(icu_properties::maps::line_break);
+            let shaped = super::shaping::shape(
+                font,
+                font.fallback_fonts(),
+                None,
+                text,
+                extra_character_spacing / size,
+                extra_word_spacing / size,
+            );
+
+            // let shaped = font.shape(text, character_spacing, word_spacing);
+            let segments = self.line_segmenter.segment_str(text).peekable();
+
+            let pieces = Pieces {
+                current: Some(0),
+                text,
+                shaped: shaped.iter(),
+                segments,
+                shaped_hyphen,
+                size,
+                color,
+                extra_line_height,
+                main_font: font,
+                main_font_metrics: font.general_metrics(),
+                fallback_fonts: font.fallback_fonts(),
+                line_break_map: &self.line_break_map,
+            }
+            .collect();
+
+            self.cache.insert(
+                OwnedKey(TextPiecesCacheKey {
+                    text: Cow::Owned(text.to_string()),
+                    ..key
+                }),
+                pieces,
+            )
+        }
+    }
+}
 
 pub struct Piece {
     pub text: String,
@@ -98,6 +169,7 @@ pub struct Pieces<'a, 'b, 'c, F> {
     size: f32,
     color: u32,
     extra_line_height: f32,
+    line_break_map: &'a icu_properties::maps::CodePointMapDataBorrowed<'static, LineBreak>,
 }
 
 impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
@@ -163,7 +235,7 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
                 self.text[glyph.1.text_range.clone()]
                     .chars()
                     .next()
-                    .map(|c| LINE_BREAK_MAP.get(c)),
+                    .map(|c| self.line_break_map.get(c)),
                 Some(
                     LineBreak::MandatoryBreak
                         | LineBreak::CarriageReturn

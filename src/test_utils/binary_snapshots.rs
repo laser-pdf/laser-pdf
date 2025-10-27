@@ -80,6 +80,7 @@ pub struct DrawStats {
 struct Doc {
     params: TestElementParams,
     pdf: Pdf,
+    text_pieces_cache: TextPiecesCache,
 }
 
 impl Doc {
@@ -87,7 +88,11 @@ impl Doc {
         let mut pdf = Pdf::new();
         pdf.add_page(params.page_size);
 
-        Doc { params, pdf }
+        Doc {
+            params,
+            pdf,
+            text_pieces_cache: TextPiecesCache::new(),
+        }
     }
 
     fn first_location_usage(&mut self, build: impl Fn(Callback)) -> FirstLocationUsage {
@@ -160,6 +165,7 @@ impl<'a> Callback<'a> {
                 let params = &self.doc.params;
 
                 *out = Some(element.first_location_usage(FirstLocationUsageCtx {
+                    text_pieces_cache: &self.doc.text_pieces_cache,
                     width: params.width,
                     first_height: params.first_height,
                     full_height: params.breakable.as_ref().unwrap().full_height,
@@ -170,6 +176,7 @@ impl<'a> Callback<'a> {
                 let mut extra_location_min_height = None;
 
                 let ctx = MeasureCtx {
+                    text_pieces_cache: &self.doc.text_pieces_cache,
                     width: self.doc.params.width,
                     first_height: self.doc.params.first_height,
                     breakable: self
@@ -221,6 +228,7 @@ impl<'a> Callback<'a> {
 
                 let ctx = DrawCtx {
                     pdf,
+                    text_pieces_cache: &self.doc.text_pieces_cache,
                     width: params.width,
                     location: Location {
                         page_idx: 0,

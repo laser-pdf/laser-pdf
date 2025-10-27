@@ -28,6 +28,7 @@ struct Common {
 impl<F: Element, R: Element, C: Element> ChangingTitle<F, R, C> {
     fn common(
         &self,
+        text_pieces_cache: &TextPiecesCache,
         width: WidthConstraint,
         first_height: f32,
         full_height: Option<f32>,
@@ -35,6 +36,7 @@ impl<F: Element, R: Element, C: Element> ChangingTitle<F, R, C> {
         let bottom_first_height = full_height.unwrap_or(first_height);
 
         let first_title_size = self.first_title.measure(MeasureCtx {
+            text_pieces_cache,
             width,
             first_height: bottom_first_height,
             breakable: None,
@@ -46,6 +48,7 @@ impl<F: Element, R: Element, C: Element> ChangingTitle<F, R, C> {
 
         let breakable = full_height.map(|full_height| {
             let remaining_title_size = self.remaining_title.measure(MeasureCtx {
+                text_pieces_cache,
                 width,
                 first_height: full_height,
                 breakable: None,
@@ -64,6 +67,7 @@ impl<F: Element, R: Element, C: Element> ChangingTitle<F, R, C> {
                 && (first_title_size.height > Some(first_height)
                     || *content_first_location_usage.insert(self.content.first_location_usage(
                         FirstLocationUsageCtx {
+                            text_pieces_cache,
                             width,
                             first_height,
                             full_height,
@@ -122,7 +126,12 @@ impl<F: Element, R: Element, C: Element> ChangingTitle<F, R, C> {
 
 impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        let common = self.common(ctx.width, ctx.first_height, Some(ctx.full_height));
+        let common = self.common(
+            ctx.text_pieces_cache,
+            ctx.width,
+            ctx.first_height,
+            Some(ctx.full_height),
+        );
         let breakable = common.breakable.unwrap();
 
         if breakable.pre_break {
@@ -131,6 +140,7 @@ impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
 
         let first_location_usage = breakable.content_first_location_usage.unwrap_or_else(|| {
             self.content.first_location_usage(FirstLocationUsageCtx {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: ctx.width,
                 first_height: common.first_height,
                 full_height: breakable.full_height,
@@ -150,6 +160,7 @@ impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
 
     fn measure(&self, mut ctx: MeasureCtx) -> ElementSize {
         let common = self.common(
+            ctx.text_pieces_cache,
             ctx.width,
             ctx.first_height,
             ctx.breakable.as_ref().map(|b| b.full_height),
@@ -159,6 +170,7 @@ impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
         let mut extra_location_min_height = None;
 
         let size = self.content.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: common.first_height,
             breakable: ctx.breakable.as_mut().zip(common.breakable.as_ref()).map(
@@ -181,6 +193,7 @@ impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
         let common = self.common(
+            ctx.text_pieces_cache,
             ctx.width,
             ctx.first_height,
             ctx.breakable.as_ref().map(|b| b.full_height),
@@ -201,6 +214,7 @@ impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
 
             self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: Location {
                     pos: (
                         location.pos.0,
@@ -236,6 +250,7 @@ impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
                             {
                                 self.first_title.draw(DrawCtx {
                                     pdf,
+                                    text_pieces_cache: ctx.text_pieces_cache,
                                     location: ctx.location.clone(),
                                     width: ctx.width,
                                     first_height,
@@ -272,6 +287,7 @@ impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
 
                                     self.remaining_title.draw(DrawCtx {
                                         pdf,
+                                        text_pieces_cache: ctx.text_pieces_cache,
                                         location: title_location,
                                         width: ctx.width,
                                         first_height: title_height,
@@ -307,6 +323,7 @@ impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
         } else {
             self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: Location {
                     pos: (
                         ctx.location.pos.0,
@@ -337,6 +354,7 @@ impl<F: Element, R: Element, C: Element> Element for ChangingTitle<F, R, C> {
         {
             let draw_ctx = DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: current_location,
                 width: ctx.width,
                 first_height: title_height,
