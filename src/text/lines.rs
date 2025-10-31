@@ -28,7 +28,6 @@ pub struct LineGlyph<'a, F> {
 }
 
 pub struct Line<'a, F, P: Iterator<Item = (&'a F, &'a Piece)>> {
-    pub empty: bool,
     pub width: f32,
     pub trailing_whitespace_width: f32,
     pub height_above_baseline: f32,
@@ -121,7 +120,6 @@ impl<'a, F: Font + 'a, P: Iterator<Item = (&'a F, &'a Piece)> + Clone> Iterator
         let max_width = self.max_width;
         let consider_last_line_trailing_whitespace = self.consider_last_line_trailing_whitespace;
 
-        let mut empty = true;
         let mut piece_count = 0;
         let mut current_width = 0.;
         let mut current_width_whitespace = 0.;
@@ -134,10 +132,11 @@ impl<'a, F: Font + 'a, P: Iterator<Item = (&'a F, &'a Piece)> + Clone> Iterator
         while let Some((font, piece, has_next)) = self.pieces.current() {
             // If current_width is zero we have to place the piece on this line, because adding
             // another line would not help.
-            if (current_width > 0.)
+            if let Some(width) = piece.width
+                && current_width > 0.
                 && current_width
                     + current_width_whitespace
-                    + piece.width
+                    + width
                     + piece
                         .trailing_hyphen
                         .as_ref()
@@ -150,23 +149,26 @@ impl<'a, F: Font + 'a, P: Iterator<Item = (&'a F, &'a Piece)> + Clone> Iterator
                 break;
             }
 
-            empty = empty && piece.empty;
             piece_count += 1;
 
-            current_width += current_width_whitespace + piece.width;
-            current_width_whitespace = piece.trailing_whitespace_width;
+            if let Some(width) = piece.width {
+                current_width += current_width_whitespace + width;
+                current_width_whitespace = piece.trailing_whitespace_width;
 
-            trailing_hyphen = piece.trailing_hyphen.as_ref().map(|x| {
-                let fallback_fonts = font.fallback_fonts();
+                trailing_hyphen = piece.trailing_hyphen.as_ref().map(|x| {
+                    let fallback_fonts = font.fallback_fonts();
 
-                LineGlyph {
-                    font: x.0.map_or(font, |i| &fallback_fonts[i]),
-                    text: super::HYPHEN,
-                    shaped_glyph: x.1.clone(),
-                    size: piece.size,
-                    color: piece.color,
-                }
-            });
+                    LineGlyph {
+                        font: x.0.map_or(font, |i| &fallback_fonts[i]),
+                        text: super::HYPHEN,
+                        shaped_glyph: x.1.clone(),
+                        size: piece.size,
+                        color: piece.color,
+                    }
+                });
+            } else {
+                current_width_whitespace += piece.trailing_whitespace_width;
+            }
 
             height_above_baseline = height_above_baseline.max(piece.height_above_baseline);
             height_below_baseline = height_below_baseline.max(piece.height_below_baseline);
@@ -181,7 +183,6 @@ impl<'a, F: Font + 'a, P: Iterator<Item = (&'a F, &'a Piece)> + Clone> Iterator
         }
 
         Some(Line {
-            empty,
             width: current_width
                 + trailing_hyphen
                     .as_ref()

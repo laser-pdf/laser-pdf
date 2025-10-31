@@ -142,7 +142,16 @@ impl TextPiecesCache {
 pub struct Piece {
     pub text: String,
     pub shaped: Vec<(Option<usize>, ShapedGlyph)>,
-    pub width: f32,
+
+    /// The width of the main part of the piece. None means the piece consists only of whitespace.
+    /// This is needed for line breaking to determine how to treat the piece if placed at the end
+    /// of an overflowing line; a piece that consists only of whitespace can be placed there because
+    /// trailing whitespace does not count towards the width of the line. It's not clear whether
+    /// checking for zero would work for this as there might be fonts or specific shapings that
+    /// contain characters with a width of zero but with a visible glyph. The `None` indicates that
+    /// there are only glyphs in this piece that we count as whitespace.
+    pub width: Option<f32>,
+
     pub height_above_baseline: f32,
     pub height_below_baseline: f32,
     pub trailing_whitespace_width: f32,
@@ -210,7 +219,7 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
         })
         .peekable();
 
-        let mut width = 0.;
+        let mut width = None;
         let mut whitespace_width = 0.;
         let mut glyph_count = 0;
         let mut mandatory_break_after = false;
@@ -247,9 +256,8 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
                 // for a \r\n here.
                 mandatory_break_after = true;
             } else {
-                width += whitespace_width;
+                *width.get_or_insert(0.) += whitespace_width + glyph.1.x_advance;
                 whitespace_width = 0.;
-                width += glyph.1.x_advance;
             }
 
             let font = glyph.0.map_or(self.main_font, |i| &self.fallback_fonts[i]);
@@ -262,6 +270,8 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
 
         let text = &self.text[current..segment];
 
+        // TODO: Handle the case of a soft hyphen followed by a space. Currently that just gets
+        // ignored.
         let trailing_hyphen = text
             .ends_with('\u{00AD}')
             .then_some(self.shaped_hyphen.clone());
@@ -283,7 +293,7 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
                     )
                 })
                 .collect(),
-            width: width * self.size,
+            width: width.map(|w| w * self.size),
             height_above_baseline: height_above_baseline * self.size,
             // TODO: Would it be better if this was only added to the below-baseline height of the
             // main font?
@@ -387,7 +397,7 @@ mod tests {
         }
     }
 
-    fn collect_piece<'a>(piece: &'a Piece) -> (&'a str, f32, f32, bool) {
+    fn collect_piece<'a>(piece: &'a Piece) -> (&'a str, Option<f32>, f32, bool) {
         let mut text = String::new();
 
         for glyph in &piece.shaped {
@@ -419,7 +429,7 @@ mod tests {
         let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-        assert_eq!(&pieces, &[("", 0., 0., false)]);
+        assert_eq!(&pieces, &[("", None, 0., false)]);
     }
 
     #[test]
@@ -430,7 +440,7 @@ mod tests {
         let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-        assert_eq!(&pieces, &[("abcde", 5., 0., false)]);
+        assert_eq!(&pieces, &[("abcde", Some(5.), 0., false)]);
     }
 
     #[test]
@@ -443,7 +453,10 @@ mod tests {
 
         assert_eq!(
             &pieces,
-            &[("deadbeef ", 8., 1., false), ("defaced", 7., 0., false)]
+            &[
+                ("deadbeef ", Some(8.), 1., false),
+                ("defaced", Some(7.), 0., false),
+            ]
         );
     }
 
@@ -458,9 +471,9 @@ mod tests {
         assert_eq!(
             &pieces,
             &[
-                ("deadbeef ", 8., 1., false),
-                ("defaced ", 7., 1., false),
-                ("fart", 4., 0., false)
+                ("deadbeef ", Some(8.), 1., false),
+                ("defaced ", Some(7.), 1., false),
+                ("fart", Some(4.), 0., false)
             ],
         );
     }
@@ -473,7 +486,7 @@ mod tests {
         let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-        assert_eq!(&pieces, &[("\n", 0., 0., true), ("", 0., 0., false)]);
+        assert_eq!(&pieces, &[("\n", None, 0., true), ("", None, 0., false)]);
     }
 
     #[test]
@@ -484,7 +497,10 @@ mod tests {
         let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-        assert_eq!(&pieces, &[("abc\n", 3., 0., true), ("def", 3., 0., false)]);
+        assert_eq!(
+            &pieces,
+            &[("abc\n", Some(3.), 0., true), ("def", Some(3.), 0., false)]
+        );
     }
 
     #[test]
@@ -498,9 +514,9 @@ mod tests {
         assert_eq!(
             &pieces,
             &[
-                ("\n", 0., 0., true),
-                ("abc ", 3., 1., false),
-                ("def", 3., 0., false),
+                ("\n", None, 0., true),
+                ("abc ", Some(3.), 1., false),
+                ("def", Some(3.), 0., false),
             ]
         );
     }
@@ -516,10 +532,92 @@ mod tests {
         assert_eq!(
             &pieces,
             &[
-                ("abc ", 3., 1., false),
-                ("def\n", 3., 0., true),
-                ("", 0., 0., false),
+                ("abc ", Some(3.), 1., false),
+                ("def\n", Some(3.), 0., true),
+                ("", None, 0., false),
             ]
+        );
+    }
+
+    #[test]
+    fn test_newline_after_space() {
+        let text = "abc \ndef";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[("abc \n", Some(3.), 1., true), ("def", Some(3.), 0., false)],
+        );
+    }
+
+    #[test]
+    fn test_trailing_soft_hyphen() {
+        let text = "abc\u{ad}";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(&pieces, &[("abc\u{ad}", Some(3.), 0., false)]);
+    }
+
+    #[test]
+    fn test_trailing_soft_hyphen_and_space() {
+        let text = "abc\u{ad} ";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+
+        let pieces: Vec<_> = pieces
+            .iter()
+            .map(|p| {
+                let collected = collect_piece(p);
+
+                (
+                    collected.0,
+                    collected.1,
+                    collected.2,
+                    collected.3,
+                    p.trailing_hyphen.as_ref().map(|h| h.1.x_advance),
+                )
+            })
+            .collect();
+
+        assert_eq!(&pieces, &[("abc\u{ad} ", Some(3.), 1., false, None)]);
+    }
+
+    #[test]
+    fn test_soft_hyphen_after_space() {
+        let text = " \u{ad}abc";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[
+                (" ", None, 1., false),
+                ("\u{ad}", Some(0.), 0., false),
+                ("abc", Some(3.), 0., false),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_soft_hyphen_between_spaces() {
+        let text = " \u{ad} ";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[(" ", None, 1., false), ("\u{ad} ", Some(0.), 1., false)],
         );
     }
 
@@ -531,7 +629,7 @@ mod tests {
         let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-        assert_eq!(&pieces, &[("        ", 0., 8., false)]);
+        assert_eq!(&pieces, &[("        ", None, 8., false)]);
     }
 
     #[test]
@@ -545,13 +643,13 @@ mod tests {
         assert_eq!(
             &pieces,
             &[
-                ("    ", 0., 4., false),
+                ("    ", None, 4., false),
                 // It's somewhat unclear whether the trailing spaces should count toward the
                 // width here.
-                ("abc    \n", 3., 4., true),
-                ("def  ", 3., 2., false),
-                ("the\t", 4., 0., false),
-                ("jflkdsa", 7., 0., false),
+                ("abc    \n", Some(3.), 4., true),
+                ("def  ", Some(3.), 2., false),
+                ("the\t", Some(4.), 0., false),
+                ("jflkdsa", Some(7.), 0., false),
             ],
         );
     }
