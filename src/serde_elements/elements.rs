@@ -126,8 +126,8 @@ impl SerdeElement for RichText {
         fonts: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
-        callback.call(&elements::new_rich_text::RichText {
-            spans: self.spans.iter().map(|s| elements::new_rich_text::Span {
+        callback.call(&elements::rich_text::RichText {
+            spans: self.spans.iter().map(|s| elements::rich_text::Span {
                 text: &s.text,
                 font: &*fonts[&s.font],
                 size: s.size,

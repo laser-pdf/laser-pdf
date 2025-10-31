@@ -1,10 +1,10 @@
 use crate::{
-    elements::new_rich_text::{RichText, Span},
+    elements::rich_text::{RichText, Span},
     fonts::Font,
     *,
 };
 
-pub use elements::new_rich_text::TextAlign;
+pub use elements::rich_text::TextAlign;
 
 /// A text element that renders text content with various styling options.
 pub struct Text<'a, F: Font> {
