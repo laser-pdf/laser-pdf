@@ -485,7 +485,7 @@ mod tests {
                         Span {
                             text: "they",
                             font: &regular,
-                            size: 12.,
+                            size: 4.,
                             underline: false,
                             color: 0x00_FF_FF_FF,
                             extra_character_spacing: 0.,
