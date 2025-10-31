@@ -279,6 +279,14 @@ impl WidthConstraint {
             width.min(self.max)
         }
     }
+
+    pub fn max(&self, width: f32) -> f32 {
+        if self.expand {
+            width.max(self.max)
+        } else {
+            width
+        }
+    }
 }
 
 pub type Pos = (f32, f32);

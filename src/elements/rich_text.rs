@@ -73,7 +73,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
         let size = self.layout_lines(lines, Some(&mut ctx));
 
         ElementSize {
-            width: Some(ctx.width.constrain(size.0)),
+            width: Some(ctx.width.max(size.0)),
             height: Some(size.1),
         }
     }
@@ -95,7 +95,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
         let size = self.render_lines(lines, ctx, width);
 
         ElementSize {
-            width: Some(width_constraint.constrain(size.0)),
+            width: Some(width_constraint.max(size.0)),
             height: Some(size.1),
         }
     }
