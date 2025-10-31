@@ -118,6 +118,10 @@ mod tests {
             unimplemented!()
         }
 
+        fn index(&self) -> usize {
+            unimplemented!()
+        }
+
         fn resource_name(&self) -> pdf_writer::Name<'_> {
             unimplemented!()
         }
@@ -137,7 +141,7 @@ mod tests {
 
         let text = "ABCabc123ABC";
 
-        let shaped = shape(&font, font.fallback_fonts(), text, 0., 0.);
+        let shaped = shape(&font, font.fallback_fonts(), None, text, 0., 0.);
 
         insta::assert_debug_snapshot!(shaped, @r"
         [

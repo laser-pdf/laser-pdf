@@ -363,12 +363,16 @@ mod tests {
             }
         }
 
+        fn index(&self) -> usize {
+            0
+        }
+
         fn encode(&self, _: &mut crate::Pdf, _: u32, _: &str) -> crate::fonts::EncodedGlyph {
-            unimplemented!()
+            unreachable!()
         }
 
         fn resource_name(&self) -> pdf_writer::Name<'_> {
-            unimplemented!()
+            unreachable!()
         }
 
         fn general_metrics(&self) -> crate::fonts::GeneralMetrics {
@@ -383,34 +387,24 @@ mod tests {
         }
     }
 
-    fn collect_piece<'a>(text: &'a str, piece: Piece<'a, FakeFont>) -> (&'a str, f32, f32, bool) {
-        let line = piece.shaped.into_iter();
-
-        let by_range = {
-            let mut line = line.clone();
-            if let Some(first) = line.next() {
-                let last = line
-                    .last()
-                    .map(|l| l.1.text_range.end)
-                    .unwrap_or(first.1.text_range.end);
-
-                &text[first.1.text_range.start..last]
-            } else {
-                ""
-            }
-        };
-
+    fn collect_piece<'a>(piece: &'a Piece) -> (&'a str, f32, f32, bool) {
         let mut text = String::new();
 
-        for glyph in line {
+        for glyph in &piece.shaped {
+            let character = glyph.1.glyph_id as u8 as char;
+
+            assert_eq!(
+                character.to_string(),
+                piece.text[glyph.1.text_range.clone()]
+            );
+
             text.push(glyph.1.glyph_id as u8 as char);
         }
 
-        assert_eq!(by_range, text);
         assert_eq!(text, piece.text);
 
         (
-            piece.text,
+            &piece.text,
             piece.width,
             piece.trailing_whitespace_width,
             piece.mandatory_break_after,
@@ -421,144 +415,144 @@ mod tests {
     fn test_empty() {
         let text = "";
 
-        pieces(&FakeFont, 0., 0., text, |pieces| {
-            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-            assert_eq!(&pieces, &[("", 0., 0., false)]);
-        });
+        assert_eq!(&pieces, &[("", 0., 0., false)]);
     }
 
     #[test]
     fn test_one() {
         let text = "abcde";
 
-        pieces(&FakeFont, 0., 0., text, |pieces| {
-            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-            assert_eq!(&pieces, &[("abcde", 5., 0., false)]);
-        });
+        assert_eq!(&pieces, &[("abcde", 5., 0., false)]);
     }
 
     #[test]
     fn test_two() {
         let text = "deadbeef defaced";
 
-        pieces(&FakeFont, 0., 0., text, |pieces| {
-            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-            assert_eq!(
-                &pieces,
-                &[("deadbeef ", 8., 1., false), ("defaced", 7., 0., false)]
-            );
-        });
+        assert_eq!(
+            &pieces,
+            &[("deadbeef ", 8., 1., false), ("defaced", 7., 0., false)]
+        );
     }
 
     #[test]
     fn test_three() {
         let text = "deadbeef defaced fart";
 
-        pieces(&FakeFont, 0., 0., text, |pieces| {
-            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-            assert_eq!(
-                &pieces,
-                &[
-                    ("deadbeef ", 8., 1., false),
-                    ("defaced ", 7., 1., false),
-                    ("fart", 4., 0., false)
-                ],
-            );
-        });
+        assert_eq!(
+            &pieces,
+            &[
+                ("deadbeef ", 8., 1., false),
+                ("defaced ", 7., 1., false),
+                ("fart", 4., 0., false)
+            ],
+        );
     }
 
     #[test]
     fn test_just_newline() {
         let text = "\n";
 
-        pieces(&FakeFont, 0., 0., text, |pieces| {
-            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-            assert_eq!(&pieces, &[("\n", 0., 0., true), ("", 0., 0., false)]);
-        });
+        assert_eq!(&pieces, &[("\n", 0., 0., true), ("", 0., 0., false)]);
     }
 
     #[test]
     fn test_surrounded_newline() {
         let text = "abc\ndef";
 
-        pieces(&FakeFont, 0., 0., text, |pieces| {
-            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-            assert_eq!(&pieces, &[("abc\n", 3., 0., true), ("def", 3., 0., false)]);
-        });
+        assert_eq!(&pieces, &[("abc\n", 3., 0., true), ("def", 3., 0., false)]);
     }
 
     #[test]
     fn test_newline_at_start() {
         let text = "\nabc def";
 
-        pieces(&FakeFont, 0., 0., text, |pieces| {
-            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-            assert_eq!(
-                &pieces,
-                &[
-                    ("\n", 0., 0., true),
-                    ("abc ", 3., 1., false),
-                    ("def", 3., 0., false),
-                ]
-            );
-        });
+        assert_eq!(
+            &pieces,
+            &[
+                ("\n", 0., 0., true),
+                ("abc ", 3., 1., false),
+                ("def", 3., 0., false),
+            ]
+        );
     }
 
     #[test]
     fn test_trailing_newline() {
         let text = "abc def\n";
 
-        pieces(&FakeFont, 0., 0., text, |pieces| {
-            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-            assert_eq!(
-                &pieces,
-                &[
-                    ("abc ", 3., 1., false),
-                    ("def\n", 3., 0., true),
-                    ("", 0., 0., false),
-                ]
-            );
-        });
+        assert_eq!(
+            &pieces,
+            &[
+                ("abc ", 3., 1., false),
+                ("def\n", 3., 0., true),
+                ("", 0., 0., false),
+            ]
+        );
     }
 
     #[test]
     fn test_just_spaces() {
         let text = "        ";
 
-        pieces(&FakeFont, 0., 0., text, |pieces| {
-            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-            assert_eq!(&pieces, &[("        ", 0., 8., false)]);
-        });
+        assert_eq!(&pieces, &[("        ", 0., 8., false)]);
     }
 
     #[test]
     fn test_mixed_whitespace() {
         let text = "    abc    \ndef  the\tjflkdsa";
 
-        pieces(&FakeFont, 0., 0., text, |pieces| {
-            let pieces: Vec<_> = pieces.map(|p| collect_piece(text, p)).collect();
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-            assert_eq!(
-                &pieces,
-                &[
-                    ("    ", 0., 4., false),
-                    // It's somewhat unclear whether the trailing spaces should count toward the
-                    // width here.
-                    ("abc    \n", 3., 4., true),
-                    ("def  ", 3., 2., false),
-                    ("the\t", 4., 0., false),
-                    ("jflkdsa", 7., 0., false),
-                ],
-            );
-        });
+        assert_eq!(
+            &pieces,
+            &[
+                ("    ", 0., 4., false),
+                // It's somewhat unclear whether the trailing spaces should count toward the
+                // width here.
+                ("abc    \n", 3., 4., true),
+                ("def  ", 3., 2., false),
+                ("the\t", 4., 0., false),
+                ("jflkdsa", 7., 0., false),
+            ],
+        );
     }
 }

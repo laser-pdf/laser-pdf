@@ -197,6 +197,8 @@ impl<'a, F: Font + 'a, P: Iterator<Item = (&'a F, &'a Piece)> + Clone> Iterator
 
 #[cfg(test)]
 mod tests {
+    use crate::text::TextPiecesCache;
+
     use super::*;
 
     #[derive(Debug)]
@@ -243,12 +245,16 @@ mod tests {
             }
         }
 
+        fn index(&self) -> usize {
+            0
+        }
+
         fn encode(&self, _: &mut crate::Pdf, _: u32, _: &str) -> crate::fonts::EncodedGlyph {
-            unimplemented!()
+            unreachable!()
         }
 
         fn resource_name(&self) -> pdf_writer::Name<'_> {
-            unimplemented!()
+            unreachable!()
         }
 
         fn general_metrics(&self) -> crate::fonts::GeneralMetrics {
@@ -263,277 +269,215 @@ mod tests {
         }
     }
 
-    fn collect<'a>(text: &'a str) -> impl Fn(Line<FakeFont>) -> &'a str {
-        |line| {
-            let by_range = {
-                let mut line = line.clone();
-                if let Some(first) = line.next() {
-                    let last = line
-                        .last()
-                        .map(|l| l.1.text_range.end)
-                        .unwrap_or(first.1.text_range.end);
+    fn lines(text: &str, max_width: f32) -> Vec<(String, f32)> {
+        let cache = TextPiecesCache::new();
 
-                    &text[first.1.text_range.start..last]
-                } else {
-                    ""
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+
+        let lines = lines_from_pieces(pieces.iter().map(|p| (&FakeFont, p)), max_width);
+
+        lines
+            .map(|line| {
+                let width = line.width;
+
+                let mut buff = String::new();
+
+                for glyph in line.iter() {
+                    let character = glyph.shaped_glyph.glyph_id as u8 as char;
+
+                    assert_eq!(character.to_string(), glyph.text);
+
+                    buff.push(character);
                 }
-            };
 
-            let mut text = String::new();
-
-            for glyph in line {
-                text.push(glyph.1.glyph_id as u8 as char);
-            }
-
-            assert_eq!(by_range, text);
-            by_range
-        }
-    }
-
-    fn assert_width(width: f32) -> impl Fn(&Line<FakeFont>) {
-        move |l| {
-            assert_eq!(l.width, width);
-        }
+                (buff, width)
+            })
+            .collect()
     }
 
     #[test]
     fn test_empty_string() {
         let text = "";
+        let lines = lines(text, 16.);
 
-        lines(&FakeFont, 0., 0., 16., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some(""));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(lines, [("".into(), 0.)]);
     }
 
     #[test]
     fn test_text_flow() {
         let text = "Amet consequatur facilis necessitatibus sed quia numquam reiciendis. \
                 Id impedit quo quaerat enim amet. ";
+        let lines = lines(text, 16.);
 
-        lines(&FakeFont, 0., 0., 16., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(
-                generator.next().inspect(assert_width(16.)).map(&collect),
-                Some("Amet consequatur ")
-            );
-
-            assert_eq!(
-                generator.next().inspect(assert_width(7.)).map(&collect),
-                Some("facilis ")
-            );
-            assert_eq!(generator.next().map(&collect), Some("necessitatibus "));
-            assert_eq!(generator.next().map(&collect), Some("sed quia numquam "));
-            assert_eq!(generator.next().map(&collect), Some("reiciendis. Id "));
-            assert_eq!(generator.next().map(&collect), Some("impedit quo "));
-            assert_eq!(generator.next().map(&collect), Some("quaerat enim "));
-            assert_eq!(
-                generator.next().inspect(assert_width(5.)).map(&collect),
-                Some("amet. ")
-            );
-            assert_eq!(generator.next().map(&collect), None);
-
-            // Make sure it's sealed.
-            assert_eq!(generator.next().map(&collect), None);
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(
+            lines,
+            [
+                ("Amet consequatur ".into(), 16.),
+                ("facilis ".into(), 7.),
+                ("necessitatibus ".into(), 14.),
+                ("sed quia numquam ".into(), 16.),
+                ("reiciendis. Id ".into(), 14.),
+                ("impedit quo ".into(), 11.),
+                ("quaerat enim ".into(), 12.),
+                ("amet. ".into(), 5.),
+            ]
+        );
     }
 
     #[test]
     fn test_text_after_newline() {
         let text = "\nthe the the";
+        let lines = lines(text, 4.);
 
-        lines(&FakeFont, 0., 0., 4., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some("\n"));
-            assert_eq!(generator.next().map(&collect), Some("the "));
-            assert_eq!(generator.next().map(&collect), Some("the "));
-            assert_eq!(generator.next().map(&collect), Some("the"));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(
+            lines,
+            [
+                ("\n".into(), 0.),
+                ("the ".into(), 3.),
+                ("the ".into(), 3.),
+                ("the".into(), 3.),
+            ]
+        );
     }
 
     #[test]
     fn test_trailing_whitespace() {
         let text = "Id impedit quo quaerat enim amet.                  ";
+        let lines = lines(text, 16.);
 
-        lines(&FakeFont, 0., 0., 16., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some("Id impedit quo "));
-            assert_eq!(generator.next().map(&collect), Some("quaerat enim "));
-
-            // it's unclear whether any other behavior would be better here
-            assert_eq!(
-                generator.next().inspect(assert_width(5.)).map(&collect),
-                Some("amet.                  ")
-            );
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(
+            lines,
+            [
+                ("Id impedit quo ".into(), 14.),
+                ("quaerat enim ".into(), 12.),
+                ("amet.                  ".into(), 5.),
+            ]
+        );
     }
 
     #[test]
     fn test_pre_newline_whitespace() {
         let text = "Id impedit quo \nquaerat enimmmmm    \namet.";
-        lines(&FakeFont, 0., 0., 16., text, |mut generator| {
-            let collect = collect(text);
+        let lines = lines(text, 16.);
 
-            assert_eq!(generator.next().map(&collect), Some("Id impedit quo \n"));
-            // It seems unclear what the intent would be in such a case.
-            assert_eq!(
-                generator.next().map(&collect),
-                Some("quaerat enimmmmm    \n")
-            );
-            assert_eq!(generator.next().map(&collect), Some("amet."));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(
+            lines,
+            [
+                ("Id impedit quo \n".into(), 14.),
+                // It seems unclear what the intent would be in such a case.
+                ("quaerat enimmmmm    \n".into(), 16.),
+                ("amet.".into(), 5.),
+            ]
+        )
     }
 
     #[test]
     fn test_newline() {
         let text = "\n";
+        let lines = lines(text, 16.);
 
-        lines(&FakeFont, 0., 0., 16., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some("\n"));
-            assert_eq!(generator.next().map(&collect), Some(""));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(lines, [("\n".into(), 0.), ("".into(), 0.)]);
     }
 
     #[test]
     fn test_just_spaces() {
         let text = "  ";
+        let lines = lines(text, 16.);
 
-        lines(&FakeFont, 0., 0., 16., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some("  "));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(lines, [("  ".into(), 0.)]);
     }
 
     #[test]
     fn test_word_longer_than_line() {
         let text = "Averylongword";
-
-        lines(&FakeFont, 0., 0., 8., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some("Averylongword"));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(lines(text, 8.), [("Averylongword".into(), 13.)]);
 
         let text = "Averylongword test.";
-
-        lines(&FakeFont, 0., 0., 8., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some("Averylongword "));
-            assert_eq!(generator.next().map(&collect), Some("test."));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(
+            lines(text, 8.),
+            [("Averylongword ".into(), 13.), ("test.".into(), 5.)]
+        );
 
         let text = "A verylongword test.";
-
-        lines(&FakeFont, 0., 0., 8., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some("A "));
-            assert_eq!(generator.next().map(&collect), Some("verylongword "));
-            assert_eq!(generator.next().map(&collect), Some("test."));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(
+            lines(text, 8.),
+            [
+                ("A ".into(), 1.),
+                ("verylongword ".into(), 12.),
+                ("test.".into(), 5.),
+            ],
+        );
     }
 
     #[test]
     fn test_soft_hyphens() {
         let text = "A\u{00ad}very\u{00ad}long\u{00ad}word";
 
-        lines(&FakeFont, 0., 0., 7., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(
-                generator.next().map(&collect),
-                Some("A\u{00ad}very\u{00ad}"),
-            );
-            assert_eq!(generator.next().map(&collect), Some("long\u{00ad}"),);
-            assert_eq!(generator.next().map(&collect), Some("word"));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(
+            lines(text, 7.),
+            [
+                ("A\u{00ad}very\u{00ad}-".into(), 6.),
+                ("long\u{00ad}-".into(), 5.),
+                ("word".into(), 4.),
+            ],
+        );
 
         let text = "A\u{00ad}very \u{00ad}long\u{00ad}word";
 
-        lines(&FakeFont, 0., 0., 7., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(
-                generator.next().map(&collect),
+        assert_eq!(
+            lines(text, 7.),
+            [
                 // The old line breaker used to not split at a soft hypen that was at the start of
                 // a word. But since the segmenter splits there we treat it as a separate piece now.
-                Some("A\u{00ad}very \u{00ad}"),
-            );
-            assert_eq!(generator.next().map(&collect), Some("long\u{00ad}"),);
-            assert_eq!(generator.next().map(&collect), Some("word"));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+                ("A\u{00ad}very \u{00ad}-".into(), 7.),
+                ("long\u{00ad}-".into(), 5.),
+                ("word".into(), 4.),
+            ],
+        );
 
         let text = "A\u{00ad}very\u{00ad}\u{00ad}long\u{00ad}word";
 
-        lines(&FakeFont, 0., 0., 7., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(
-                generator.next().map(&collect),
-                Some("A\u{00ad}very\u{00ad}\u{00ad}"),
-            );
-            assert_eq!(generator.next().map(&collect), Some("long\u{00ad}"),);
-            assert_eq!(generator.next().map(&collect), Some("word"));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(
+            lines(text, 7.),
+            [
+                ("A\u{00ad}very\u{00ad}\u{00ad}-".into(), 6.),
+                ("long\u{00ad}-".into(), 5.),
+                ("word".into(), 4.),
+            ],
+        );
     }
 
     #[test]
     fn test_hard_hyphens() {
         let text = "A-very-long-word";
-
-        lines(&FakeFont, 0., 0., 7., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some("A-very-"));
-            assert_eq!(generator.next().map(&collect), Some("long-"));
-            assert_eq!(generator.next().map(&collect), Some("word"));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(
+            lines(text, 7.),
+            [
+                ("A-very-".into(), 7.),
+                ("long-".into(), 5.),
+                ("word".into(), 4.),
+            ],
+        );
 
         let text = "A-very -long-word";
-
-        lines(&FakeFont, 0., 0., 7., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some("A-very "));
-            assert_eq!(generator.next().map(&collect), Some("-long-"));
-            assert_eq!(generator.next().map(&collect), Some("word"));
-            assert_eq!(generator.next().map(&collect), None);
-        });
+        assert_eq!(
+            lines(text, 7.),
+            [
+                ("A-very ".into(), 6.),
+                ("-long-".into(), 6.),
+                ("word".into(), 4.),
+            ],
+        );
 
         let text = "A-very--long-word";
-
-        lines(&FakeFont, 0., 0., 7., text, |mut generator| {
-            let collect = collect(text);
-
-            assert_eq!(generator.next().map(&collect), Some("A-"));
-            assert_eq!(generator.next().map(&collect), Some("very--"));
-            assert_eq!(generator.next().map(&collect), Some("long-"));
-            assert_eq!(generator.next().map(&collect), Some("word"));
-            assert_eq!(generator.next().map(&collect), None);
-        });
-    }
-        });
+        assert_eq!(
+            lines(text, 7.),
+            [
+                ("A-".into(), 2.),
+                ("very--".into(), 6.),
+                ("long-".into(), 5.),
+                ("word".into(), 4.),
+            ],
+        );
     }
 }
