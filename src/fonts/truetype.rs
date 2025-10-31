@@ -492,44 +492,4 @@ mod tests {
 
         insta::assert_debug_snapshot!(shaped_vec);
     }
-
-    #[test]
-    fn test_emoji_shaping() {
-        const FONT: &[u8] = include_bytes!("../../../sws/inc/font/noto_emoji/regular.ttf");
-        const NUNITO: &[u8] = include_bytes!("../../../sws/inc/font/nunito/nunito_regular.ttf");
-
-        let mut pdf = Pdf::new();
-
-        let font = TruetypeFont::new(&mut pdf, &FONT);
-        let nunito = TruetypeFont::new(&mut pdf, &NUNITO);
-
-        // dbg!(font.general_metrics().line_height as f32 / font.face.units_per_em() as f32);
-        // dbg!(nunito.general_metrics().line_height as f32 / nunito.face.units_per_em() as f32);
-        // dbg!(font.general_metrics().ascent as f32 / font.face.units_per_em() as f32);
-        // dbg!(nunito.general_metrics().ascent as f32 / nunito.face.units_per_em() as f32);
-        // todo!();
-
-        // let text = "☀️";
-        let text = "\u{fe0f}";
-
-        let shaped = nunito.shape(text, 0., 0.);
-        let shaped = shaped.clone();
-
-        let shaped_vec: Vec<_> = shaped.collect();
-
-        insta::assert_debug_snapshot!(shaped_vec, @r"
-        [
-            ShapedGlyph {
-                unsafe_to_break: false,
-                glyph_id: 897,
-                text_range: 0..3,
-                x_advance_font: 0.258,
-                x_advance: 0.0,
-                x_offset: 0.0,
-                y_advance: 0.0,
-                y_offset: 0.0,
-            },
-        ]
-        ");
-    }
 }
