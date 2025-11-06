@@ -47,6 +47,14 @@ impl<'a, F> Clone for Span<'a, F> {
     }
 }
 
+/// An element for displaying text with mixed fonts, sizes, colors, etc.
+///
+/// Note: Newline characters belong to both the line they end and the next line. So if you have a
+/// newline character at the end of a span with a larger font than the next one, the line after the
+/// one terminated by the newline will have at least the height of the larger font as well (it could
+/// also be more depending on where the fonts baselines are). This behavior also means that if there
+/// are no more spans after one terminated by a newline, the empty line at the end will have the
+/// height of the font of the span containing the newline.
 pub struct RichText<S> {
     pub spans: S,
     pub align: TextAlign,
