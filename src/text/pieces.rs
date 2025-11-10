@@ -55,6 +55,10 @@ impl<'a> std::hash::Hash for TextPiecesCacheKey<'a> {
     }
 }
 
+/// A data structure that holds cached text pieces (shaped and unicode-segmentend such that it is
+/// ready for line breaking). This type gets passed around in the contexts and is needed by the
+/// [crate::elements::text::Text] and [crate::elements::rich_text::RichText] elements. Currently
+/// only [Self::new] is public for API stability reasons.
 pub struct TextPiecesCache {
     line_segmenter: icu_segmenter::LineSegmenter,
     line_break_map:
@@ -73,7 +77,7 @@ impl TextPiecesCache {
         }
     }
 
-    pub fn pieces<'a, F: Font>(
+    pub(crate) fn pieces<'a, F: Font>(
         &'a self,
         text: &str,
         font: &F,

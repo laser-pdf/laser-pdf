@@ -6,10 +6,9 @@ use std::{
 };
 
 use laser_pdf::{
-    BreakableDraw, DrawCtx, Element, Location, Pdf, WidthConstraint,
+    BreakableDraw, DrawCtx, Element, Location, Pdf, TextPiecesCache, WidthConstraint,
     fonts::truetype::TruetypeFont,
     serde_elements::{ElementValue, SerdeElementElement},
-    text::TextPiecesCache,
 };
 use pdf_writer::TextStr;
 use serde::Deserialize;

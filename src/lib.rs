@@ -4,7 +4,7 @@ pub mod fonts;
 pub mod image;
 pub mod serde_elements;
 pub mod test_utils;
-pub mod text;
+mod text;
 pub mod utils;
 
 use elements::padding::Padding;
@@ -12,7 +12,7 @@ use fonts::Font;
 use pdf_writer::{Content, Name, Rect, Ref};
 use serde::{Deserialize, Serialize};
 
-use crate::text::TextPiecesCache;
+pub use crate::text::TextPiecesCache;
 
 pub type Color = u32;
 
