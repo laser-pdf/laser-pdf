@@ -9,10 +9,12 @@ pub fn shape<'a, F: Font>(
     text: &'a str,
     character_spacing: f32,
     word_spacing: f32,
-) -> Vec<(Option<usize>, ShapedGlyph)> {
+    buffer: &mut Vec<(Option<usize>, ShapedGlyph)>,
+    text_range_offset: usize,
+) {
     let mut shaped = font.shape(text, character_spacing, word_spacing).peekable();
 
-    let mut buff = Vec::new();
+    buffer.reserve(shaped.size_hint().0);
 
     let next_font = fallback_fonts.first();
 
@@ -27,33 +29,27 @@ pub fn shape<'a, F: Font>(
                     .last()
                     .map_or(glyph.text_range.end, |g| g.text_range.end);
 
-            buff.extend(
-                shape(
-                    next_font,
-                    &fallback_fonts[1..],
-                    Some(fallback_font_index.map_or(0, |i| i + 1)),
-                    &text[text_range.clone()],
-                    character_spacing,
-                    word_spacing,
-                )
-                .into_iter()
-                .map(|(f, s)| {
-                    (
-                        f,
-                        ShapedGlyph {
-                            text_range: (&s.text_range.start + text_range.start)
-                                ..(s.text_range.end + text_range.start),
-                            ..s
-                        },
-                    )
-                }),
-            );
+            shape(
+                next_font,
+                &fallback_fonts[1..],
+                Some(fallback_font_index.map_or(0, |i| i + 1)),
+                &text[text_range.clone()],
+                character_spacing,
+                word_spacing,
+                buffer,
+                text_range_offset + text_range.start,
+            )
         } else {
-            buff.push((fallback_font_index, glyph));
+            buffer.push((
+                fallback_font_index,
+                ShapedGlyph {
+                    text_range: (glyph.text_range.start + text_range_offset)
+                        ..(glyph.text_range.end + text_range_offset),
+                    ..glyph
+                },
+            ));
         }
     }
-
-    buff
 }
 
 #[cfg(test)]
@@ -141,7 +137,17 @@ mod tests {
 
         let text = "ABCabc123ABC";
 
-        let shaped = shape(&font, font.fallback_fonts(), None, text, 0., 0.);
+        let mut shaped = Vec::new();
+        shape(
+            &font,
+            font.fallback_fonts(),
+            None,
+            text,
+            0.,
+            0.,
+            &mut shaped,
+            0,
+        );
 
         insta::assert_debug_snapshot!(shaped, @r"
         [

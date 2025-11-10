@@ -1,5 +1,6 @@
 use std::{
     borrow::{Borrow, Cow},
+    cell::Cell,
     iter::Peekable,
 };
 
@@ -59,6 +60,7 @@ pub struct TextPiecesCache {
     line_break_map:
         icu_properties::maps::CodePointMapDataBorrowed<'static, icu_properties::LineBreak>,
     cache: FrozenMap<OwnedKey, Vec<Piece>>,
+    shape_buffer: Cell<Vec<(Option<usize>, ShapedGlyph)>>,
 }
 
 impl TextPiecesCache {
@@ -67,6 +69,7 @@ impl TextPiecesCache {
             line_segmenter: icu_segmenter::LineSegmenter::new_auto(),
             line_break_map: icu_properties::maps::line_break(),
             cache: FrozenMap::new(),
+            shape_buffer: Cell::new(Vec::new()),
         }
     }
 
@@ -100,16 +103,20 @@ impl TextPiecesCache {
         } else {
             let shaped_hyphen = font.shape(super::HYPHEN, 0., 0.).next().unwrap();
 
-            let shaped = super::shaping::shape(
+            let mut shaped = self.shape_buffer.take();
+            assert!(shaped.is_empty());
+
+            super::shaping::shape(
                 font,
                 font.fallback_fonts(),
                 None,
                 text,
                 extra_character_spacing / size,
                 extra_word_spacing / size,
+                &mut shaped,
+                0,
             );
 
-            // let shaped = font.shape(text, character_spacing, word_spacing);
             let segments = self.line_segmenter.segment_str(text).peekable();
 
             let pieces = Pieces {
@@ -127,6 +134,9 @@ impl TextPiecesCache {
                 line_break_map: &self.line_break_map,
             }
             .collect();
+
+            shaped.clear();
+            self.shape_buffer.set(shaped);
 
             self.cache.insert(
                 OwnedKey(TextPiecesCacheKey {
