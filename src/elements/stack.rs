@@ -48,6 +48,7 @@ impl<C: Fn(&mut StackContent)> Element for Stack<C> {
 
             let mut content = StackContent(Pass::Measure {
                 ctx: MeasureCtx {
+                    text_pieces_cache: ctx.text_pieces_cache,
                     width: ctx.width,
                     first_height: ctx.first_height,
                     breakable: ctx.breakable.as_ref().map(|b| BreakableMeasure {
@@ -99,7 +100,7 @@ pub struct StackContent<'pdf, 'a, 'r>(Pass<'pdf, 'a, 'r>);
 
 enum Pass<'pdf, 'a, 'r> {
     FirstLocationUsage {
-        ctx: FirstLocationUsageCtx,
+        ctx: FirstLocationUsageCtx<'pdf>,
         ret: &'r mut FirstLocationUsage,
     },
     Measure {

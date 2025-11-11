@@ -93,6 +93,7 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
         let mut max_height = None;
 
         (self.content)(&mut RowContent {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: ctx.first_height,
             pass: Pass::MeasureNonExpanded {
@@ -107,6 +108,7 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
         let draw_layout = measure_layout.build();
 
         (self.content)(&mut RowContent {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: ctx.first_height,
             pass: Pass::MeasureExpanded {
@@ -152,6 +154,7 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
         let mut extra_location_min_height = None;
 
         (self.content)(&mut RowContent {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: ctx.first_height,
             pass: Pass::MeasureNonExpanded {
@@ -182,6 +185,7 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
         // the reason why expanding isn't just what Row always does.
         if self.expand {
             (self.content)(&mut RowContent {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: ctx.width,
                 first_height: ctx.first_height,
                 pass: Pass::MeasureExpanded {
@@ -223,6 +227,7 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
         let mut width = None;
 
         (self.content)(&mut RowContent {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: ctx.first_height,
             pass: Pass::Draw {
@@ -261,6 +266,7 @@ impl<F: Fn(&mut RowContent)> Element for Row<F> {
 }
 
 pub struct RowContent<'a, 'b, 'c> {
+    text_pieces_cache: &'a TextPiecesCache,
     width: WidthConstraint,
     first_height: f32,
     pass: Pass<'a, 'b, 'c>,
@@ -364,6 +370,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                     let mut extra_location_min_height = None;
 
                     let size = element.measure(MeasureCtx {
+                        text_pieces_cache: self.text_pieces_cache,
                         width: WidthConstraint {
                             expand: false,
                             ..self.width
@@ -400,6 +407,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                         let mut extra_location_min_height = None;
 
                         let size = element.measure(MeasureCtx {
+                            text_pieces_cache: self.text_pieces_cache,
                             width: WidthConstraint {
                                 max: width,
                                 expand: true,
@@ -438,6 +446,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
                     let mut extra_location_min_height = None;
 
                     let size = element.measure(MeasureCtx {
+                        text_pieces_cache: self.text_pieces_cache,
                         width: WidthConstraint {
                             max: element_width,
                             expand: width_expand,
@@ -509,6 +518,7 @@ impl<'a, 'b, 'c> RowContent<'a, 'b, 'c> {
 
                 let size = element.draw(DrawCtx {
                     pdf,
+                    text_pieces_cache: self.text_pieces_cache,
                     location: Location {
                         pos: (location.pos.0 + x_offset, location.pos.1),
                         ..location.clone()

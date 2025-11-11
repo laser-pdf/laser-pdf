@@ -1,0 +1,670 @@
+use std::{
+    borrow::{Borrow, Cow},
+    cell::Cell,
+    iter::Peekable,
+};
+
+use elsa::FrozenMap;
+use icu_properties::LineBreak;
+use icu_segmenter::LineBreakIteratorUtf8;
+
+use crate::fonts::{Font, GeneralMetrics, ShapedGlyph};
+
+struct TextPiecesCacheKey<'a> {
+    text: Cow<'a, str>,
+    font_index: usize,
+    size: f32,
+    color: u32,
+    extra_character_spacing: f32,
+    extra_word_spacing: f32,
+    extra_line_height: f32,
+}
+
+#[derive(Hash, PartialEq, Eq)]
+struct OwnedKey(TextPiecesCacheKey<'static>);
+
+impl<'a> Borrow<TextPiecesCacheKey<'a>> for OwnedKey {
+    fn borrow(&self) -> &TextPiecesCacheKey<'a> {
+        &self.0
+    }
+}
+
+impl<'a> PartialEq for TextPiecesCacheKey<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.text == other.text
+            && self.font_index == other.font_index
+            && self.size.to_bits() == other.size.to_bits()
+            && self.color == other.color
+            && self.extra_character_spacing.to_bits() == other.extra_character_spacing.to_bits()
+            && self.extra_word_spacing.to_bits() == other.extra_word_spacing.to_bits()
+            && self.extra_line_height.to_bits() == other.extra_line_height.to_bits()
+    }
+}
+
+impl<'a> Eq for TextPiecesCacheKey<'a> {}
+
+impl<'a> std::hash::Hash for TextPiecesCacheKey<'a> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.text.hash(state);
+        self.font_index.hash(state);
+        self.size.to_bits().hash(state);
+        self.color.hash(state);
+        self.extra_character_spacing.to_bits().hash(state);
+        self.extra_word_spacing.to_bits().hash(state);
+        self.extra_line_height.to_bits().hash(state);
+    }
+}
+
+/// A data structure that holds cached text pieces (shaped and unicode-segmentend such that it is
+/// ready for line breaking). This type gets passed around in the contexts and is needed by the
+/// [crate::elements::text::Text] and [crate::elements::rich_text::RichText] elements. Currently
+/// only [Self::new] is public for API stability reasons.
+pub struct TextPiecesCache {
+    line_segmenter: icu_segmenter::LineSegmenter,
+    line_break_map:
+        icu_properties::maps::CodePointMapDataBorrowed<'static, icu_properties::LineBreak>,
+    cache: FrozenMap<OwnedKey, Vec<Piece>>,
+    shape_buffer: Cell<Vec<(Option<usize>, ShapedGlyph)>>,
+}
+
+impl TextPiecesCache {
+    pub fn new() -> Self {
+        TextPiecesCache {
+            line_segmenter: icu_segmenter::LineSegmenter::new_auto(),
+            line_break_map: icu_properties::maps::line_break(),
+            cache: FrozenMap::new(),
+            shape_buffer: Cell::new(Vec::new()),
+        }
+    }
+
+    pub(crate) fn pieces<'a, F: Font>(
+        &'a self,
+        text: &str,
+        font: &F,
+        size: f32,
+        color: u32,
+        extra_character_spacing: f32,
+        extra_word_spacing: f32,
+        extra_line_height: f32,
+    ) -> &'a [Piece] {
+        assert!(size.is_finite());
+        assert!(extra_character_spacing.is_finite());
+        assert!(extra_word_spacing.is_finite());
+        assert!(extra_line_height.is_finite());
+
+        let key = TextPiecesCacheKey {
+            text: Cow::Borrowed(text),
+            font_index: font.index(),
+            size,
+            color,
+            extra_character_spacing,
+            extra_word_spacing,
+            extra_line_height,
+        };
+
+        if let Some(value) = self.cache.get(&key) {
+            value
+        } else {
+            let shaped_hyphen = font.shape(super::HYPHEN, 0., 0.).next().unwrap();
+
+            let mut shaped = self.shape_buffer.take();
+            assert!(shaped.is_empty());
+
+            super::shaping::shape(
+                font,
+                font.fallback_fonts(),
+                None,
+                text,
+                extra_character_spacing / size,
+                extra_word_spacing / size,
+                &mut shaped,
+                0,
+            );
+
+            let segments = self.line_segmenter.segment_str(text).peekable();
+
+            let pieces = Pieces {
+                current: Some(0),
+                text,
+                shaped: shaped.iter(),
+                segments,
+                shaped_hyphen,
+                size,
+                color,
+                extra_line_height,
+                main_font: font,
+                main_font_metrics: font.general_metrics(),
+                fallback_fonts: font.fallback_fonts(),
+                line_break_map: &self.line_break_map,
+            }
+            .collect();
+
+            shaped.clear();
+            self.shape_buffer.set(shaped);
+
+            self.cache.insert(
+                OwnedKey(TextPiecesCacheKey {
+                    text: Cow::Owned(text.to_string()),
+                    ..key
+                }),
+                pieces,
+            )
+        }
+    }
+}
+
+pub struct Piece {
+    pub text: String,
+    pub shaped: Vec<(Option<usize>, ShapedGlyph)>,
+
+    /// The width of the main part of the piece. None means the piece consists only of whitespace.
+    /// This is needed for line breaking to determine how to treat the piece if placed at the end
+    /// of an overflowing line; a piece that consists only of whitespace can be placed there because
+    /// trailing whitespace does not count towards the width of the line. It's not clear whether
+    /// checking for zero would work for this as there might be fonts or specific shapings that
+    /// contain characters with a width of zero but with a visible glyph. The `None` indicates that
+    /// there are only glyphs in this piece that we count as whitespace.
+    pub width: Option<f32>,
+
+    pub height_above_baseline: f32,
+    pub height_below_baseline: f32,
+    pub trailing_whitespace_width: f32,
+
+    /// Only applies when the piece is at the end of the line. Otherwise, it will not be counted
+    /// towards the width and not displayed.
+    pub trailing_hyphen: Option<(Option<usize>, ShapedGlyph)>,
+    pub mandatory_break_after: bool,
+    pub glyph_count: usize,
+    pub empty: bool,
+    pub size: f32,
+    pub color: u32,
+}
+
+pub struct Pieces<'a, 'b, 'c, F> {
+    current: Option<usize>,
+    text: &'a str,
+    shaped: std::slice::Iter<'c, (Option<usize>, ShapedGlyph)>,
+    segments: Peekable<LineBreakIteratorUtf8<'b, 'a>>,
+    main_font: &'a F,
+    main_font_metrics: GeneralMetrics,
+    fallback_fonts: &'a [F],
+    shaped_hyphen: ShapedGlyph,
+    size: f32,
+    color: u32,
+    extra_line_height: f32,
+    line_break_map: &'a icu_properties::maps::CodePointMapDataBorrowed<'static, LineBreak>,
+}
+
+impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
+    type Item = Piece;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut shaped = self.shaped.clone();
+
+        let Some(current) = self.current else {
+            return None;
+        };
+
+        // TODO: Handle unsafe_to_break somewhere here. If unsafe_to_break is true when we would
+        // otherwise split pieces we should probably fuse them into one piece because that seems
+        // like the only reasonable thing to do.
+
+        let segment = self.segments.find(|&s| s != 0).unwrap_or_else(|| {
+            self.current = None;
+            self.text.len()
+        });
+
+        let mut iter = std::iter::from_fn({
+            let mut done = false;
+            let shaped = &mut shaped;
+            move || {
+                if done {
+                    return None;
+                }
+
+                let next = shaped.next()?;
+
+                if next.1.text_range.end >= segment {
+                    done = true;
+                }
+
+                Some(next)
+            }
+        })
+        .peekable();
+
+        let mut width = None;
+        let mut whitespace_width = 0.;
+        let mut glyph_count = 0;
+        let mut mandatory_break_after = false;
+
+        // A line and its the pieces is always at least as high as the main font. Otherwise empty
+        // lines pieces would have no height. We could special case the empty line case, but that
+        // would lead to the the possibility of an empty line being higher than a line that only has
+        // glyphs from a fallback font.
+        let mut height_above_baseline = self.main_font_metrics.height_above_baseline;
+        let mut height_below_baseline = self.main_font_metrics.height_below_baseline;
+
+        while let Some(glyph) = iter.next() {
+            glyph_count += 1;
+
+            // A space at the end of a line doesn't count towards the width.
+            if matches!(
+                &self.text[glyph.1.text_range.clone()],
+                " " | "\u{00A0}" | "　"
+            ) {
+                whitespace_width += glyph.1.x_advance;
+            } else if matches!(
+                self.text[glyph.1.text_range.clone()]
+                    .chars()
+                    .next()
+                    .map(|c| self.line_break_map.get(c)),
+                Some(
+                    LineBreak::MandatoryBreak
+                        | LineBreak::CarriageReturn
+                        | LineBreak::LineFeed
+                        | LineBreak::NextLine,
+                )
+            ) {
+                // We probably can't break here because the font might generate two missing glyphs
+                // for a \r\n here.
+                mandatory_break_after = true;
+            } else {
+                *width.get_or_insert(0.) += whitespace_width + glyph.1.x_advance;
+                whitespace_width = 0.;
+            }
+
+            let font = glyph.0.map_or(self.main_font, |i| &self.fallback_fonts[i]);
+
+            let metrics = font.general_metrics();
+
+            height_above_baseline = height_above_baseline.max(metrics.height_above_baseline);
+            height_below_baseline = height_below_baseline.max(metrics.height_below_baseline);
+        }
+
+        let text = &self.text[current..segment];
+
+        // TODO: Handle the case of a soft hyphen followed by a space. Currently that just gets
+        // ignored.
+        let trailing_hyphen = text
+            .ends_with('\u{00AD}')
+            .then_some(self.shaped_hyphen.clone());
+
+        let piece = Piece {
+            text: text.to_string(),
+            shaped: self
+                .shaped
+                .by_ref()
+                .take(glyph_count)
+                .map(|&(f, ref g)| {
+                    (
+                        f,
+                        ShapedGlyph {
+                            text_range: (g.text_range.start - current)
+                                ..(g.text_range.end - current),
+                            ..g.clone()
+                        },
+                    )
+                })
+                .collect(),
+            width: width.map(|w| w * self.size),
+            height_above_baseline: height_above_baseline * self.size,
+            // TODO: Would it be better if this was only added to the below-baseline height of the
+            // main font?
+            height_below_baseline: height_below_baseline * self.size + self.extra_line_height,
+            trailing_whitespace_width: whitespace_width * self.size,
+            trailing_hyphen: trailing_hyphen.map(|glyph| (None, glyph)), // TODO: fallback if main font has no hyphen
+            mandatory_break_after,
+            glyph_count,
+
+            // TODO: This might not work for \r\n, but that depends on the shaping. We should
+            // proabably find a way to filter out newlines entirely so that they don't show up after
+            // line breaking (and maybe also don't get shaped?).
+            empty: glyph_count == 0 || (glyph_count == 1 && mandatory_break_after),
+
+            size: self.size,
+            color: self.color,
+        };
+
+        self.current = self.current.and(Some(segment));
+        self.shaped = shaped;
+
+        if self.segments.peek().is_none() && !mandatory_break_after {
+            self.current = None;
+        }
+
+        Some(piece)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{fonts::ShapedGlyph, text::pieces::Piece};
+
+    use super::*;
+
+    #[derive(Debug)]
+    struct FakeFont;
+
+    #[derive(Clone, Debug)]
+    struct FakeShaped<'a> {
+        // last: usize,
+        inner: std::str::CharIndices<'a>,
+    }
+
+    impl<'a> Iterator for FakeShaped<'a> {
+        type Item = ShapedGlyph;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if let Some((i, c)) = self.inner.next() {
+                Some(ShapedGlyph {
+                    unsafe_to_break: false,
+                    glyph_id: c as u32,
+                    text_range: i..i + c.len_utf8(),
+                    // we don't match newlines here because they produce the missing glyph which has
+                    // a non-zero width.
+                    x_advance_font: if matches!(c, '\u{00ad}') { 0. } else { 1. },
+                    x_advance: if matches!(c, '\u{00ad}') { 0. } else { 1. },
+                    x_offset: 0.,
+                    y_offset: 0.,
+                    y_advance: 0.,
+                })
+            } else {
+                None
+            }
+        }
+    }
+
+    impl Font for FakeFont {
+        type Shaped<'a>
+            = FakeShaped<'a>
+        where
+            Self: 'a;
+
+        fn shape<'a>(&'a self, text: &'a str, _: f32, _: f32) -> Self::Shaped<'a> {
+            FakeShaped {
+                inner: text.char_indices(),
+            }
+        }
+
+        fn index(&self) -> usize {
+            0
+        }
+
+        fn encode(&self, _: &mut crate::Pdf, _: u32, _: &str) -> crate::fonts::EncodedGlyph {
+            unreachable!()
+        }
+
+        fn resource_name(&self) -> pdf_writer::Name<'_> {
+            unreachable!()
+        }
+
+        fn general_metrics(&self) -> crate::fonts::GeneralMetrics {
+            crate::fonts::GeneralMetrics {
+                height_above_baseline: 0.5,
+                height_below_baseline: 0.5,
+            }
+        }
+
+        fn fallback_fonts(&self) -> &[Self] {
+            &[]
+        }
+    }
+
+    fn collect_piece<'a>(piece: &'a Piece) -> (&'a str, Option<f32>, f32, bool) {
+        let mut text = String::new();
+
+        for glyph in &piece.shaped {
+            let character = glyph.1.glyph_id as u8 as char;
+
+            assert_eq!(
+                character.to_string(),
+                piece.text[glyph.1.text_range.clone()]
+            );
+
+            text.push(glyph.1.glyph_id as u8 as char);
+        }
+
+        assert_eq!(text, piece.text);
+
+        (
+            &piece.text,
+            piece.width,
+            piece.trailing_whitespace_width,
+            piece.mandatory_break_after,
+        )
+    }
+
+    #[test]
+    fn test_empty() {
+        let text = "";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(&pieces, &[("", None, 0., false)]);
+    }
+
+    #[test]
+    fn test_one() {
+        let text = "abcde";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(&pieces, &[("abcde", Some(5.), 0., false)]);
+    }
+
+    #[test]
+    fn test_two() {
+        let text = "deadbeef defaced";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[
+                ("deadbeef ", Some(8.), 1., false),
+                ("defaced", Some(7.), 0., false),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_three() {
+        let text = "deadbeef defaced fart";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[
+                ("deadbeef ", Some(8.), 1., false),
+                ("defaced ", Some(7.), 1., false),
+                ("fart", Some(4.), 0., false)
+            ],
+        );
+    }
+
+    #[test]
+    fn test_just_newline() {
+        let text = "\n";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(&pieces, &[("\n", None, 0., true), ("", None, 0., false)]);
+    }
+
+    #[test]
+    fn test_surrounded_newline() {
+        let text = "abc\ndef";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[("abc\n", Some(3.), 0., true), ("def", Some(3.), 0., false)]
+        );
+    }
+
+    #[test]
+    fn test_newline_at_start() {
+        let text = "\nabc def";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[
+                ("\n", None, 0., true),
+                ("abc ", Some(3.), 1., false),
+                ("def", Some(3.), 0., false),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_trailing_newline() {
+        let text = "abc def\n";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[
+                ("abc ", Some(3.), 1., false),
+                ("def\n", Some(3.), 0., true),
+                ("", None, 0., false),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_newline_after_space() {
+        let text = "abc \ndef";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[("abc \n", Some(3.), 1., true), ("def", Some(3.), 0., false)],
+        );
+    }
+
+    #[test]
+    fn test_trailing_soft_hyphen() {
+        let text = "abc\u{ad}";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(&pieces, &[("abc\u{ad}", Some(3.), 0., false)]);
+    }
+
+    #[test]
+    fn test_trailing_soft_hyphen_and_space() {
+        let text = "abc\u{ad} ";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+
+        let pieces: Vec<_> = pieces
+            .iter()
+            .map(|p| {
+                let collected = collect_piece(p);
+
+                (
+                    collected.0,
+                    collected.1,
+                    collected.2,
+                    collected.3,
+                    p.trailing_hyphen.as_ref().map(|h| h.1.x_advance),
+                )
+            })
+            .collect();
+
+        assert_eq!(&pieces, &[("abc\u{ad} ", Some(3.), 1., false, None)]);
+    }
+
+    #[test]
+    fn test_soft_hyphen_after_space() {
+        let text = " \u{ad}abc";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[
+                (" ", None, 1., false),
+                ("\u{ad}", Some(0.), 0., false),
+                ("abc", Some(3.), 0., false),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_soft_hyphen_between_spaces() {
+        let text = " \u{ad} ";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[(" ", None, 1., false), ("\u{ad} ", Some(0.), 1., false)],
+        );
+    }
+
+    #[test]
+    fn test_just_spaces() {
+        let text = "        ";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(&pieces, &[("        ", None, 8., false)]);
+    }
+
+    #[test]
+    fn test_mixed_whitespace() {
+        let text = "    abc    \ndef  the\tjflkdsa";
+
+        let cache = TextPiecesCache::new();
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
+
+        assert_eq!(
+            &pieces,
+            &[
+                ("    ", None, 4., false),
+                // It's somewhat unclear whether the trailing spaces should count toward the
+                // width here.
+                ("abc    \n", Some(3.), 4., true),
+                ("def  ", Some(3.), 2., false),
+                ("the\t", Some(4.), 0., false),
+                ("jflkdsa", Some(7.), 0., false),
+            ],
+        );
+    }
+}

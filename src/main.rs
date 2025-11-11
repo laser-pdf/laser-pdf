@@ -6,7 +6,7 @@ use std::{
 };
 
 use laser_pdf::{
-    BreakableDraw, DrawCtx, Element, Location, Pdf, WidthConstraint,
+    BreakableDraw, DrawCtx, Element, Location, Pdf, TextPiecesCache, WidthConstraint,
     fonts::truetype::TruetypeFont,
     serde_elements::{ElementValue, SerdeElementElement},
 };
@@ -72,6 +72,8 @@ fn main() {
         })
         .collect();
 
+    let text_pieces_cache = TextPiecesCache::new();
+
     let mut page_idx = 0;
 
     for (entry, font_map) in input.entries.iter().zip(font_maps.iter()) {
@@ -97,6 +99,7 @@ fn main() {
 
         let ctx = DrawCtx {
             pdf: &mut pdf,
+            text_pieces_cache: &text_pieces_cache,
             width: WidthConstraint {
                 max: page_size.0,
                 expand: true,

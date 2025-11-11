@@ -22,6 +22,7 @@ impl<C: Fn(BreakListContent) -> Option<()>> Element for BreakList<C> {
             pass: Pass::Measure {
                 breakable: ctx.breakable.as_mut(),
             },
+            text_pieces_cache: ctx.text_pieces_cache,
             gap: self.gap,
             width_constraint: ctx.width,
             height_available: ctx.first_height,
@@ -57,6 +58,7 @@ impl<C: Fn(BreakListContent) -> Option<()>> Element for BreakList<C> {
                 location: ctx.location,
                 breakable: ctx.breakable.as_mut().map(|b| (b, 0)),
             },
+            text_pieces_cache: ctx.text_pieces_cache,
             gap: self.gap,
             width_constraint: ctx.width,
             height_available: ctx.first_height,
@@ -83,6 +85,8 @@ impl<C: Fn(BreakListContent) -> Option<()>> Element for BreakList<C> {
 
 pub struct BreakListContent<'a, 'b, 'c> {
     pass: Pass<'a, 'b, 'c>,
+
+    text_pieces_cache: &'a TextPiecesCache,
 
     gap: f32,
 
@@ -118,10 +122,15 @@ impl<'a, 'b, 'c> BreakListContent<'a, 'b, 'c> {
         let full_height = match self.pass {
             Pass::FirstLocationUsage { .. } => todo!(),
             Pass::Measure { ref breakable } => breakable.as_ref().map(|b| b.full_height),
-            Pass::Draw { ref breakable, .. } => breakable.as_ref().map(|b| b.0.full_height),
+            Pass::Draw {
+                pdf: &mut ref mut pdf,
+                ref breakable,
+                ..
+            } => breakable.as_ref().map(|b| b.0.full_height),
         };
 
         let element_size = element.measure(MeasureCtx {
+            text_pieces_cache: self.text_pieces_cache,
             width: width_constraint,
 
             // In the unbreakable case this will be more height than is actually available except
@@ -162,7 +171,9 @@ impl<'a, 'b, 'c> BreakListContent<'a, 'b, 'c> {
             };
 
         match self.pass {
-            Pass::Measure { ref mut breakable } => {
+            Pass::Measure {
+                ref mut breakable, ..
+            } => {
                 if break_needed {
                     *self.x_offset = None;
                     *self.y_offset = None;
@@ -199,6 +210,7 @@ impl<'a, 'b, 'c> BreakListContent<'a, 'b, 'c> {
 
                 element.draw(DrawCtx {
                     pdf,
+                    text_pieces_cache: self.text_pieces_cache,
                     location: Location {
                         pos: (location.pos.0 + x_offset, location.pos.1 - y_offset),
                         ..*location

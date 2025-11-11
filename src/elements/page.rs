@@ -26,6 +26,7 @@ impl<P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for Page<
             let primary_height = self.height(breakable.full_height);
 
             self.primary.measure(MeasureCtx {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: WidthConstraint {
                     max: self.width(ctx.width),
                     expand: true,
@@ -93,6 +94,7 @@ impl<P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for Page<
 
         self.primary.draw(DrawCtx {
             pdf: ctx.pdf,
+            text_pieces_cache: ctx.text_pieces_cache,
             location: Location {
                 pos: (
                     location.pos.0 + self.border_left,
@@ -144,6 +146,7 @@ impl<P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for Page<
                 (self.decoration_elements)(
                     &mut DecorationElements {
                         pdf: ctx.pdf,
+                        text_pieces_cache: ctx.text_pieces_cache,
                         location,
                         width: ctx.width.max,
                         height,
@@ -156,6 +159,7 @@ impl<P: Element, D: Fn(&mut DecorationElements, usize, usize)> Element for Page<
             (self.decoration_elements)(
                 &mut DecorationElements {
                     pdf: ctx.pdf,
+                    text_pieces_cache: ctx.text_pieces_cache,
                     location,
                     width: ctx.width.max,
                     height,
@@ -184,6 +188,7 @@ impl<P: Element, D: Fn(&mut DecorationElements, usize, usize)> Page<P, D> {
 
 pub struct DecorationElements<'a> {
     pdf: &'a mut Pdf,
+    text_pieces_cache: &'a TextPiecesCache,
     location: Location,
     width: f32,
     height: f32,
@@ -205,6 +210,7 @@ impl<'a> DecorationElements<'a> {
     pub fn add(&mut self, element: &impl Element, pos: (X, Y), width: Option<f32>) {
         element.draw(DrawCtx {
             pdf: self.pdf,
+            text_pieces_cache: self.text_pieces_cache,
             location: Location {
                 pos: (
                     match pos.0 {

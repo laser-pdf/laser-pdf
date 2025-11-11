@@ -4,40 +4,15 @@ pub mod fonts;
 pub mod image;
 pub mod serde_elements;
 pub mod test_utils;
-pub mod text;
+mod text;
 pub mod utils;
 
 use elements::padding::Padding;
-use pdf_writer::{Content, Name, Rect, Ref};
-// use elements::padding::Padding;
 use fonts::Font;
-// use printpdf::{CurTransMat, Mm, PdfDocumentReference, PdfLayerReference};
+use pdf_writer::{Content, Name, Rect, Ref};
 use serde::{Deserialize, Serialize};
 
-pub const EMPTY_FIELD: &str = "—";
-
-#[derive(Debug)]
-pub struct FontSet<'a, F: Font> {
-    pub regular: &'a F,
-    pub bold: &'a F,
-    pub italic: &'a F,
-    pub bold_italic: &'a F,
-}
-
-impl<'a, F: Font> Clone for FontSet<'a, F> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<'a, F: Font> Copy for FontSet<'a, F> {}
-
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
-pub enum VAlign {
-    Top,
-    Center,
-    Bottom,
-}
+pub use crate::text::TextPiecesCache;
 
 pub type Color = u32;
 
@@ -304,6 +279,14 @@ impl WidthConstraint {
             width.min(self.max)
         }
     }
+
+    pub fn max(&self, width: f32) -> f32 {
+        if self.expand {
+            width.max(self.max)
+        } else {
+            width
+        }
+    }
 }
 
 pub type Pos = (f32, f32);
@@ -329,7 +312,8 @@ pub enum FirstLocationUsage {
     WillSkip,
 }
 
-pub struct FirstLocationUsageCtx {
+pub struct FirstLocationUsageCtx<'a> {
+    pub text_pieces_cache: &'a TextPiecesCache,
     pub width: WidthConstraint,
     pub first_height: f32,
 
@@ -342,7 +326,7 @@ pub struct FirstLocationUsageCtx {
     pub full_height: f32,
 }
 
-impl FirstLocationUsageCtx {
+impl<'a> FirstLocationUsageCtx<'a> {
     pub fn break_appropriate_for_min_height(&self, height: f32) -> bool {
         height > self.first_height && self.full_height > self.first_height
     }
@@ -366,6 +350,7 @@ pub struct BreakableMeasure<'a> {
 }
 
 pub struct MeasureCtx<'a> {
+    pub text_pieces_cache: &'a TextPiecesCache,
     pub width: WidthConstraint,
     pub first_height: f32,
     pub breakable: Option<BreakableMeasure<'a>>,
@@ -392,6 +377,7 @@ pub struct BreakableDraw<'a> {
 
 pub struct DrawCtx<'a, 'b> {
     pub pdf: &'a mut Pdf,
+    pub text_pieces_cache: &'a TextPiecesCache,
     pub location: Location,
 
     pub width: WidthConstraint,
@@ -497,7 +483,7 @@ pub trait CompositeElement {
 impl<C: CompositeElement> Element for C {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         struct Callback<'a> {
-            ctx: FirstLocationUsageCtx,
+            ctx: FirstLocationUsageCtx<'a>,
             ret: &'a mut FirstLocationUsage,
         }
 

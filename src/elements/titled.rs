@@ -13,6 +13,7 @@ pub struct Titled<T: Element, C: Element> {
 impl<T: Element, C: Element> Element for Titled<T, C> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let title_size = self.title.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: ctx.full_height,
             breakable: None,
@@ -26,6 +27,7 @@ impl<T: Element, C: Element> Element for Titled<T, C> {
 
         let y_offset = self.y_offset(title_size);
         let first_location_usage = self.content.first_location_usage(FirstLocationUsageCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: ctx.first_height - y_offset,
             full_height: ctx.full_height,
@@ -44,6 +46,7 @@ impl<T: Element, C: Element> Element for Titled<T, C> {
 
     fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         let title_size = self.title.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: ctx
                 .breakable
@@ -65,6 +68,7 @@ impl<T: Element, C: Element> Element for Titled<T, C> {
                 && (y_offset > ctx.first_height || {
                     let first_location_usage =
                         self.content.first_location_usage(FirstLocationUsageCtx {
+                            text_pieces_cache: ctx.text_pieces_cache,
                             width: ctx.width,
                             first_height: ctx.first_height - y_offset,
                             full_height: breakable.full_height,
@@ -80,6 +84,7 @@ impl<T: Element, C: Element> Element for Titled<T, C> {
             }
 
             content_size = self.content.measure(MeasureCtx {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: ctx.width,
                 first_height,
                 breakable: Some(BreakableMeasure {
@@ -92,6 +97,7 @@ impl<T: Element, C: Element> Element for Titled<T, C> {
             *breakable.break_count += break_count;
         } else {
             content_size = self.content.measure(MeasureCtx {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: ctx.width,
                 first_height: ctx.first_height - y_offset,
                 breakable: None,
@@ -113,6 +119,7 @@ impl<T: Element, C: Element> Element for Titled<T, C> {
             .map(|b| b.full_height)
             .unwrap_or(ctx.first_height);
         let title_size = self.title.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: ctx.width,
             first_height: title_first_height,
             breakable: None,
@@ -131,6 +138,7 @@ impl<T: Element, C: Element> Element for Titled<T, C> {
                 && (y_offset > ctx.first_height || {
                     let first_location_usage =
                         self.content.first_location_usage(FirstLocationUsageCtx {
+                            text_pieces_cache: ctx.text_pieces_cache,
                             width: ctx.width,
                             first_height: ctx.first_height - y_offset,
                             full_height: breakable.full_height,
@@ -150,6 +158,7 @@ impl<T: Element, C: Element> Element for Titled<T, C> {
 
             content_size = self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: Location {
                     pos: (location.pos.0, location.pos.1 - y_offset),
                     ..location
@@ -179,6 +188,7 @@ impl<T: Element, C: Element> Element for Titled<T, C> {
             location = ctx.location;
             content_size = self.content.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: Location {
                     pos: (location.pos.0, location.pos.1 - y_offset),
                     ..location
@@ -195,6 +205,7 @@ impl<T: Element, C: Element> Element for Titled<T, C> {
         if !collapse {
             self.title.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: location.clone(),
                 width: ctx.width,
                 first_height: title_first_height,

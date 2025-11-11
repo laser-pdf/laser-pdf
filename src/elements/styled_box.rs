@@ -204,6 +204,7 @@ impl<E: Element> Element for StyledBox<E> {
         let full_height = common.height(ctx.full_height);
 
         self.element.first_location_usage(FirstLocationUsageCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: common.inner_width_constraint,
             first_height,
             full_height,
@@ -218,6 +219,7 @@ impl<E: Element> Element for StyledBox<E> {
             let full_height = common.height(breakable.full_height);
 
             let size = self.element.measure(MeasureCtx {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: common.inner_width_constraint,
                 first_height,
                 breakable: Some(BreakableMeasure {
@@ -234,6 +236,7 @@ impl<E: Element> Element for StyledBox<E> {
             size
         } else {
             self.element.measure(MeasureCtx {
+                text_pieces_cache: ctx.text_pieces_cache,
                 width: common.inner_width_constraint,
                 first_height,
                 breakable: None,
@@ -260,6 +263,7 @@ impl<E: Element> Element for StyledBox<E> {
 
                 self.element
                     .measure(MeasureCtx {
+                        text_pieces_cache: ctx.text_pieces_cache,
                         width: common.inner_width_constraint,
                         first_height,
                         breakable: Some(BreakableMeasure {
@@ -275,6 +279,7 @@ impl<E: Element> Element for StyledBox<E> {
             let mut last_location = ctx.location;
             let size = self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: element_location,
                 width: common.inner_width_constraint,
                 first_height,
@@ -322,6 +327,7 @@ impl<E: Element> Element for StyledBox<E> {
 
             let size = self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location,
                 preferred_height: ctx.preferred_height.map(|p| common.height(p)),
                 width: common.inner_width_constraint,

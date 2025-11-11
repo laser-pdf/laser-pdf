@@ -21,6 +21,7 @@ impl<E: Element> Element for Rotate<E> {
         };
 
         let size = self.element.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: element_width_constraint,
             first_height: ctx.width.max,
             breakable: None,
@@ -46,6 +47,7 @@ impl<E: Element> Element for Rotate<E> {
         };
 
         let size = self.element.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: element_width_constraint,
             first_height: ctx.width.max,
             breakable: None,
@@ -78,6 +80,7 @@ impl<E: Element> Element for Rotate<E> {
         };
 
         let size = self.element.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: element_width_constraint,
             first_height: ctx.width.max,
             breakable: None,
@@ -115,6 +118,7 @@ impl<E: Element> Element for Rotate<E> {
 
             self.element.draw(DrawCtx {
                 pdf: ctx.pdf,
+                text_pieces_cache: ctx.text_pieces_cache,
                 location: Location {
                     pos: (0., 0.),
                     ..location

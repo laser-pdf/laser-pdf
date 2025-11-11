@@ -53,6 +53,7 @@ impl<E: Element> Padding<E> {
 impl<E: Element> Element for Padding<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         self.element.first_location_usage(FirstLocationUsageCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: self.width(ctx.width),
             first_height: self.height(ctx.first_height),
             full_height: self.height(ctx.full_height),
@@ -64,6 +65,7 @@ impl<E: Element> Element for Padding<E> {
         let mut extra_location_min_height = None;
 
         let size = self.element.measure(MeasureCtx {
+            text_pieces_cache: ctx.text_pieces_cache,
             width: self.width(ctx.width),
             first_height: self.height(ctx.first_height),
             breakable: ctx.breakable.as_ref().map(|b| BreakableMeasure {
@@ -88,6 +90,7 @@ impl<E: Element> Element for Padding<E> {
 
         let draw_ctx = DrawCtx {
             pdf: ctx.pdf,
+            text_pieces_cache: ctx.text_pieces_cache,
 
             location: Location {
                 pos: (

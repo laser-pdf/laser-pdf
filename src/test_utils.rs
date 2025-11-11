@@ -195,11 +195,14 @@ pub fn test_element(
     assert_eq!(measure.break_count, restricted_draw.break_count);
     assert_eq!(measure.size, restricted_draw.size);
 
+    let text_pieces_cache = TextPiecesCache::new();
+
     ElementTestOutput {
         size: draw.size,
         breakable: breakable.map(|breakable| {
             let full_height = breakable.full_height;
             let first_location_usage = element.first_location_usage(FirstLocationUsageCtx {
+                text_pieces_cache: &text_pieces_cache,
                 width,
                 first_height,
                 full_height,
@@ -261,6 +264,8 @@ fn draw_element<E: Element>(
     let mut pdf = Pdf::new();
     pdf.add_page(page_size);
 
+    let text_pieces_cache = TextPiecesCache::new();
+
     let mut breaks = vec![];
 
     let next_draw_pos = &mut |pdf: &mut Pdf, location_idx, _height| {
@@ -281,6 +286,7 @@ fn draw_element<E: Element>(
 
     let ctx = DrawCtx {
         pdf: &mut pdf,
+        text_pieces_cache: &text_pieces_cache,
         width,
         location: Location {
             page_idx: 0,
@@ -324,6 +330,7 @@ pub fn measure_element<E: Element>(
     let mut extra_location_min_height = None;
 
     let ctx = MeasureCtx {
+        text_pieces_cache: &TextPiecesCache::new(),
         width,
         first_height,
         breakable: full_height.map(|full_height| BreakableMeasure {

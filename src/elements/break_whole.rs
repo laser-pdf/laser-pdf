@@ -4,7 +4,12 @@ pub struct BreakWhole<'a, E: Element>(pub &'a E);
 
 impl<'a, E: Element> Element for BreakWhole<'a, E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
-        let layout = self.layout(ctx.width, ctx.first_height, ctx.full_height);
+        let layout = self.layout(
+            ctx.text_pieces_cache,
+            ctx.width,
+            ctx.first_height,
+            ctx.full_height,
+        );
 
         match layout {
             Layout::NoPreBreak => self.0.first_location_usage(ctx),
@@ -26,7 +31,12 @@ impl<'a, E: Element> Element for BreakWhole<'a, E> {
 
     fn measure(&self, ctx: MeasureCtx) -> ElementSize {
         if let Some(breakable) = ctx.breakable {
-            let layout = self.layout(ctx.width, ctx.first_height, breakable.full_height);
+            let layout = self.layout(
+                ctx.text_pieces_cache,
+                ctx.width,
+                ctx.first_height,
+                breakable.full_height,
+            );
 
             match layout {
                 Layout::NoPreBreak => self.0.measure(MeasureCtx {
@@ -54,7 +64,12 @@ impl<'a, E: Element> Element for BreakWhole<'a, E> {
 
     fn draw(&self, ctx: DrawCtx) -> ElementSize {
         if let Some(breakable) = ctx.breakable {
-            let layout = self.layout(ctx.width, ctx.first_height, breakable.full_height);
+            let layout = self.layout(
+                ctx.text_pieces_cache,
+                ctx.width,
+                ctx.first_height,
+                breakable.full_height,
+            );
 
             if let Layout::Other {
                 pre_break: true, ..
@@ -64,6 +79,7 @@ impl<'a, E: Element> Element for BreakWhole<'a, E> {
 
                 self.0.draw(DrawCtx {
                     pdf: ctx.pdf,
+                    text_pieces_cache: ctx.text_pieces_cache,
                     width: ctx.width,
                     location,
                     first_height: breakable.full_height,
@@ -107,7 +123,13 @@ enum Layout {
 }
 
 impl<'a, E: Element> BreakWhole<'a, E> {
-    fn layout(&self, width: WidthConstraint, first_height: f32, full_height: f32) -> Layout {
+    fn layout(
+        &self,
+        text_pieces_cache: &TextPiecesCache,
+        width: WidthConstraint,
+        first_height: f32,
+        full_height: f32,
+    ) -> Layout {
         if first_height == full_height {
             return Layout::NoPreBreak;
         }
@@ -116,6 +138,7 @@ impl<'a, E: Element> BreakWhole<'a, E> {
         let mut extra_location_min_height = None;
 
         let size = self.0.measure(MeasureCtx {
+            text_pieces_cache,
             width,
             first_height: full_height,
             breakable: Some(BreakableMeasure {
