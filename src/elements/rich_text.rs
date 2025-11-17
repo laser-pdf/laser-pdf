@@ -1,6 +1,6 @@
 use crate::{
     text::{Line, Piece, draw_line, lines_from_pieces},
-    utils::{mm_to_pt, pt_to_mm},
+    utils::{max_optional_size, mm_to_pt, pt_to_mm},
     *,
 };
 
@@ -83,8 +83,8 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
         let size = self.layout_lines(lines, Some(&mut ctx));
 
         ElementSize {
-            width: size.map(|s| ctx.width.max(s.0)),
-            height: size.map(|s| s.1),
+            width: size.0.map(|w| ctx.width.max(w)),
+            height: size.1,
         }
     }
 
@@ -92,18 +92,12 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
         // For left alignment we don't need to pre-layout because the
         // x offset is always zero.
         let width = if ctx.width.expand {
-            ctx.width.max
+            Some(ctx.width.max)
         } else if self.align == TextAlign::Left {
-            0.
+            None
         } else {
             let lines = self.break_into_lines(ctx.text_pieces_cache, ctx.width.max);
-            let Some((width, _)) = self.layout_lines(lines, None) else {
-                return ElementSize {
-                    width: None,
-                    height: None,
-                };
-            };
-            width
+            self.layout_lines(lines, None).0
         };
 
         let width_constraint = ctx.width;
@@ -111,8 +105,8 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
         let size = self.render_lines(lines, ctx, width);
 
         ElementSize {
-            width: size.map(|s| width_constraint.max(s.0)),
-            height: size.map(|s| s.1),
+            width: size.0.map(|w| width_constraint.max(w)),
+            height: size.1,
         }
     }
 }
@@ -123,8 +117,8 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
         &self,
         lines: L,
         mut ctx: DrawCtx,
-        width: f32,
-    ) -> Option<(f32, f32)>
+        width: Option<f32>,
+    ) -> (Option<f32>, Option<f32>)
     where
         F: 'c,
     {
@@ -155,16 +149,13 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
 
         start(ctx.pdf, &ctx.location);
 
-        let mut line_count = 0;
-
         for line in lines {
-            line_count += 1;
             let line_height = pt_to_mm(line.height_above_baseline + line.height_below_baseline);
             let height_above_baseline = line.height_above_baseline;
             let height_below_baseline = line.height_below_baseline;
 
             let line_width = pt_to_mm(line.width);
-            max_width = max_width.max(line_width);
+            max_width = max_optional_size(max_width, Some(line_width));
 
             last_line_full_width = line.width + line.trailing_whitespace_width;
 
@@ -194,8 +185,8 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
 
             let x_offset = match self.align {
                 TextAlign::Left => 0.,
-                TextAlign::Center => (width - line_width) / 2.,
-                TextAlign::Right => width - line_width,
+                TextAlign::Center => (width.unwrap_or(0.) - line_width) / 2.,
+                TextAlign::Right => width.unwrap_or(0.) - line_width,
             };
 
             let x = x + x_offset;
@@ -214,7 +205,10 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
 
         end(ctx.pdf, &ctx.location);
 
-        (line_count > 0).then_some((max_width.max(pt_to_mm(last_line_full_width)), height))
+        (
+            max_optional_size(max_width, Some(pt_to_mm(last_line_full_width))),
+            (line_count != 0).then_some(height),
+        )
     }
 
     #[inline(always)]
@@ -222,11 +216,11 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
         &self,
         lines: L,
         measure_ctx: Option<&mut MeasureCtx>,
-    ) -> Option<(f32, f32)>
+    ) -> (Option<f32>, Option<f32>)
     where
         F: 'c,
     {
-        let mut max_width: f32 = 0.;
+        let mut max_width = None;
         let mut last_line_full_width: f32 = 0.;
         let mut height = 0.;
 
@@ -241,7 +235,6 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
         let mut line_count = 0;
 
         for line in lines {
-            line_count += 1;
             let line_height = pt_to_mm(line.height_above_baseline + line.height_below_baseline);
 
             if let Some(&mut MeasureCtx {
@@ -253,17 +246,22 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
                     *breakable.break_count += 1;
                     height_available = breakable.full_height;
                     height = 0.;
+                    line_count = 0;
                 }
             }
 
-            max_width = max_width.max(line.width);
+            max_width = max_optional_size(max_width, Some(line.width));
             last_line_full_width = line.width + line.trailing_whitespace_width;
 
             height_available -= line_height;
             height += line_height;
+            line_count += 1;
         }
 
-        (line_count > 0).then_some((pt_to_mm(max_width.max(last_line_full_width)), height))
+        (
+            max_optional_size(max_width, Some(last_line_full_width)).map(pt_to_mm),
+            (line_count != 0).then_some(height),
+        )
     }
 
     fn break_into_lines<'b>(
@@ -299,8 +297,6 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
 
 #[cfg(test)]
 mod tests {
-    use std::iter;
-
     use elements::column::{Column, ColumnContent};
     use fonts::{builtin::BuiltinFont, truetype::TruetypeFont};
     use insta::*;
@@ -555,8 +551,7 @@ mod tests {
                             ))?;
                         None
                     },
-                }
-                .debug(5);
+                };
 
                 callback.call(&list);
             },
