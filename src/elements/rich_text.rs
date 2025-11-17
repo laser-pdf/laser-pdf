@@ -64,7 +64,9 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let mut lines = self.break_into_lines(ctx.text_pieces_cache, ctx.width.max);
         // There's always at least one line.
-        let first_line = lines.next().unwrap();
+        let Some(first_line) = lines.next() else {
+            return FirstLocationUsage::NoneHeight;
+        };
 
         let line_height =
             pt_to_mm(first_line.height_above_baseline + first_line.height_below_baseline);
@@ -81,8 +83,8 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
         let size = self.layout_lines(lines, Some(&mut ctx));
 
         ElementSize {
-            width: Some(ctx.width.max(size.0)),
-            height: Some(size.1),
+            width: size.map(|s| ctx.width.max(s.0)),
+            height: size.map(|s| s.1),
         }
     }
 
@@ -95,7 +97,13 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
             0.
         } else {
             let lines = self.break_into_lines(ctx.text_pieces_cache, ctx.width.max);
-            self.layout_lines(lines, None).0
+            let Some((width, _)) = self.layout_lines(lines, None) else {
+                return ElementSize {
+                    width: None,
+                    height: None,
+                };
+            };
+            width
         };
 
         let width_constraint = ctx.width;
@@ -103,8 +111,8 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
         let size = self.render_lines(lines, ctx, width);
 
         ElementSize {
-            width: Some(width_constraint.max(size.0)),
-            height: Some(size.1),
+            width: size.map(|s| width_constraint.max(s.0)),
+            height: size.map(|s| s.1),
         }
     }
 }
@@ -116,7 +124,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
         lines: L,
         mut ctx: DrawCtx,
         width: f32,
-    ) -> (f32, f32)
+    ) -> Option<(f32, f32)>
     where
         F: 'c,
     {
@@ -147,7 +155,10 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
 
         start(ctx.pdf, &ctx.location);
 
+        let mut line_count = 0;
+
         for line in lines {
+            line_count += 1;
             let line_height = pt_to_mm(line.height_above_baseline + line.height_below_baseline);
             let height_above_baseline = line.height_above_baseline;
             let height_below_baseline = line.height_below_baseline;
@@ -203,7 +214,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
 
         end(ctx.pdf, &ctx.location);
 
-        (max_width.max(pt_to_mm(last_line_full_width)), height)
+        (line_count > 0).then_some((max_width.max(pt_to_mm(last_line_full_width)), height))
     }
 
     #[inline(always)]
@@ -211,7 +222,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
         &self,
         lines: L,
         measure_ctx: Option<&mut MeasureCtx>,
-    ) -> (f32, f32)
+    ) -> Option<(f32, f32)>
     where
         F: 'c,
     {
@@ -227,7 +238,10 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
             f32::INFINITY
         };
 
+        let mut line_count = 0;
+
         for line in lines {
+            line_count += 1;
             let line_height = pt_to_mm(line.height_above_baseline + line.height_below_baseline);
 
             if let Some(&mut MeasureCtx {
@@ -249,7 +263,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
             height += line_height;
         }
 
-        (pt_to_mm(max_width.max(last_line_full_width)), height)
+        (line_count > 0).then_some((pt_to_mm(max_width.max(last_line_full_width)), height))
     }
 
     fn break_into_lines<'b>(
@@ -285,6 +299,8 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
 
 #[cfg(test)]
 mod tests {
+    use std::iter;
+
     use elements::column::{Column, ColumnContent};
     use fonts::{builtin::BuiltinFont, truetype::TruetypeFont};
     use insta::*;
@@ -539,7 +555,8 @@ mod tests {
                             ))?;
                         None
                     },
-                };
+                }
+                .debug(5);
 
                 callback.call(&list);
             },
@@ -623,6 +640,40 @@ mod tests {
                             .add(&Padding::right(
                                 194.,
                                 RefElement(&rich_text).debug(4).show_max_width(),
+                            ))?;
+                        None
+                    },
+                };
+
+                callback.call(&list);
+            },
+        );
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
+    fn test_no_rich_text_content() {
+        let bytes = test_element_bytes(
+            TestElementParams::breakable().no_expand(),
+            |mut callback| {
+                BuiltinFont::helvetica(callback.pdf());
+
+                let spans: [Span<BuiltinFont>; 0] = [];
+
+                let rich_text = RichText {
+                    spans: spans.into_iter(),
+                    align: TextAlign::Left,
+                };
+
+                let list = Column {
+                    gap: 16.,
+                    collapse: true,
+                    content: |content: ColumnContent| {
+                        content
+                            .add(&RefElement(&rich_text).debug(0).show_max_width())?
+                            .add(&Padding::top(
+                                120.,
+                                RefElement(&rich_text).debug(1).show_max_width(),
                             ))?;
                         None
                     },
