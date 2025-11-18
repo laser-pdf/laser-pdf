@@ -63,7 +63,6 @@ pub struct RichText<S> {
 impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for RichText<S> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let mut lines = self.break_into_lines(ctx.text_pieces_cache, ctx.width.max);
-        // There's always at least one line.
         let Some(first_line) = lines.next() else {
             return FirstLocationUsage::NoneHeight;
         };
