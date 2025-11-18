@@ -97,6 +97,10 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for Rich
         } else {
             let lines = self.break_into_lines(ctx.text_pieces_cache, ctx.width.max);
             let Some((width, _)) = self.layout_lines(lines, None) else {
+                // Returning early is fine here because a None returned from layout_lines also means
+                // there's no breaks. If there's a break there has to be at least a line after the
+                // break. This also applies if there's a newline at the end of the text because that
+                // still causes a line with the height of main font of the span.
                 return ElementSize {
                     width: None,
                     height: None,
