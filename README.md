@@ -24,80 +24,42 @@ Unlike CSS, which can sometimes produce unexpected layouts, laser-pdf prioritize
 
 ### Rust API
 
-(A simple function convenient multi-page generation is still missing.)
-
 ```rust
-use laser_pdf::*;
-use laser_pdf::elements::{text::Text, column::Column, padding::Padding};
+use laser_pdf::elements::{column::Column, text::Text};
 use laser_pdf::fonts::builtin::BuiltinFont;
+use laser_pdf::*;
 
-// Create a PDF document
-let mut pdf = Pdf::new();
+fn main() -> std::io::Result<()> {
+    // Create a PDF document
+    let mut pdf = Pdf::new();
 
-// Add a page
-let location = pdf.add_page((210., 297.)); // A4 size in mm
+    // Create fonts
+    let font = BuiltinFont::helvetica(&mut pdf);
 
-// Create fonts
-let font = BuiltinFont::helvetica(&mut pdf);
+    // Build elements
+    let title = Text::basic("Document Title", &font, 16.0);
+    let body = Text::basic("This is the document body content.", &font, 12.0);
 
-// Build elements
-let title = Text::basic("Document Title", &font, 16.0);
-let body = Text::basic("This is the document body content.", &font, 12.0);
+    // Compose layout
+    let content = Column {
+        gap: 10.0,
+        collapse: true,
+        content: |content| {
+            content.add(&title)?.add(&body)?;
 
-// Compose layout
-let content = Column {
-    gap: 10.0,
-    collapse: true,
-    content: |content| {
-        content
-          .add(&Padding::all(title, 5.0))?
-          .add(&body)?;
+            // Returns an option to support short-circuiting.
+            None
+        },
+    };
 
-        // Returns an option to support short-circuiting.
-        None
-    }
-};
+    // Draw to PDF on an A4 sized page
+    pdf.add_element((210., 297.), content);
 
-// Draw to PDF
-let ctx = DrawCtx {
-    pdf: &mut pdf,
-    width: WidthConstraint { max: 200.0, expand: true },
-    location,
-    first_height: 280.0,
-    preferred_height: None,
-    breakable: None, // For single-page layout
-};
+    // Save PDF
+    std::fs::write("output.pdf", pdf.finish())?;
 
-content.draw(ctx);
-
-// Save PDF
-std::fs::write("output.pdf", pdf.finish())?;
-```
-
-### CLI Usage (JSON Interface)
-
-```bash
-echo '{
-  "title": "My Document",
-  "entries": [{
-    "size": [210, 297],
-    "fonts": {
-      "regular": "./fonts/regular.ttf"
-    },
-    "element": {
-      "type": "Column",
-      "gap": 10,
-      "content": [
-        {
-          "type": "Text",
-          "text": "Hello, World!",
-          "font": "regular",
-          "size": 16
-        }
-      ]
-    }
-  }]
-}' | cargo run > output.pdf
+    Ok(())
+}
 ```
 
 ## Core Concepts
