@@ -6,7 +6,7 @@ use std::{
 };
 
 use laser_pdf::{
-    BreakableDraw, DrawCtx, Element, Location, Pdf, TextPiecesCache, WidthConstraint,
+    Pdf, TextPiecesCache,
     fonts::truetype::TruetypeFont,
     serde_elements::{ElementValue, SerdeElementElement},
 };
@@ -74,55 +74,15 @@ fn main() {
 
     let text_pieces_cache = TextPiecesCache::new();
 
-    let mut page_idx = 0;
-
     for (entry, font_map) in input.entries.iter().zip(font_maps.iter()) {
-        let page_size = entry.size;
-
-        let location = pdf.add_page((page_size.0, page_size.1));
-
-        let entry_page = page_idx;
-
-        let do_break = &mut |pdf: &mut Pdf, location_idx, _height| {
-            while page_idx <= entry_page + location_idx {
-                pdf.add_page((page_size.0, page_size.1));
-                page_idx += 1;
-            }
-
-            Location {
-                page_idx: (entry_page + location_idx + 1) as usize,
-                layer_idx: 0,
-                pos: (0., page_size.1),
-                scale_factor: 1.,
-            }
-        };
-
-        let ctx = DrawCtx {
-            pdf: &mut pdf,
-            text_pieces_cache: &text_pieces_cache,
-            width: WidthConstraint {
-                max: page_size.0,
-                expand: true,
+        pdf.add_element_with_text_pieces_cache(
+            entry.size,
+            &text_pieces_cache,
+            SerdeElementElement {
+                element: &entry.element,
+                fonts: font_map,
             },
-            location,
-
-            first_height: page_size.1,
-            preferred_height: None,
-
-            breakable: Some(BreakableDraw {
-                full_height: page_size.1,
-                preferred_height_break_count: 0,
-                do_break,
-            }),
-        };
-
-        SerdeElementElement {
-            element: &entry.element,
-            fonts: font_map,
-        }
-        .draw(ctx);
-
-        page_idx += 1;
+        );
     }
 
     BufWriter::new(std::io::stdout())
