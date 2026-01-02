@@ -1,28 +1,8 @@
 # laser-pdf
 
-A Rust library for programmatic PDF generation with precise, predictable layout control.
+laser-pdf is a PDF generation library written in Rust.
 
-**laser-pdf** is designed for applications that need to reproduce layouts with pixel-perfect accuracy, providing fine-grained control over page breaking and element positioning. Built for [Escola](https://www.escola.ch) to generate complex PDFs with predictable behavior.
-
-## Key Features
-
-- **Predictable Layout System**: Inspired by Flutter's layout protocol for consistent, understandable behavior
-- **Precise Page Breaking Control**: Elements like `Titled`, `RepeatAfterBreak`, and `PinBelow` for exact control over multi-page layouts  
-- **Composable Element Architecture**: Simple trait-based system for building complex layouts from primitive components
-- **Axis-Independent Collapse**: Elements can collapse separately on horizontal and vertical axes, with per-location vertical collapse
-- **Multiple Font Systems**: Support for built-in PDF fonts and TrueType fonts with advanced text shaping
-- **JSON Serialization**: Complete serde support for language-agnostic PDF generation
-- **SVG and Image Support**: Render SVG graphics and raster images with precise positioning
-
-## Design Philosophy
-
-Unlike CSS, which can sometimes produce unexpected layouts, laser-pdf prioritizes **predictability**. Once you understand the relatively simple `Element` trait, you can easily predict how layouts will behave. Elements follow clear composition rules, and the collapse behavior is well-defined and consistent.
-
-## Quick Start
-
-(These instructions might need some work. Don't fully trust them yet.)
-
-### Rust API
+## Example
 
 ```rust
 use laser_pdf::elements::{column::Column, text::Text};
@@ -62,90 +42,63 @@ fn main() -> std::io::Result<()> {
 }
 ```
 
-## Core Concepts
+## Goals
 
-### Element Trait
+**Precision:** The main goal is to be able to precisely replicate complicated document designs
+with straightforward, understandable code. This includes page breaking, which can be a pain in other
+systems like when generating PDFs from HTML.
 
-All layout components implement the `Element` trait with three key methods:
+**Understandability:** All the interactions between containers and their children go through a
+relatively simple element trait. The goal is for layout behavior to be as understandable as
+possible, avoiding a process of trial and error.
 
-- `first_location_usage()`: Determines if the element will use the first location on a page
-- `measure()`: Calculates dimensions given width constraints  
-- `draw()`: Renders the element to the PDF
+**Performance:** It should always be trivially possible to generate even a large document as
+a response to a HTTP request without a slow response time. At Escola we use a 50 page document
+generated from real layout code as a benchmark. This can be generated in about 60ms on an 8th
+generation i7.
 
-### Page Breaking
+## Non-Goals
 
-Elements can intelligently break across pages using the breakable draw context. Advanced elements like `Titled` ensure titles stay with their content, while `RepeatAfterBreak` can repeat headers on each page.
+laser-pdf does not aim to be a general purpose typesetting system. It currently doesn't even
+implement justified text alignment.
 
-### Collapse Behavior
+## Design
 
-Elements can collapse on each axis independently. When an element collapses in the direction of a container (like a `Column`), gaps around it are eliminated - similar to how `display: none` interacts with CSS Grid's `gap` property.
+Layouts are built by composing elements. Elements interact through the
+[`Element`](https://docs.rs/laser-pdf/latest/laser_pdf/trait.Element.html) trait. Only three
+operations are possible on an element:
 
-## Available Elements
+**`measure`:** This returns the size an element would use with the given constraint. This includes the
+number of breaks the element would perform (if in a breakable context). 
 
-### Layout Elements
-- `Column` / `Row`: Vertical/horizontal stacking with gaps
-- `Stack`: Layered positioning
-- `Padding`: Add space around elements
-- `HAlign`: Horizontal alignment control
+**`first_location_usage`:** This is a more specialized version of measure that is used for example
+to determine whether a title that belongs to the element should be pulled to the next page because
+none of the element fits on the first page. The
+[`Titled`](https://docs.rs/laser-pdf/latest/laser_pdf/elements/titled/struct.Titled.html) element
+is used for this, preventing stranded titles.
 
-### Content Elements  
-- `Text`: Simple text rendering with built-in fonts
-- `RichText`: Advanced text with TrueType fonts and text shaping
-- `Image`: Raster image embedding
-- `SVG`: Vector graphics rendering
-- `Rectangle` / `Circle`: Basic shapes
+**`draw`:** This draws the element to the PDF, starting at the provided page and position. An element
+does not need to have been measured before being drawn. In fact a lot of care is taken to avoid
+unnecessarily measuring elements before drawing them.
 
-### Page Flow Elements
-- `Page`: Force page boundary
-- `ForceBreak`: Insert page breaks
-- `BreakWhole`: Keep element groups together
-- `Titled`: Keep titles with content
-- `RepeatAfterBreak`: Repeat elements after page breaks
-- `PinBelow`: Pin elements to page bottom
+Elements are fundamentally stateless, meaning that measuring and then drawing an element will mean
+some redundant computation. This enables a simpler design, but means some possible inefficiencies
+with deeply nested layout. A lot of care is taken to minimize the possible performance downsides
+that come with this design:
 
-### Advanced Elements
-- `ShrinkToFit`: Scale content to fit constraints
-- `ExpandToPreferredHeight`: Grow to fill available space
-- `ChangingTitle`: Dynamic page titles
+Most containers do not need to measure their children before drawing them. The main exception is
+the `Row` element, which acts like a horizontal flexbox. It needs to measure self-sized children
+because those can determine their own width and that can influence how other elements before it are
+layed out. Other children are not measured before drawing unless the `expand` option is used, which
+for example makes it possible to align elements at the bottom of the whole row.
 
-## Current Status
+The measure operation on most elements avoids doing any memory allocation at all.  The `Text`
+element is the exception to this. It allocates memory during shaping and unicode segmentation. A
+cache is used to ensure that shaping and segmentation only happens once for each piece of text
+(including the string, font, size, color, etc.). This means that a text element will only allocate
+the first time it is measured and the cached result of shaping and segmentation can then also be
+used for a subsequent draw.
 
-⚠️ **Pre-1.0**: The library is under active development. While used in production at Escola, the API may change before the 1.0 release. Element names and some APIs are still being refined.
-
-**Roadmap to 1.0:**
-- [ ] Finalize element naming conventions
-- [x] Publish to crates.io
-- [ ] Release PHP bindings as open source
-- [ ] Complete documentation
-
-## Development
-
-### Building
-```bash
-cargo build --verbose
-```
-
-### Testing
-```bash
-# Run all tests
-cargo test --verbose
-
-# Run specific test
-cargo test test_name
-
-# Update snapshots
-cargo insta review
-```
-
-### Contributing
-
-The project uses [insta](https://insta.rs/) for snapshot testing, including binary PDF snapshots for
-visual regression testing.
-
-## License
-
-Licensed under the [MIT License](LICENSE).
-
-## Used By
-
-- [Escola](https://www.escola.ch) - Production PDF generation for educational documents
+The children of container elements like `Column` and `Row` are provided as closures. These closures
+can be called multiple times if the element is measured before it is drawn. It is up to the user of
+the library to make sure that expensive computations happen outside of these closures.
