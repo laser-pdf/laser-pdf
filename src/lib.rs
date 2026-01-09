@@ -138,6 +138,64 @@ impl Pdf {
         }
     }
 
+    /// Add an element to the PDF. A new page with the given size is added initially and additional
+    /// pages of the same size are added when the element requests them during drawing.
+    pub fn add_element(&mut self, page_size: (f32, f32), element: impl Element) {
+        let text_pieces_cache = TextPiecesCache::new();
+
+        self.add_element_with_text_pieces_cache(page_size, &text_pieces_cache, element);
+    }
+
+    /// The same as [Pdf::add_element], but with a [TextPiecesCache] parameter. This is useful when
+    /// adding multiple elements to a PDF that share some fonts and text.
+    pub fn add_element_with_text_pieces_cache(
+        &mut self,
+        page_size: (f32, f32),
+        text_pieces_cache: &TextPiecesCache,
+        element: impl Element,
+    ) {
+        let mut page_idx = self.pages.len() as u32;
+
+        let location = self.add_page((page_size.0, page_size.1));
+
+        let entry_page = page_idx;
+
+        let do_break = &mut |pdf: &mut Pdf, location_idx, _height| {
+            while page_idx <= entry_page + location_idx {
+                pdf.add_page((page_size.0, page_size.1));
+                page_idx += 1;
+            }
+
+            Location {
+                page_idx: (entry_page + location_idx + 1) as usize,
+                layer_idx: 0,
+                pos: (0., page_size.1),
+                scale_factor: 1.,
+            }
+        };
+
+        let ctx = DrawCtx {
+            pdf: self,
+            text_pieces_cache,
+            width: WidthConstraint {
+                max: page_size.0,
+                expand: true,
+            },
+            location,
+
+            first_height: page_size.1,
+            preferred_height: None,
+
+            breakable: Some(BreakableDraw {
+                full_height: page_size.1,
+                preferred_height_break_count: 0,
+                do_break,
+            }),
+        };
+
+        element.draw(ctx);
+    }
+
     pub fn finish(mut self) -> Vec<u8> {
         let catalog_ref = self.alloc();
         let page_tree_ref = self.alloc();
@@ -407,10 +465,10 @@ impl<'a, 'b> DrawCtx<'a, 'b> {
 pub struct ElementSize {
     pub width: Option<f32>,
 
-    /// None here means that this element doesn't need any space on it's last page. This is useful
-    /// for things like collapsing gaps after a forced break. This in combination with no breaks
-    /// means the element is completely hidden. This can be used to trigger collapsing of gaps even
-    /// hiding certain parent containers, like titled, in turn.
+    /// None here means that this element doesn't need any space on it's last location. This is
+    /// useful for things like collapsing gaps after a forced break. This in combination with no
+    /// breaks means the element is completely hidden. This can be used to trigger collapsing of
+    /// gaps even hiding certain parent containers, like titled, in turn.
     pub height: Option<f32>,
 }
 
@@ -544,91 +602,3 @@ impl<C: CompositeElement> Element for C {
         ret
     }
 }
-
-// -------------------------------------------------------------------------------------------------
-
-// pub trait BuildElement<'a, F: 'static> {
-//     type R: Element + 'a;
-
-//     fn call(self, fonts: &'a F) -> Self::R;
-// }
-
-// impl<'a, F: 'static, R: Element + 'a, O: FnOnce(&'a F) -> R> BuildElement<'a, F> for O {
-//     type R = R;
-
-//     #[inline]
-//     fn call(self, fonts: &'a F) -> Self::R {
-//         self(fonts)
-//     }
-// }
-
-// pub fn build_pdf<F: 'static>(
-//     name: &str,
-//     page_size: (f32, f32),
-//     build_fonts: impl FnOnce(&PdfDocumentReference) -> F,
-//     build_element: impl for<'a> BuildElement<'a, F>,
-// ) -> printpdf::PdfDocumentReference {
-//     use printpdf::{
-//         indices::{PdfLayerIndex, PdfPageIndex},
-//         PdfDocument,
-//     };
-
-//     let (doc, page, layer) = PdfDocument::new(name, Mm(page_size.0), Mm(page_size.1), "Layer 0");
-//     let mut page_idx = 0;
-
-//     let mut pdf = Pdf {
-//         document: doc,
-//         page_size,
-//     };
-
-//     let do_break = &mut |pdf: &mut Pdf, location_idx, size| {
-//         while page_idx <= location_idx {
-//             pdf.document
-//                 .add_page(Mm(page_size.0), Mm(page_size.1), "Layer 0");
-//             page_idx += 1;
-//         }
-
-//         let layer = pdf
-//             .document
-//             .get_page(PdfPageIndex((location_idx + 1) as usize))
-//             .get_layer(PdfLayerIndex(0));
-
-//         Location {
-//             layer,
-//             pos: (0., page_size.1),
-//             scale_factor: 1.,
-//         }
-//     };
-
-//     let layer = pdf.document.get_page(page).get_layer(layer);
-
-//     let fonts = build_fonts(&pdf.document);
-
-//     let element = build_element.call(&fonts);
-
-//     let ctx = DrawCtx {
-//         pdf: &mut pdf,
-//         width: WidthConstraint {
-//             max: page_size.0,
-//             expand: true,
-//         },
-//         location: Location {
-//             layer,
-//             pos: (0., page_size.1),
-//             scale_factor: 1.,
-//         },
-
-//         first_height: page_size.1,
-//         preferred_height: None,
-
-//         breakable: Some(BreakableDraw {
-//             full_height: page_size.1,
-//             preferred_height_break_count: 0,
-//             do_break,
-//         }),
-//     };
-
-//     element.draw(ctx);
-
-//     pdf.document
-// }
