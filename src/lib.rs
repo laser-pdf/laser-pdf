@@ -7,10 +7,13 @@ pub mod test_utils;
 mod text;
 pub mod utils;
 
+use chrono::{Datelike, Timelike, Utc};
 use elements::padding::Padding;
 use fonts::Font;
-use pdf_writer::{Content, Name, Rect, Ref};
+use pdf_writer::{Content, Date, Name, Rect, Ref, TextStr};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+use xmp_writer::{DateTime, LangId, Timezone, XmpWriter};
 
 pub use crate::text::TextPiecesCache;
 
@@ -102,6 +105,71 @@ pub struct Pdf {
     truetype_fonts: Vec<fonts::truetype::TruetypeFontState>,
 }
 
+pub struct XmpIdentifier {}
+
+impl XmpIdentifier {
+    pub fn new() -> String {
+        Uuid::new_v4().to_string()
+    }
+
+    // For testing
+    pub fn fixed() -> &'static str {
+        "00000000-0000-0000-0000-000000000000"
+    }
+}
+
+// Wrapper for chronos Datetime struct to properly convert
+// into xmp_writer::DateTime and pdf_writer::Date
+#[derive(Clone)]
+pub struct Timestamp(pub chrono::DateTime<Utc>);
+
+impl Timestamp {
+    pub fn now() -> Self {
+        Self(Utc::now())
+    }
+
+    pub fn fixed() -> Self {
+        Self(chrono::DateTime::default())
+    }
+}
+
+impl From<Timestamp> for DateTime {
+    fn from(timestamp: Timestamp) -> Self {
+        DateTime::new(
+            timestamp.0.year() as u16,
+            timestamp.0.month() as u8,
+            timestamp.0.day() as u8,
+            timestamp.0.hour() as u8,
+            timestamp.0.minute() as u8,
+            timestamp.0.second() as u8,
+            Timezone::Utc,
+        )
+    }
+}
+
+impl From<Timestamp> for Date {
+    fn from(timestamp: Timestamp) -> Self {
+        Date::new(timestamp.0.year() as u16)
+            .month(timestamp.0.month() as u8)
+            .day(timestamp.0.day() as u8)
+            .hour(timestamp.0.hour() as u8)
+            .minute(timestamp.0.minute() as u8)
+            .second(timestamp.0.second() as u8)
+    }
+}
+
+/// See ISO 19005 6.6.3 Table 7
+pub struct Metadata {
+    pub title: String,
+    // RFC 3306 compliant language identifier
+    pub language: String,
+    pub keywords: Option<String>,
+    pub producer: String,
+    pub creation_date: Timestamp,
+    // ISO 19005 6.6.5
+    pub identifier: String,
+}
+
 impl Pdf {
     pub fn new() -> Self {
         let pdf = pdf_writer::Pdf::new();
@@ -113,6 +181,46 @@ impl Pdf {
             fonts: Vec::new(),
             truetype_fonts: Vec::new(),
         }
+    }
+
+    // ISO 19005 6.6.3
+    // It states in the PDF/A specificationsthat the fields of the
+    // document information dictionary (if present) must be consistent with the
+    // values in the document's metadata.
+    // Since we aim to support readers and interpreters as well, we should keep the
+    // document info. This method tries to ensure that the values are kept in sync.
+    pub fn set_metadata(&mut self, metadata: Metadata) -> () {
+        let mut writer = XmpWriter::new();
+        let id = self.alloc();
+        let mut document_info = self.pdf.document_info(id);
+        document_info.title(TextStr(&metadata.title));
+        // Simon:TODO: check if a title with none is PDF/A compliant
+        writer.title([
+            (
+                Some(LangId(&metadata.language.as_str())),
+                metadata.title.as_str(),
+            ),
+            (None, metadata.title.as_str()),
+        ]);
+
+        writer.language([LangId(&metadata.language.as_str())]);
+
+        if let Some(ref keywords) = metadata.keywords {
+            document_info.keywords(TextStr(keywords));
+            writer.pdf_keywords(keywords);
+        }
+
+        document_info.producer(TextStr(&metadata.producer));
+        writer.producer(&metadata.producer);
+
+        document_info.creation_date(metadata.creation_date.clone().into());
+        writer.create_date(metadata.creation_date.into());
+
+        writer.xmp_identifier([metadata.identifier.as_str()]);
+
+        writer.pdfa_part(2);
+        // ISO 19005 5.2-4
+        writer.pdfa_conformance("B");
     }
 
     pub fn alloc(&mut self) -> Ref {

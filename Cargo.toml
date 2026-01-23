@@ -30,6 +30,9 @@ icu_segmenter = "1.5.0"
 icu_properties = "1.5.1"
 image = "0.25.6"
 elsa = "1.11.2"
+xmp-writer = "0.3.2"
+uuid = { version = "1.19.0", features = ["v4"] }
+chrono = {version = "0.4.43", default-features = true }
 
 [dev-dependencies]
 insta = "1.41.1"
