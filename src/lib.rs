@@ -10,7 +10,7 @@ pub mod utils;
 use chrono::{Datelike, Timelike, Utc};
 use elements::padding::Padding;
 use fonts::Font;
-use pdf_writer::{Content, Date, Name, Rect, Ref, TextStr};
+use pdf_writer::{Content, Date, Finish, Name, Rect, Ref, TextStr};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use xmp_writer::{DateTime, LangId, Timezone, XmpWriter};
@@ -97,17 +97,31 @@ impl Page {
     }
 }
 
+/// See ISO 19005 6.6.3 Table 7
+#[derive(Clone)]
+pub struct Metadata {
+    pub title: String,
+    // RFC 3306 compliant language identifier
+    pub language: String,
+    pub keywords: Option<String>,
+    pub producer: String,
+    pub creation_date: chrono::DateTime<Utc>,
+    // ISO 19005 6.6.5
+    pub identifier: String,
+}
+
 pub struct Pdf {
     pub alloc: Ref,
     pub pdf: pdf_writer::Pdf,
     pub pages: Vec<Page>,
     pub fonts: Vec<Ref>,
+    pub metadata: Option<Metadata>,
     truetype_fonts: Vec<fonts::truetype::TruetypeFontState>,
 }
 
-pub struct XmpIdentifier {}
+pub struct Identifier {}
 
-impl XmpIdentifier {
+impl Identifier {
     pub fn new() -> String {
         Uuid::new_v4().to_string()
     }
@@ -116,58 +130,6 @@ impl XmpIdentifier {
     pub fn fixed() -> &'static str {
         "00000000-0000-0000-0000-000000000000"
     }
-}
-
-// Wrapper for chronos Datetime struct to properly convert
-// into xmp_writer::DateTime and pdf_writer::Date
-#[derive(Clone)]
-pub struct Timestamp(pub chrono::DateTime<Utc>);
-
-impl Timestamp {
-    pub fn now() -> Self {
-        Self(Utc::now())
-    }
-
-    pub fn fixed() -> Self {
-        Self(chrono::DateTime::default())
-    }
-}
-
-impl From<Timestamp> for DateTime {
-    fn from(timestamp: Timestamp) -> Self {
-        DateTime::new(
-            timestamp.0.year() as u16,
-            timestamp.0.month() as u8,
-            timestamp.0.day() as u8,
-            timestamp.0.hour() as u8,
-            timestamp.0.minute() as u8,
-            timestamp.0.second() as u8,
-            Timezone::Utc,
-        )
-    }
-}
-
-impl From<Timestamp> for Date {
-    fn from(timestamp: Timestamp) -> Self {
-        Date::new(timestamp.0.year() as u16)
-            .month(timestamp.0.month() as u8)
-            .day(timestamp.0.day() as u8)
-            .hour(timestamp.0.hour() as u8)
-            .minute(timestamp.0.minute() as u8)
-            .second(timestamp.0.second() as u8)
-    }
-}
-
-/// See ISO 19005 6.6.3 Table 7
-pub struct Metadata {
-    pub title: String,
-    // RFC 3306 compliant language identifier
-    pub language: String,
-    pub keywords: Option<String>,
-    pub producer: String,
-    pub creation_date: Timestamp,
-    // ISO 19005 6.6.5
-    pub identifier: String,
 }
 
 impl Pdf {
@@ -179,6 +141,7 @@ impl Pdf {
             pdf,
             pages: Vec::new(),
             fonts: Vec::new(),
+            metadata: None,
             truetype_fonts: Vec::new(),
         }
     }
@@ -190,37 +153,7 @@ impl Pdf {
     // Since we aim to support readers and interpreters as well, we should keep the
     // document info. This method tries to ensure that the values are kept in sync.
     pub fn set_metadata(&mut self, metadata: Metadata) -> () {
-        let mut writer = XmpWriter::new();
-        let id = self.alloc();
-        let mut document_info = self.pdf.document_info(id);
-        document_info.title(TextStr(&metadata.title));
-        // Simon:TODO: check if a title with none is PDF/A compliant
-        writer.title([
-            (
-                Some(LangId(&metadata.language.as_str())),
-                metadata.title.as_str(),
-            ),
-            (None, metadata.title.as_str()),
-        ]);
-
-        writer.language([LangId(&metadata.language.as_str())]);
-
-        if let Some(ref keywords) = metadata.keywords {
-            document_info.keywords(TextStr(keywords));
-            writer.pdf_keywords(keywords);
-        }
-
-        document_info.producer(TextStr(&metadata.producer));
-        writer.producer(&metadata.producer);
-
-        document_info.creation_date(metadata.creation_date.clone().into());
-        writer.create_date(metadata.creation_date.into());
-
-        writer.xmp_identifier([metadata.identifier.as_str()]);
-
-        writer.pdfa_part(2);
-        // ISO 19005 5.2-4
-        writer.pdfa_conformance("B");
+        self.metadata = Some(metadata);
     }
 
     pub fn alloc(&mut self) -> Ref {
@@ -308,7 +241,79 @@ impl Pdf {
         let catalog_ref = self.alloc();
         let page_tree_ref = self.alloc();
 
-        self.pdf.catalog(catalog_ref).pages(page_tree_ref);
+        // Write document Info and metadata object
+        if let Some(metadata) = self.metadata.clone() {
+            // The XMP writer is used to create the file metadata object.
+            // The schema of it can be seen in ISO 19005 6.6.2.3.3
+            // but it's also represented in the API of the xmp-writer crate.
+            let mut writer = XmpWriter::new();
+
+            // ISO 32000 14.4
+            // ISO 32000 7.5.5 Table 15
+            // ISO 19005 6.1.3
+            let identifier: Vec<u8> = metadata.identifier.clone().into();
+            self.pdf.set_file_id((identifier.clone(), identifier));
+
+            {
+                let id = self.alloc();
+                let mut document_info = self.pdf.document_info(id);
+                document_info.title(TextStr(metadata.title.clone().as_str()));
+                if let Some(ref keywords) = metadata.keywords {
+                    document_info.keywords(TextStr(keywords));
+                }
+                document_info.producer(TextStr(&metadata.producer));
+                document_info.creation_date(
+                    Date::new(metadata.creation_date.year() as u16)
+                        .month(metadata.creation_date.month() as u8)
+                        .day(metadata.creation_date.day() as u8)
+                        .hour(metadata.creation_date.hour() as u8)
+                        .minute(metadata.creation_date.minute() as u8)
+                        .second(metadata.creation_date.second() as u8),
+                );
+            }
+            writer.title([
+                (
+                    Some(LangId(&metadata.language.as_str())),
+                    metadata.title.as_str(),
+                ),
+                (None, metadata.title.as_str()),
+            ]);
+
+            writer.language([LangId(&metadata.language.as_str())]);
+
+            if let Some(ref keywords) = metadata.keywords {
+                writer.pdf_keywords(keywords);
+            }
+
+            writer.producer(&metadata.producer);
+
+            writer.create_date(DateTime::new(
+                metadata.creation_date.year() as u16,
+                metadata.creation_date.month() as u8,
+                metadata.creation_date.day() as u8,
+                metadata.creation_date.hour() as u8,
+                metadata.creation_date.minute() as u8,
+                metadata.creation_date.second() as u8,
+                Timezone::Utc,
+            ));
+
+            writer.xmp_identifier([metadata.identifier.as_str()]);
+
+            writer.pdfa_part(2);
+            // ISO 19005 5.2-4
+            writer.pdfa_conformance("A");
+            writer.pdf_version("1.7");
+
+            let finished = writer.finish(None);
+            let id = self.alloc();
+            self.pdf.metadata(id, finished.as_bytes());
+            let mut catalog = &self.pdf.catalog(catalog_ref);
+            catalog.metadata(id).pages(page_tree_ref);
+            // ISO 19005 6.7.2.2
+            catalog.mark_info().marked(true);
+        } else {
+            self.pdf.catalog(catalog_ref).pages(page_tree_ref);
+        }
 
         for mut truetype_font in self.truetype_fonts {
             truetype_font.finish(&mut self.pdf, &mut self.alloc);

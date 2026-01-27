@@ -5,9 +5,9 @@ use std::{
     rc::Rc,
 };
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use laser_pdf::{
-    Metadata, Pdf, TextPiecesCache, Timestamp, XmpIdentifier,
+    Identifier, Metadata, Pdf, TextPiecesCache,
     fonts::truetype::TruetypeFont,
     serde_elements::{ElementValue, SerdeElementElement},
 };
@@ -36,16 +36,14 @@ fn main() {
 
     let mut pdf = Pdf::new();
 
-    {
-        pdf.set_metadata(Metadata {
-            title: input.title,
-            language: input.lang,
-            keywords: input.keywords,
-            producer: input.producer,
-            creation_date: Timestamp(Utc::now()),
-            identifier: XmpIdentifier::new(),
-        });
-    }
+    pdf.set_metadata(Metadata {
+        title: input.title,
+        language: input.lang,
+        keywords: input.keywords,
+        producer: input.producer,
+        creation_date: Utc::now(),
+        identifier: Identifier::new(),
+    });
 
     let mut load_font = |path: &str| {
         let path = std::fs::canonicalize(path).unwrap();
