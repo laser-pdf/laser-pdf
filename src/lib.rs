@@ -10,7 +10,7 @@ pub mod utils;
 use chrono::{Datelike, Timelike, Utc};
 use elements::padding::Padding;
 use fonts::Font;
-use pdf_writer::{Content, Date, Finish, Name, Rect, Ref, TextStr};
+use pdf_writer::{Content, Date, Name, Rect, Ref, TextStr};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use xmp_writer::{DateTime, LangId, Timezone, XmpWriter};
@@ -307,8 +307,12 @@ impl Pdf {
             let finished = writer.finish(None);
             let id = self.alloc();
             self.pdf.metadata(id, finished.as_bytes());
-            let mut catalog = &self.pdf.catalog(catalog_ref);
+            let mut catalog = self.pdf.catalog(catalog_ref);
             catalog.metadata(id).pages(page_tree_ref);
+            // ISO 19005 6.7.3.3
+            // ISO 32000 14.7.2
+            // Simon:TODO: to what extent are we trying to represent the document structure here?
+            catalog.struct_tree_root();
             // ISO 19005 6.7.2.2
             catalog.mark_info().marked(true);
         } else {
