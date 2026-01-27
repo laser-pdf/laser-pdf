@@ -311,6 +311,7 @@ impl Pdf {
             catalog.metadata(id).pages(page_tree_ref);
             // ISO 19005 6.7.3.3
             // ISO 32000 14.7.2
+            // ISO 32000 14.8.4
             // Simon:TODO: to what extent are we trying to represent the document structure here?
             catalog.struct_tree_root();
             // ISO 19005 6.7.2.2
