@@ -30,6 +30,19 @@ impl SerdeElement for None {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct Empty;
+
+impl SerdeElement for Empty {
+    fn element(
+        &self,
+        _: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::empty::Empty);
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Debug<E> {
     pub element: Box<E>,
 
