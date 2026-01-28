@@ -767,6 +767,26 @@ impl<E: SerdeElement> SerdeElement for ExpandToPreferredHeight<E> {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct CenterInPreferredHeight<E> {
+    pub element: Box<E>,
+}
+
+impl<E: SerdeElement> SerdeElement for CenterInPreferredHeight<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(
+            &elements::center_in_preferred_height::CenterInPreferredHeight(SerdeElementElement {
+                element: &*self.element,
+                fonts,
+            }),
+        );
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ShrinkToFit<E> {
     pub element: Box<E>,
     pub min_height: f32,
