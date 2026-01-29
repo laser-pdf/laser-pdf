@@ -53,6 +53,7 @@ macro_rules! define_serde_element_value {
 
 define_serde_element_value!(ElementValue {
     None,
+    Empty,
     Debug<ElementValue>,
     Text,
     RichText,
@@ -80,6 +81,7 @@ define_serde_element_value!(ElementValue {
     AlignLocationBottom<ElementValue>,
     AlignPreferredHeightBottom<ElementValue>,
     ExpandToPreferredHeight<ElementValue>,
+    CenterInPreferredHeight<ElementValue>,
     ShrinkToFit<ElementValue>,
     Rotate<ElementValue>,
     MaxWidth<ElementValue>,

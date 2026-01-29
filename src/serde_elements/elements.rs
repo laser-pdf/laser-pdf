@@ -30,6 +30,19 @@ impl SerdeElement for None {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct Empty;
+
+impl SerdeElement for Empty {
+    fn element(
+        &self,
+        _: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::empty::Empty);
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Debug<E> {
     pub element: Box<E>,
 
@@ -759,6 +772,26 @@ impl<E: SerdeElement> SerdeElement for ExpandToPreferredHeight<E> {
     ) {
         callback.call(
             &elements::expand_to_preferred_height::ExpandToPreferredHeight(SerdeElementElement {
+                element: &*self.element,
+                fonts,
+            }),
+        );
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct CenterInPreferredHeight<E> {
+    pub element: Box<E>,
+}
+
+impl<E: SerdeElement> SerdeElement for CenterInPreferredHeight<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(
+            &elements::center_in_preferred_height::CenterInPreferredHeight(SerdeElementElement {
                 element: &*self.element,
                 fonts,
             }),
