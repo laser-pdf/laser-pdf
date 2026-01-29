@@ -7,6 +7,8 @@ pub mod test_utils;
 mod text;
 pub mod utils;
 
+use std::collections::HashMap;
+
 use chrono::{Datelike, Timelike, Utc};
 use elements::padding::Padding;
 use fonts::Font;
@@ -301,21 +303,36 @@ impl Pdf {
 
             writer.pdfa_part(2);
             // ISO 19005 5.2-4
-            writer.pdfa_conformance("A");
+            writer.pdfa_conformance("U");
             writer.pdf_version("1.7");
 
             let finished = writer.finish(None);
+
             let id = self.alloc();
+            let icc_profile_ref = self.alloc();
             self.pdf.metadata(id, finished.as_bytes());
+            // This was the only ICC based color profile, that seemed to satisfy the MIT License,
+            // is an RGB profile and has Device Class = "mntr" set.
+            // The profile itself can be inspected with fq or ImHex
+            self.pdf
+                .icc_profile(icc_profile_ref, include_bytes!("../sRGB2014.icc"))
+                // ISO 32000 8.6.5.5
+                .n(3);
             let mut catalog = self.pdf.catalog(catalog_ref);
             catalog.metadata(id).pages(page_tree_ref);
-            // ISO 19005 6.7.3.3
-            // ISO 32000 14.7.2
-            // ISO 32000 14.8.4
-            // Simon:TODO: to what extent are we trying to represent the document structure here?
-            catalog.struct_tree_root();
             // ISO 19005 6.7.2.2
             catalog.mark_info().marked(true);
+            // ISO 32000 14.11.5
+            // ISO 19005 6.2.4.1
+            // ISO 19005 6.2.4.2
+            // ISO 19005 6.2.4.3
+            // ISO 19005 6.2.3
+            catalog
+                .output_intents()
+                .push()
+                .subtype(pdf_writer::types::OutputIntentSubtype::PDFA)
+                .dest_output_profile(icc_profile_ref)
+                .output_condition_identifier(TextStr("sRGB-v4-ICC"));
         } else {
             self.pdf.catalog(catalog_ref).pages(page_tree_ref);
         }

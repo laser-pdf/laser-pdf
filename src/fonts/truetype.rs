@@ -309,6 +309,12 @@ impl TruetypeFontState {
 
         // Write the CID font referencing the font descriptor.
         let mut cid = pdf.cid_font(cid_ref);
+
+        // ISO 19005 6.2.11.3.2
+        // ISO 32000 9.7.4 Table 117
+        // See CIDToGIDMap for explanation of the stream structure and why Identity is valid.
+        cid.cid_to_gid_map_predefined(Name(b"Identity"));
+
         cid.subtype(CidFontType::Type2);
         cid.base_font(Name(name.as_bytes()));
         cid.system_info(SystemInfo {
