@@ -80,6 +80,7 @@ define_serde_element_value!(ElementValue {
     AlignLocationBottom<ElementValue>,
     AlignPreferredHeightBottom<ElementValue>,
     ExpandToPreferredHeight<ElementValue>,
+    CenterInPreferredHeight<ElementValue>,
     ShrinkToFit<ElementValue>,
     Rotate<ElementValue>,
     MaxWidth<ElementValue>,
