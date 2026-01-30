@@ -326,8 +326,6 @@ impl Pdf {
                 .n(3);
             let mut catalog = self.pdf.catalog(catalog_ref);
             catalog.metadata(id).pages(page_tree_ref);
-            // ISO 19005 6.7.2.2
-            catalog.mark_info().marked(true);
             // ISO 32000 14.11.5
             // ISO 19005 6.2.3
             // ISO 19005 6.2.4.1
