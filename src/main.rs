@@ -5,9 +5,8 @@ use std::{
     rc::Rc,
 };
 
-use chrono::Utc;
 use laser_pdf::{
-    Identifier, Metadata, Pdf, TextPiecesCache,
+    Metadata, Pdf, TextPiecesCache,
     fonts::truetype::TruetypeFont,
     serde_elements::{ElementValue, SerdeElementElement},
 };
@@ -25,7 +24,7 @@ struct Input {
     title: String,
     keywords: Option<String>,
     lang: String,
-    producer: String,
+    producer: Option<String>,
     entries: Vec<Entry>,
 }
 
@@ -34,15 +33,12 @@ fn main() {
 
     let mut fonts: HashMap<PathBuf, Rc<TruetypeFont>> = HashMap::new();
 
-    let mut pdf = Pdf::new();
-
-    pdf.set_metadata(Metadata {
+    let mut pdf = Pdf::new(Metadata {
         title: input.title,
         language: input.lang,
         keywords: input.keywords,
         producer: input.producer,
-        creation_date: Utc::now(),
-        identifier: Identifier::new(),
+        ..Metadata::new()
     });
 
     let mut load_font = |path: &str| {

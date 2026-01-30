@@ -465,9 +465,9 @@ mod tests {
 
     #[test]
     fn test() {
-        const FONT: &[u8] = include_bytes!("Kenney Bold.ttf");
+        const FONT: &[u8] = include_bytes!("../../assets/fonts/Kenney Bold.ttf");
 
-        let mut pdf = Pdf::new();
+        let mut pdf = Pdf::new(Metadata::fixed());
 
         let font = TruetypeFont::new(&mut pdf, &FONT);
 
@@ -483,9 +483,9 @@ mod tests {
 
     #[test]
     fn test_trailing_space() {
-        const FONT: &[u8] = include_bytes!("Kenney Bold.ttf");
+        const FONT: &[u8] = include_bytes!("../../assets/fonts/Kenney Bold.ttf");
 
-        let mut pdf = Pdf::new();
+        let mut pdf = Pdf::new(Metadata::fixed());
 
         let font = TruetypeFont::new(&mut pdf, &FONT);
 

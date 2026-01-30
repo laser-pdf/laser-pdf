@@ -195,11 +195,13 @@ impl Font for BuiltinFont {
 
 #[cfg(test)]
 mod tests {
+    use crate::Metadata;
+
     use super::*;
 
     #[test]
     fn test_no_panic() {
-        let mut pdf = Pdf::new();
+        let mut pdf = Pdf::new(Metadata::fixed());
 
         BuiltinFont::courier(&mut pdf);
         BuiltinFont::courier_bold(&mut pdf);

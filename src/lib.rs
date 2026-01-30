@@ -7,8 +7,6 @@ pub mod test_utils;
 mod text;
 pub mod utils;
 
-use std::collections::HashMap;
-
 use chrono::{Datelike, Timelike, Utc};
 use elements::padding::Padding;
 use fonts::Font;
@@ -106,10 +104,34 @@ pub struct Metadata {
     // RFC 3306 compliant language identifier
     pub language: String,
     pub keywords: Option<String>,
-    pub producer: String,
+    pub producer: Option<String>,
     pub creation_date: chrono::DateTime<Utc>,
     // ISO 19005 6.6.5
     pub identifier: String,
+}
+
+impl Metadata {
+    pub fn new() -> Self {
+        Metadata {
+            title: "".to_string(),
+            language: "en".to_string(),
+            keywords: None,
+            producer: None,
+            creation_date: Utc::now(),
+            identifier: Uuid::new_v4().to_string(),
+        }
+    }
+
+    fn fixed() -> Self {
+        Metadata {
+            title: "".to_string(),
+            language: "en".to_string(),
+            keywords: None,
+            producer: None,
+            creation_date: chrono::DateTime::UNIX_EPOCH,
+            identifier: "00000000-0000-0000-0000-000000000000".to_string(),
+        }
+    }
 }
 
 pub struct Pdf {
@@ -117,25 +139,12 @@ pub struct Pdf {
     pub pdf: pdf_writer::Pdf,
     pub pages: Vec<Page>,
     pub fonts: Vec<Ref>,
-    pub metadata: Option<Metadata>,
+    pub metadata: Metadata,
     truetype_fonts: Vec<fonts::truetype::TruetypeFontState>,
 }
 
-pub struct Identifier {}
-
-impl Identifier {
-    pub fn new() -> String {
-        Uuid::new_v4().to_string()
-    }
-
-    // For testing
-    pub fn fixed() -> &'static str {
-        "00000000-0000-0000-0000-000000000000"
-    }
-}
-
 impl Pdf {
-    pub fn new() -> Self {
+    pub fn new(metadata: Metadata) -> Self {
         let pdf = pdf_writer::Pdf::new();
 
         Pdf {
@@ -143,19 +152,9 @@ impl Pdf {
             pdf,
             pages: Vec::new(),
             fonts: Vec::new(),
-            metadata: None,
+            metadata: metadata,
             truetype_fonts: Vec::new(),
         }
-    }
-
-    // ISO 19005 6.6.3
-    // It states in the PDF/A specificationsthat the fields of the
-    // document information dictionary (if present) must be consistent with the
-    // values in the document's metadata.
-    // Since we aim to support readers and interpreters as well, we should keep the
-    // document info. This method tries to ensure that the values are kept in sync.
-    pub fn set_metadata(&mut self, metadata: Metadata) -> () {
-        self.metadata = Some(metadata);
     }
 
     pub fn alloc(&mut self) -> Ref {
@@ -244,7 +243,7 @@ impl Pdf {
         let page_tree_ref = self.alloc();
 
         // Write document Info and metadata object
-        if let Some(metadata) = self.metadata.clone() {
+        {
             // The XMP writer is used to create the file metadata object.
             // The schema of it can be seen in ISO 19005 6.6.2.3.3
             // but it's also represented in the API of the xmp-writer crate.
@@ -253,53 +252,57 @@ impl Pdf {
             // ISO 32000 14.4
             // ISO 32000 7.5.5 Table 15
             // ISO 19005 6.1.3
-            let identifier: Vec<u8> = metadata.identifier.clone().into();
+            let identifier: Vec<u8> = self.metadata.identifier.clone().into();
             self.pdf.set_file_id((identifier.clone(), identifier));
 
             {
                 let id = self.alloc();
                 let mut document_info = self.pdf.document_info(id);
-                document_info.title(TextStr(metadata.title.clone().as_str()));
-                if let Some(ref keywords) = metadata.keywords {
+                document_info.title(TextStr(self.metadata.title.clone().as_str()));
+                if let Some(keywords) = &self.metadata.keywords {
                     document_info.keywords(TextStr(keywords));
                 }
-                document_info.producer(TextStr(&metadata.producer));
+                if let Some(producer) = &self.metadata.producer {
+                    document_info.producer(TextStr(producer));
+                }
                 document_info.creation_date(
-                    Date::new(metadata.creation_date.year() as u16)
-                        .month(metadata.creation_date.month() as u8)
-                        .day(metadata.creation_date.day() as u8)
-                        .hour(metadata.creation_date.hour() as u8)
-                        .minute(metadata.creation_date.minute() as u8)
-                        .second(metadata.creation_date.second() as u8),
+                    Date::new(self.metadata.creation_date.year() as u16)
+                        .month(self.metadata.creation_date.month() as u8)
+                        .day(self.metadata.creation_date.day() as u8)
+                        .hour(self.metadata.creation_date.hour() as u8)
+                        .minute(self.metadata.creation_date.minute() as u8)
+                        .second(self.metadata.creation_date.second() as u8),
                 );
             }
             writer.title([
                 (
-                    Some(LangId(&metadata.language.as_str())),
-                    metadata.title.as_str(),
+                    Some(LangId(&self.metadata.language.as_str())),
+                    self.metadata.title.as_str(),
                 ),
-                (None, metadata.title.as_str()),
+                (None, self.metadata.title.as_str()),
             ]);
 
-            writer.language([LangId(&metadata.language.as_str())]);
+            writer.language([LangId(&self.metadata.language.as_str())]);
 
-            if let Some(ref keywords) = metadata.keywords {
+            if let Some(ref keywords) = self.metadata.keywords {
                 writer.pdf_keywords(keywords);
             }
 
-            writer.producer(&metadata.producer);
+            if let Some(producer) = &self.metadata.producer {
+                writer.producer(producer);
+            }
 
             writer.create_date(DateTime::new(
-                metadata.creation_date.year() as u16,
-                metadata.creation_date.month() as u8,
-                metadata.creation_date.day() as u8,
-                metadata.creation_date.hour() as u8,
-                metadata.creation_date.minute() as u8,
-                metadata.creation_date.second() as u8,
+                self.metadata.creation_date.year() as u16,
+                self.metadata.creation_date.month() as u8,
+                self.metadata.creation_date.day() as u8,
+                self.metadata.creation_date.hour() as u8,
+                self.metadata.creation_date.minute() as u8,
+                self.metadata.creation_date.second() as u8,
                 Timezone::Utc,
             ));
 
-            writer.xmp_identifier([metadata.identifier.as_str()]);
+            writer.xmp_identifier([self.metadata.identifier.as_str()]);
 
             writer.pdfa_part(2);
             // ISO 19005 5.2-4
@@ -315,7 +318,10 @@ impl Pdf {
             // is an RGB profile and has Device Class = "mntr" set.
             // The profile itself can be inspected with fq or ImHex
             self.pdf
-                .icc_profile(icc_profile_ref, include_bytes!("../sRGB2014.icc"))
+                .icc_profile(
+                    icc_profile_ref,
+                    include_bytes!("../assets/icc_profiles/sRGB2014.icc"),
+                )
                 // ISO 32000 8.6.5.5
                 .n(3);
             let mut catalog = self.pdf.catalog(catalog_ref);
@@ -323,18 +329,16 @@ impl Pdf {
             // ISO 19005 6.7.2.2
             catalog.mark_info().marked(true);
             // ISO 32000 14.11.5
+            // ISO 19005 6.2.3
             // ISO 19005 6.2.4.1
             // ISO 19005 6.2.4.2
             // ISO 19005 6.2.4.3
-            // ISO 19005 6.2.3
             catalog
                 .output_intents()
                 .push()
                 .subtype(pdf_writer::types::OutputIntentSubtype::PDFA)
                 .dest_output_profile(icc_profile_ref)
                 .output_condition_identifier(TextStr("sRGB-v4-ICC"));
-        } else {
-            self.pdf.catalog(catalog_ref).pages(page_tree_ref);
         }
 
         for mut truetype_font in self.truetype_fonts {
