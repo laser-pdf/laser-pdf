@@ -320,7 +320,7 @@ impl Pdf {
             self.pdf
                 .icc_profile(
                     icc_profile_ref,
-                    include_bytes!("../assets/icc_profiles/sRGB2014.icc"),
+                    include_bytes!("../assets/icc_profiles/sRGB-v4.icc"),
                 )
                 // ISO 32000 8.6.5.5
                 .n(3);
