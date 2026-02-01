@@ -106,7 +106,7 @@ pub struct Metadata {
     pub keywords: Option<String>,
     pub producer: Option<String>,
     pub creation_date: chrono::DateTime<Utc>,
-    // ISO 19005 6.6.5
+    /// ISO 19005 6.6.5
     pub identifier: String,
 }
 
