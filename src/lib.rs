@@ -101,7 +101,7 @@ impl Page {
 #[derive(Clone)]
 pub struct Metadata {
     pub title: String,
-    // RFC 3306 compliant language identifier
+    /// RFC 3306 compliant language identifier
     pub language: String,
     pub keywords: Option<String>,
     pub producer: Option<String>,
