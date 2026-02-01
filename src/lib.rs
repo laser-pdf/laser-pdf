@@ -314,9 +314,6 @@ impl Pdf {
             let id = self.alloc();
             let icc_profile_ref = self.alloc();
             self.pdf.metadata(id, finished.as_bytes());
-            // This was the only ICC based color profile, that seemed to satisfy the MIT License,
-            // is an RGB profile and has Device Class = "mntr" set.
-            // The profile itself can be inspected with fq or ImHex
             self.pdf
                 .icc_profile(
                     icc_profile_ref,
@@ -336,7 +333,7 @@ impl Pdf {
                 .push()
                 .subtype(pdf_writer::types::OutputIntentSubtype::PDFA)
                 .dest_output_profile(icc_profile_ref)
-                .output_condition_identifier(TextStr("sRGB-v4-ICC"));
+                .output_condition_identifier(TextStr("sRGB-v4"));
         }
 
         for mut truetype_font in self.truetype_fonts {
