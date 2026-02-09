@@ -152,7 +152,7 @@ impl Pdf {
             pdf,
             pages: Vec::new(),
             fonts: Vec::new(),
-            metadata: metadata,
+            metadata,
             truetype_fonts: Vec::new(),
         }
     }
