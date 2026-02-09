@@ -311,10 +311,14 @@ mod tests {
     #[test]
     fn test_truetype() {
         let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
-            let regular =
-                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Future.ttf"));
-            let bold =
-                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+            let regular = TruetypeFont::new(
+                callback.pdf(),
+                include_bytes!("../../assets/fonts/Kenney Future.ttf"),
+            );
+            let bold = TruetypeFont::new(
+                callback.pdf(),
+                include_bytes!("../../assets/fonts/Kenney Bold.ttf"),
+            );
 
             let rich_text = RichText {
                 spans: [
@@ -400,10 +404,14 @@ mod tests {
         params.width.expand = false;
 
         let bytes = test_element_bytes(params, |mut callback| {
-            let regular =
-                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Future.ttf"));
-            let bold =
-                TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+            let regular = TruetypeFont::new(
+                callback.pdf(),
+                include_bytes!("../../assets/fonts/Kenney Future.ttf"),
+            );
+            let bold = TruetypeFont::new(
+                callback.pdf(),
+                include_bytes!("../../assets/fonts/Kenney Bold.ttf"),
+            );
 
             let rich_text = RichText {
                 spans: [
@@ -478,10 +486,14 @@ mod tests {
         let bytes = test_element_bytes(
             TestElementParams::breakable().no_expand(),
             |mut callback| {
-                let regular =
-                    TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Future.ttf"));
-                let bold =
-                    TruetypeFont::new(callback.pdf(), include_bytes!("../fonts/Kenney Bold.ttf"));
+                let regular = TruetypeFont::new(
+                    callback.pdf(),
+                    include_bytes!("../../assets/fonts/Kenney Future.ttf"),
+                );
+                let bold = TruetypeFont::new(
+                    callback.pdf(),
+                    include_bytes!("../../assets/fonts/Kenney Bold.ttf"),
+                );
 
                 let rich_text = RichText {
                     spans: [

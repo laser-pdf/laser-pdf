@@ -309,6 +309,12 @@ impl TruetypeFontState {
 
         // Write the CID font referencing the font descriptor.
         let mut cid = pdf.cid_font(cid_ref);
+
+        // ISO 19005 6.2.11.3.2
+        // ISO 32000 9.7.4 Table 117
+        // See CIDToGIDMap for explanation of the stream structure and why Identity is valid.
+        cid.cid_to_gid_map_predefined(Name(b"Identity"));
+
         cid.subtype(CidFontType::Type2);
         cid.base_font(Name(name.as_bytes()));
         cid.system_info(SystemInfo {
@@ -459,9 +465,9 @@ mod tests {
 
     #[test]
     fn test() {
-        const FONT: &[u8] = include_bytes!("Kenney Bold.ttf");
+        const FONT: &[u8] = include_bytes!("../../assets/fonts/Kenney Bold.ttf");
 
-        let mut pdf = Pdf::new();
+        let mut pdf = Pdf::new(Metadata::fixed());
 
         let font = TruetypeFont::new(&mut pdf, &FONT);
 
@@ -477,9 +483,9 @@ mod tests {
 
     #[test]
     fn test_trailing_space() {
-        const FONT: &[u8] = include_bytes!("Kenney Bold.ttf");
+        const FONT: &[u8] = include_bytes!("../../assets/fonts/Kenney Bold.ttf");
 
-        let mut pdf = Pdf::new();
+        let mut pdf = Pdf::new(Metadata::fixed());
 
         let font = TruetypeFont::new(&mut pdf, &FONT);
 

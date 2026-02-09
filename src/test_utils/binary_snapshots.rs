@@ -85,7 +85,7 @@ struct Doc {
 
 impl Doc {
     fn new(params: TestElementParams) -> Self {
-        let mut pdf = Pdf::new();
+        let mut pdf = Pdf::new(Metadata::fixed());
         pdf.add_page(params.page_size);
 
         Doc {

@@ -7,10 +7,13 @@ pub mod test_utils;
 mod text;
 pub mod utils;
 
+use chrono::{Datelike, Timelike, Utc};
 use elements::padding::Padding;
 use fonts::Font;
-use pdf_writer::{Content, Name, Rect, Ref};
+use pdf_writer::{Content, Date, Name, Rect, Ref, TextStr};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+use xmp_writer::{DateTime, LangId, Timezone, XmpWriter};
 
 pub use crate::text::TextPiecesCache;
 
@@ -94,16 +97,54 @@ impl Page {
     }
 }
 
+/// See ISO 19005 6.6.3 Table 7
+#[derive(Clone)]
+pub struct Metadata {
+    pub title: String,
+    /// RFC 3306 compliant language identifier
+    pub language: String,
+    pub keywords: Option<String>,
+    pub producer: Option<String>,
+    pub creation_date: chrono::DateTime<Utc>,
+    /// ISO 19005 6.6.5
+    pub identifier: String,
+}
+
+impl Metadata {
+    pub fn new() -> Self {
+        Metadata {
+            title: "".to_string(),
+            language: "en".to_string(),
+            keywords: None,
+            producer: None,
+            creation_date: Utc::now(),
+            identifier: Uuid::new_v4().to_string(),
+        }
+    }
+
+    fn fixed() -> Self {
+        Metadata {
+            title: "".to_string(),
+            language: "en".to_string(),
+            keywords: None,
+            producer: None,
+            creation_date: chrono::DateTime::UNIX_EPOCH,
+            identifier: "00000000-0000-0000-0000-000000000000".to_string(),
+        }
+    }
+}
+
 pub struct Pdf {
     pub alloc: Ref,
     pub pdf: pdf_writer::Pdf,
     pub pages: Vec<Page>,
     pub fonts: Vec<Ref>,
+    pub metadata: Metadata,
     truetype_fonts: Vec<fonts::truetype::TruetypeFontState>,
 }
 
 impl Pdf {
-    pub fn new() -> Self {
+    pub fn new(metadata: Metadata) -> Self {
         let pdf = pdf_writer::Pdf::new();
 
         Pdf {
@@ -111,6 +152,7 @@ impl Pdf {
             pdf,
             pages: Vec::new(),
             fonts: Vec::new(),
+            metadata,
             truetype_fonts: Vec::new(),
         }
     }
@@ -200,7 +242,99 @@ impl Pdf {
         let catalog_ref = self.alloc();
         let page_tree_ref = self.alloc();
 
-        self.pdf.catalog(catalog_ref).pages(page_tree_ref);
+        // Write document Info and metadata object
+        {
+            // The XMP writer is used to create the file metadata object.
+            // The schema of it can be seen in ISO 19005 6.6.2.3.3
+            // but it's also represented in the API of the xmp-writer crate.
+            let mut writer = XmpWriter::new();
+
+            // ISO 32000 14.4
+            // ISO 32000 7.5.5 Table 15
+            // ISO 19005 6.1.3
+            let identifier: Vec<u8> = self.metadata.identifier.clone().into();
+            self.pdf.set_file_id((identifier.clone(), identifier));
+
+            {
+                let id = self.alloc();
+                let mut document_info = self.pdf.document_info(id);
+                document_info.title(TextStr(self.metadata.title.clone().as_str()));
+                if let Some(keywords) = &self.metadata.keywords {
+                    document_info.keywords(TextStr(keywords));
+                }
+                if let Some(producer) = &self.metadata.producer {
+                    document_info.producer(TextStr(producer));
+                }
+                document_info.creation_date(
+                    Date::new(self.metadata.creation_date.year() as u16)
+                        .month(self.metadata.creation_date.month() as u8)
+                        .day(self.metadata.creation_date.day() as u8)
+                        .hour(self.metadata.creation_date.hour() as u8)
+                        .minute(self.metadata.creation_date.minute() as u8)
+                        .second(self.metadata.creation_date.second() as u8),
+                );
+            }
+            writer.title([
+                (
+                    Some(LangId(&self.metadata.language.as_str())),
+                    self.metadata.title.as_str(),
+                ),
+                (None, self.metadata.title.as_str()),
+            ]);
+
+            writer.language([LangId(&self.metadata.language.as_str())]);
+
+            if let Some(ref keywords) = self.metadata.keywords {
+                writer.pdf_keywords(keywords);
+            }
+
+            if let Some(producer) = &self.metadata.producer {
+                writer.producer(producer);
+            }
+
+            writer.create_date(DateTime::new(
+                self.metadata.creation_date.year() as u16,
+                self.metadata.creation_date.month() as u8,
+                self.metadata.creation_date.day() as u8,
+                self.metadata.creation_date.hour() as u8,
+                self.metadata.creation_date.minute() as u8,
+                self.metadata.creation_date.second() as u8,
+                Timezone::Utc,
+            ));
+
+            writer.xmp_identifier([self.metadata.identifier.as_str()]);
+
+            writer.pdfa_part(2);
+            // ISO 19005 5.2-4
+            writer.pdfa_conformance("U");
+            writer.pdf_version("1.7");
+
+            let finished = writer.finish(None);
+
+            let id = self.alloc();
+            let icc_profile_ref = self.alloc();
+            self.pdf.metadata(id, finished.as_bytes());
+            self.pdf
+                .icc_profile(
+                    icc_profile_ref,
+                    include_bytes!("../assets/icc_profiles/sRGB-v4.icc"),
+                )
+                // ISO 32000 8.6.5.5
+                .n(3);
+            let mut catalog = self.pdf.catalog(catalog_ref);
+            catalog.metadata(id).pages(page_tree_ref);
+            // ISO 32000 14.11.5
+            // ISO 19005 6.2.3
+            // ISO 19005 6.2.4.1
+            // ISO 19005 6.2.4.2
+            // ISO 19005 6.2.4.3
+            catalog
+                .output_intents()
+                .push()
+                .subtype(pdf_writer::types::OutputIntentSubtype::PDFA)
+                .dest_output_profile(icc_profile_ref)
+                .output_condition_identifier(TextStr("sRGB-v4"));
+        }
 
         for mut truetype_font in self.truetype_fonts {
             truetype_font.finish(&mut self.pdf, &mut self.alloc);

@@ -6,11 +6,10 @@ use std::{
 };
 
 use laser_pdf::{
-    Pdf, TextPiecesCache,
+    Metadata, Pdf, TextPiecesCache,
     fonts::truetype::TruetypeFont,
     serde_elements::{ElementValue, SerdeElementElement},
 };
-use pdf_writer::TextStr;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -24,6 +23,8 @@ struct Entry {
 struct Input {
     title: String,
     keywords: Option<String>,
+    lang: String,
+    producer: Option<String>,
     entries: Vec<Entry>,
 }
 
@@ -32,17 +33,13 @@ fn main() {
 
     let mut fonts: HashMap<PathBuf, Rc<TruetypeFont>> = HashMap::new();
 
-    let mut pdf = Pdf::new();
-
-    {
-        let id = pdf.alloc();
-        let mut document_info = pdf.pdf.document_info(id);
-        document_info.title(TextStr(&input.title));
-
-        if let Some(ref keywords) = input.keywords {
-            document_info.keywords(TextStr(keywords));
-        }
-    }
+    let mut pdf = Pdf::new(Metadata {
+        title: input.title,
+        language: input.lang,
+        keywords: input.keywords,
+        producer: input.producer,
+        ..Metadata::new()
+    });
 
     let mut load_font = |path: &str| {
         let path = std::fs::canonicalize(path).unwrap();

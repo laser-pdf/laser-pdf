@@ -11,7 +11,11 @@ use laser_pdf::*;
 
 fn main() -> std::io::Result<()> {
     // Create a PDF document
-    let mut pdf = Pdf::new();
+    let mut pdf = Pdf::new(Metadata {
+        title: "Document Title".to_string(),
+        language: "en".to_string(),
+        ..Metadata::new()
+    });
 
     // Create fonts
     let font = BuiltinFont::helvetica(&mut pdf);
@@ -69,7 +73,7 @@ Layouts are built by composing elements. Elements interact through the
 operations are possible on an element:
 
 **`measure`:** This returns the size an element would use with the given constraint. This includes the
-number of breaks the element would perform (if in a breakable context). 
+number of breaks the element would perform (if in a breakable context).
 
 **`first_location_usage`:** This is a more specialized version of measure that is used for example
 to determine whether a title that belongs to the element should be pulled to the next page because
@@ -92,7 +96,7 @@ because those can determine their own width and that can influence how other ele
 layed out. Other children are not measured before drawing unless the `expand` option is used, which
 for example makes it possible to align elements at the bottom of the whole row.
 
-The measure operation on most elements avoids doing any memory allocation at all.  The `Text`
+The measure operation on most elements avoids doing any memory allocation at all. The `Text`
 element is the exception to this. It allocates memory during shaping and unicode segmentation. A
 cache is used to ensure that shaping and segmentation only happens once for each piece of text
 (including the string, font, size, color, etc.). This means that a text element will only allocate

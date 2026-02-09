@@ -261,7 +261,7 @@ fn draw_element<E: Element>(
 ) -> DrawStats {
     let mut page_idx = 0;
 
-    let mut pdf = Pdf::new();
+    let mut pdf = Pdf::new(Metadata::fixed());
     pdf.add_page(page_size);
 
     let text_pieces_cache = TextPiecesCache::new();

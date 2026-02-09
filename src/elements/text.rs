@@ -85,7 +85,7 @@ mod tests {
 
     use super::*;
 
-    const FONT: &[u8] = include_bytes!("../fonts/Kenney Bold.ttf");
+    const FONT: &[u8] = include_bytes!("../../assets/fonts/Kenney Bold.ttf");
 
     #[test]
     fn test_multi_page() {
