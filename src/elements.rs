@@ -13,6 +13,7 @@ pub mod force_break;
 pub mod h_align;
 pub mod image;
 pub mod line;
+pub mod link;
 pub mod max_width;
 pub mod min_first_height;
 pub mod none;

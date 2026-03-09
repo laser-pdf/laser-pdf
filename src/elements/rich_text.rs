@@ -29,6 +29,8 @@ pub struct Span<'a, F> {
     pub extra_word_spacing: f32,
     /// Additional line height
     pub extra_line_height: f32,
+    /// Link to be added as a link annotation
+    pub link: Option<LinkTarget<'a>>,
 }
 
 impl<'a, F> Span<'a, F> {
@@ -42,6 +44,7 @@ impl<'a, F> Span<'a, F> {
             extra_character_spacing: 0.,
             extra_word_spacing: 0.,
             extra_line_height: 0.,
+            link: None,
         }
     }
 }
@@ -58,6 +61,7 @@ impl<'a, F> Clone for Span<'a, F> {
             extra_character_spacing: self.extra_character_spacing.clone(),
             extra_word_spacing: self.extra_word_spacing.clone(),
             extra_line_height: self.extra_line_height.clone(),
+            link: self.link,
         }
     }
 }
@@ -224,11 +228,19 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
 
             let x = x + x_offset;
 
+            let start_pos_pt = (mm_to_pt(x), y);
+
             y -= height_above_baseline;
 
-            layer.set_text_matrix([1.0, 0.0, 0.0, 1.0, mm_to_pt(x), y]);
+            layer.set_text_matrix([1.0, 0.0, 0.0, 1.0, start_pos_pt.0, y]);
 
-            draw_line(ctx.pdf, &ctx.location, line);
+            draw_line(
+                ctx.pdf,
+                &ctx.location,
+                start_pos_pt,
+                height_above_baseline + height_below_baseline,
+                line,
+            );
 
             y -= height_below_baseline;
             height_available -= line_height;
@@ -308,6 +320,7 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
                 span.extra_character_spacing,
                 span.extra_word_spacing,
                 mm_to_pt(span.extra_line_height),
+                span.link,
             );
 
             pieces.into_iter().map(move |p| (span.font, p))
@@ -614,6 +627,74 @@ mod tests {
                 callback.call(&list);
             },
         );
+        assert_binary_snapshot!(".pdf", bytes);
+    }
+
+    #[test]
+    fn test_truetype_link() {
+        let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
+            let regular = TruetypeFont::new(
+                callback.pdf(),
+                include_bytes!("../../assets/fonts/Kenney Future.ttf"),
+            );
+            let bold = TruetypeFont::new(
+                callback.pdf(),
+                include_bytes!("../../assets/fonts/Kenney Bold.ttf"),
+            );
+
+            let rich_text = RichText {
+                spans: [
+                    Span::new("They ", &regular, 12.),
+                    Span {
+                        color: 0x00_FF_00_FF,
+                        ..Span::new("are ", &bold, 12.)
+                    },
+                    Span {
+                        color: 0x00_00_FF_FF,
+                        link: Some(LinkTarget::Uri("https://github.com/laser-pdf/laser-pdf")),
+                        ..Span::new("here, here", &bold, 12.)
+                    },
+                    Span {
+                        ..Span::new(" and ", &bold, 12.)
+                    },
+                    Span {
+                        color: 0x00_00_FF_FF,
+                        link: Some(LinkTarget::Uri("https://github.com/laser-pdf/laser-pdf")),
+                        ..Span::new("here!", &bold, 12.)
+                    },
+                ]
+                .into_iter(),
+                align: TextAlign::Left,
+            };
+
+            let list = Column {
+                gap: 16.,
+                collapse: false,
+                content: |content: ColumnContent| {
+                    content
+                        .add(&RefElement(&rich_text).debug(0))?
+                        .add(&Padding::right(
+                            140.,
+                            RefElement(&rich_text).debug(1).show_max_width(),
+                        ))?
+                        .add(&Padding::right(
+                            160.,
+                            RefElement(&rich_text).debug(2).show_max_width(),
+                        ))?
+                        .add(&Padding::right(
+                            180.,
+                            RefElement(&rich_text).debug(3).show_max_width(),
+                        ))?
+                        .add(&Padding::right(
+                            194.,
+                            RefElement(&rich_text).debug(4).show_max_width(),
+                        ))?;
+                    None
+                },
+            };
+
+            callback.call(&list);
+        });
         assert_binary_snapshot!(".pdf", bytes);
     }
 }

@@ -73,12 +73,19 @@ pub struct LineStyle {
     pub cap_style: LineCapStyle,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum LinkTarget<'a> {
+    Uri(&'a str),
+}
+
 pub struct Layer {
     pub content: Content,
     pub graphics_state_restore_required: bool,
 }
 
 pub struct Page {
+    pub annotations: Vec<Ref>,
     pub ext_g_states: Vec<Ref>, // all objects must be indirect for now
     pub x_objects: Vec<Ref>,
     pub layers: Vec<Layer>,
@@ -165,6 +172,7 @@ impl Pdf {
         self.pages.push(Page {
             ext_g_states: Vec::new(),
             x_objects: Vec::new(),
+            annotations: Vec::new(),
             layers: vec![Layer {
                 content: Content::new(),
                 graphics_state_restore_required: false,
@@ -369,6 +377,10 @@ impl Pdf {
                         .iter()
                         .scan(self.alloc, |state, _| Some(state.bump())),
                 );
+
+            if !page.annotations.is_empty() {
+                page_writer.annotations(page.annotations);
+            }
 
             let mut resources = page_writer.resources();
 

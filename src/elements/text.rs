@@ -26,6 +26,8 @@ pub struct Text<'a, F: Font> {
     pub extra_line_height: f32,
     /// Text alignment
     pub align: TextAlign,
+    /// Link to be added as a link annotation
+    pub link: Option<LinkTarget<'a>>,
 }
 
 impl<'a, F: Font> Text<'a, F> {
@@ -40,6 +42,7 @@ impl<'a, F: Font> Text<'a, F> {
             extra_word_spacing: 0.,
             extra_line_height: 0.,
             align: TextAlign::Left,
+            link: None,
         }
     }
 
@@ -54,6 +57,7 @@ impl<'a, F: Font> Text<'a, F> {
                 extra_character_spacing: self.extra_character_spacing,
                 extra_word_spacing: self.extra_word_spacing,
                 extra_line_height: self.extra_line_height, // TODO: thread this through to the pieces
+                link: self.link,
             }),
             align: self.align,
         }
