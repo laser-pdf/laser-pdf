@@ -31,6 +31,21 @@ pub struct Span<'a, F> {
     pub extra_line_height: f32,
 }
 
+impl<'a, F> Span<'a, F> {
+    pub fn new(text: &'a str, font: &'a F, size: f32) -> Self {
+        Span {
+            text,
+            font,
+            size,
+            color: 0x00_00_00_ff,
+            underline: false,
+            extra_character_spacing: 0.,
+            extra_word_spacing: 0.,
+            extra_line_height: 0.,
+        }
+    }
+}
+
 // This is a manual impl because we don't need the `F: Clone` constraint.
 impl<'a, F> Clone for Span<'a, F> {
     fn clone(&self) -> Self {
@@ -58,6 +73,15 @@ impl<'a, F> Clone for Span<'a, F> {
 pub struct RichText<S> {
     pub spans: S,
     pub align: TextAlign,
+}
+
+impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
+    pub fn new(spans: impl IntoIterator<IntoIter = S>) -> Self {
+        RichText {
+            spans: spans.into_iter(),
+            align: TextAlign::Left,
+        }
+    }
 }
 
 impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> Element for RichText<S> {
@@ -322,45 +346,18 @@ mod tests {
 
             let rich_text = RichText {
                 spans: [
+                    Span::new("Where are ", &regular, 12.),
                     Span {
-                        text: "Where are ",
-                        font: &regular,
-                        size: 12.,
-                        underline: false,
-                        color: 0x00_00_00_FF,
-                        extra_character_spacing: 0.,
-                        extra_word_spacing: 0.,
-                        extra_line_height: 0.,
-                    },
-                    Span {
-                        text: "they",
-                        font: &bold,
-                        size: 12.,
-                        underline: false,
                         color: 0x00_00_FF_FF,
-                        extra_character_spacing: 0.,
-                        extra_word_spacing: 0.,
-                        extra_line_height: 0.,
+                        ..Span::new("they", &bold, 12.)
                     },
                     Span {
-                        text: "\n",
-                        font: &bold,
-                        size: 12.,
-                        underline: false,
                         color: 0x00_00_FF_FF,
-                        extra_character_spacing: 0.,
-                        extra_word_spacing: 0.,
-                        extra_line_height: 0.,
+                        ..Span::new("\n", &bold, 12.)
                     },
                     Span {
-                        text: "at?",
-                        font: &regular,
-                        size: 12.,
-                        underline: false,
                         color: 0xFF_00_00_FF,
-                        extra_character_spacing: 0.,
-                        extra_word_spacing: 0.,
-                        extra_line_height: 0.,
+                        ..Span::new("at?", &regular, 12.)
                     },
                 ]
                 .into_iter(),
@@ -415,35 +412,14 @@ mod tests {
 
             let rich_text = RichText {
                 spans: [
+                    Span::new("Where are ", &regular, 12.),
                     Span {
-                        text: "Where are ",
-                        font: &regular,
-                        size: 12.,
-                        underline: false,
-                        color: 0x00_00_00_FF,
-                        extra_character_spacing: 0.,
-                        extra_word_spacing: 0.,
-                        extra_line_height: 0.,
-                    },
-                    Span {
-                        text: "they ",
-                        font: &bold,
-                        size: 12.,
-                        underline: false,
                         color: 0x00_FF_00_FF,
-                        extra_character_spacing: 0.,
-                        extra_word_spacing: 0.,
-                        extra_line_height: 0.,
+                        ..Span::new("they ", &bold, 12.)
                     },
                     Span {
-                        text: "at?        ",
-                        font: &regular,
-                        size: 12.,
-                        underline: false,
                         color: 0xFF_00_00_FF,
-                        extra_character_spacing: 0.,
-                        extra_word_spacing: 0.,
-                        extra_line_height: 0.,
+                        ..Span::new("at?        ", &regular, 12.)
                     },
                 ]
                 .into_iter(),
@@ -497,45 +473,18 @@ mod tests {
 
                 let rich_text = RichText {
                     spans: [
+                        Span::new("Where are ", &regular, 12.),
                         Span {
-                            text: "Where are ",
-                            font: &regular,
-                            size: 12.,
-                            underline: false,
-                            color: 0x00_00_00_FF,
-                            extra_character_spacing: 0.,
-                            extra_word_spacing: 0.,
-                            extra_line_height: 0.,
-                        },
-                        Span {
-                            text: "they ",
-                            font: &bold,
-                            size: 4.,
-                            underline: false,
                             color: 0x00_00_FF_FF,
-                            extra_character_spacing: 0.,
-                            extra_word_spacing: 0.,
-                            extra_line_height: 0.,
+                            ..Span::new("they ", &bold, 4.)
                         },
                         Span {
-                            text: "they",
-                            font: &regular,
-                            size: 4.,
-                            underline: false,
                             color: 0x00_FF_FF_FF,
-                            extra_character_spacing: 0.,
-                            extra_word_spacing: 0.,
-                            extra_line_height: 0.,
+                            ..Span::new("they", &regular, 4.)
                         },
                         Span {
-                            text: " at?",
-                            font: &regular,
-                            size: 12.,
-                            underline: false,
                             color: 0xFF_FF_00_FF,
-                            extra_character_spacing: 0.,
-                            extra_word_spacing: 0.,
-                            extra_line_height: 0.,
+                            ..Span::new(" at?", &regular, 12.)
                         },
                     ]
                     .into_iter(),
@@ -584,45 +533,18 @@ mod tests {
 
                 let rich_text = RichText {
                     spans: [
+                        Span::new("Where are ", &regular, 12.),
                         Span {
-                            text: "Where are ",
-                            font: &regular,
-                            underline: false,
-                            color: 0x00_00_00_FF,
-                            size: 12.,
-                            extra_character_spacing: 0.,
-                            extra_word_spacing: 0.,
-                            extra_line_height: 0.,
-                        },
-                        Span {
-                            text: "they ",
-                            font: &bold,
-                            underline: false,
                             color: 0x00_00_FF_FF,
-                            size: 4.,
-                            extra_character_spacing: 0.,
-                            extra_word_spacing: 0.,
-                            extra_line_height: 0.,
+                            ..Span::new("they ", &bold, 4.)
                         },
                         Span {
-                            text: "they",
-                            font: &regular,
-                            underline: false,
                             color: 0x00_FF_FF_FF,
-                            size: 4.,
-                            extra_character_spacing: 0.,
-                            extra_word_spacing: 0.,
-                            extra_line_height: 0.,
+                            ..Span::new("they", &regular, 4.)
                         },
                         Span {
-                            text: " at?",
-                            font: &regular,
-                            underline: false,
                             color: 0xFF_FF_00_FF,
-                            size: 12.,
-                            extra_character_spacing: 0.,
-                            extra_word_spacing: 0.,
-                            extra_line_height: 0.,
+                            ..Span::new(" at?", &regular, 12.)
                         },
                     ]
                     .into_iter(),

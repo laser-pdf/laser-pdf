@@ -638,6 +638,19 @@ pub trait Element {
         }
     }
 
+    fn with_padding_bottom(self, padding: f32) -> Padding<Self>
+    where
+        Self: Sized,
+    {
+        Padding {
+            left: 0.,
+            right: 0.,
+            top: 0.,
+            bottom: padding,
+            element: self,
+        }
+    }
+
     fn with_vertical_padding(self, padding: f32) -> Padding<Self>
     where
         Self: Sized,
@@ -647,6 +660,45 @@ pub trait Element {
             right: 0.,
             top: padding,
             bottom: padding,
+            element: self,
+        }
+    }
+
+    fn with_padding_left(self, padding: f32) -> Padding<Self>
+    where
+        Self: Sized,
+    {
+        Padding {
+            left: padding,
+            right: 0.,
+            top: 0.,
+            bottom: 0.,
+            element: self,
+        }
+    }
+
+    fn with_padding_right(self, padding: f32) -> Padding<Self>
+    where
+        Self: Sized,
+    {
+        Padding {
+            left: 0.,
+            right: padding,
+            top: 0.,
+            bottom: 0.,
+            element: self,
+        }
+    }
+
+    fn with_horizontal_padding(self, padding: f32) -> Padding<Self>
+    where
+        Self: Sized,
+    {
+        Padding {
+            left: padding,
+            right: padding,
+            top: 0.,
+            bottom: 0.,
             element: self,
         }
     }
