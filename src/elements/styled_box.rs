@@ -637,8 +637,8 @@ mod tests {
                 &StyledBox {
                     fill: Some(0x00_00_FF_FF),
                     ..StyledBox::new(Row::new(|content| {
-                        content.add(&Text::basic(text_a, &font, 24.), Flex::Expand(1));
-                        content.add(&Text::basic(text_b, &font, 24.), Flex::Expand(1));
+                        content.add(&Text::new(text_a, &font, 24.), Flex::Expand(1));
+                        content.add(&Text::new(text_b, &font, 24.), Flex::Expand(1));
                     }))
                 }
                 .debug(0)

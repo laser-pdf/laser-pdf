@@ -57,7 +57,7 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
                 let element = MaxWidth {
-                    element: Text::basic("Abcd Abcd Abcd", &font, 12.).debug(1),
+                    element: Text::new("Abcd Abcd Abcd", &font, 12.).debug(1),
                     max_width: 12.,
                 };
 

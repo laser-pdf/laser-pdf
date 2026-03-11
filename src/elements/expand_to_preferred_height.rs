@@ -103,7 +103,7 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
 
-                let content = Text::basic(LOREM_IPSUM, &font, 32.);
+                let content = Text::new(LOREM_IPSUM, &font, 32.);
                 let content = content.debug(1);
 
                 callback.call(&ExpandToPreferredHeight(content).debug(0));
@@ -126,7 +126,7 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
 
-                let content = Text::basic(LOREM_IPSUM, &font, 12.);
+                let content = Text::new(LOREM_IPSUM, &font, 12.);
                 let content = content.debug(1);
 
                 callback.call(&ExpandToPreferredHeight(content).debug(0));
