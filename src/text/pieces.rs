@@ -60,6 +60,7 @@ impl<'a> std::hash::Hash for TextPiecesCacheKey<'a> {
 /// [crate::elements::text::Text] and [crate::elements::rich_text::RichText] elements. Currently
 /// only [Self::new] is public for API stability reasons.
 pub struct TextPiecesCache {
+    pub break_piece: Piece,
     line_segmenter: icu_segmenter::LineSegmenter,
     line_break_map:
         icu_properties::maps::CodePointMapDataBorrowed<'static, icu_properties::LineBreak>,
@@ -74,6 +75,7 @@ impl TextPiecesCache {
             line_break_map: icu_properties::maps::line_break(),
             cache: FrozenMap::new(),
             shape_buffer: Cell::new(Vec::new()),
+            break_piece: Piece::break_piece(),
         }
     }
 
@@ -153,6 +155,7 @@ impl TextPiecesCache {
     }
 }
 
+#[derive(Debug)]
 pub struct Piece {
     pub text: String,
     pub shaped: Vec<(Option<usize>, ShapedGlyph)>,
@@ -193,6 +196,28 @@ pub struct Pieces<'a, 'b, 'c, F> {
     color: u32,
     extra_line_height: f32,
     line_break_map: &'a icu_properties::maps::CodePointMapDataBorrowed<'static, LineBreak>,
+}
+
+impl Piece {
+    /// Intended to replace a newline character for the font shaping.
+    /// If newline characters get subset by another font and the subset character has different dimensions
+    /// the height of the whole line can be different without any visible reason.
+    pub(crate) fn break_piece() -> Piece {
+        Piece {
+            text: "".to_string(),
+            color: 0x00_00_00_FF,
+            empty: true,
+            glyph_count: 0,
+            mandatory_break_after: true,
+            height_above_baseline: 0.,
+            height_below_baseline: 0.,
+            shaped: vec![],
+            size: 0.,
+            trailing_hyphen: None,
+            trailing_whitespace_width: 0.,
+            width: None,
+        }
+    }
 }
 
 impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
