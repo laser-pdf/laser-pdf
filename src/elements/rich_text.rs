@@ -300,10 +300,6 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
         'a: 'b,
     {
         let pieces = self.spans.clone().flat_map(move |span| {
-            // In some fonts where the newline character does not exist
-            // it gets subset with the newline character from another font which leads to
-            // different line heights.
-
             span.text
                 .split("\n")
                 .enumerate()
