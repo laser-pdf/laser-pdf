@@ -274,13 +274,7 @@ impl Pdf {
                         .second(self.metadata.creation_date.second() as u8),
                 );
             }
-            writer.title([
-                (
-                    Some(LangId(&self.metadata.language.as_str())),
-                    self.metadata.title.as_str(),
-                ),
-                (None, self.metadata.title.as_str()),
-            ]);
+            writer.title([(None, self.metadata.title.as_str())]);
 
             writer.language([LangId(&self.metadata.language.as_str())]);
 
