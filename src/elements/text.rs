@@ -29,7 +29,7 @@ pub struct Text<'a, F: Font> {
 }
 
 impl<'a, F: Font> Text<'a, F> {
-    pub fn basic(text: &'a str, font: &'a F, size: f32) -> Self {
+    pub fn new(text: &'a str, font: &'a F, size: f32) -> Self {
         Text {
             text,
             font,
@@ -92,7 +92,7 @@ mod tests {
         let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
             let font = BuiltinFont::courier(callback.pdf());
 
-            let content = Text::basic(LOREM_IPSUM, &font, 32.);
+            let content = Text::new(LOREM_IPSUM, &font, 32.);
             let content = content.debug(0);
 
             callback.call(&content);
@@ -105,7 +105,7 @@ mod tests {
         let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
             let font = TruetypeFont::new(callback.pdf(), FONT);
 
-            let content = Text::basic(LOREM_IPSUM, &font, 32.);
+            let content = Text::new(LOREM_IPSUM, &font, 32.);
             let content = content.debug(0);
 
             callback.call(&content);
@@ -121,7 +121,7 @@ mod tests {
         let bytes = test_element_bytes(params, |mut callback| {
             let font = TruetypeFont::new(callback.pdf(), FONT);
 
-            let content = Text::basic("Whitespace ", &font, 32.);
+            let content = Text::new("Whitespace ", &font, 32.);
             let content = content.debug(0);
 
             callback.call(&content);
@@ -141,22 +141,22 @@ mod tests {
                 gap: 12.,
                 collapse: false,
                 content: |content| {
-                    let normal = Text::basic("Hello, World", &font, 32.);
+                    let normal = Text::new("Hello, World", &font, 32.);
 
                     let character_spacing = Text {
                         extra_character_spacing: 16.,
-                        ..Text::basic("Hello, World", &font, 32.)
+                        ..Text::new("Hello, World", &font, 32.)
                     };
 
                     let word_spacing = Text {
                         extra_word_spacing: 16.,
-                        ..Text::basic("Hello, World", &font, 32.)
+                        ..Text::new("Hello, World", &font, 32.)
                     };
 
                     let both = Text {
                         extra_character_spacing: 16.,
                         extra_word_spacing: 16.,
-                        ..Text::basic("Hello, World", &font, 32.)
+                        ..Text::new("Hello, World", &font, 32.)
                     };
 
                     content
@@ -184,10 +184,10 @@ mod tests {
                 gap: 12.,
                 collapse: false,
                 content: |content| {
-                    let a = Text::basic("Hello\u{00AD}Wrld", &font, 32.);
-                    let b = Text::basic("A Hello\u{00AD}Wrld", &font, 32.);
-                    let c = Text::basic("A\u{00A0}Hello\u{00AD}Wrld", &font, 32.);
-                    let d = Text::basic("Hello\u{00AD}Wrld\u{00AD}", &font, 32.);
+                    let a = Text::new("Hello\u{00AD}Wrld", &font, 32.);
+                    let b = Text::new("A Hello\u{00AD}Wrld", &font, 32.);
+                    let c = Text::new("A\u{00A0}Hello\u{00AD}Wrld", &font, 32.);
+                    let d = Text::new("Hello\u{00AD}Wrld\u{00AD}", &font, 32.);
 
                     content
                         .add(&Padding::right(100., a.debug(0).show_max_width()))?

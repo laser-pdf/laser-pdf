@@ -308,10 +308,10 @@ mod tests {
         let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
             let font = BuiltinFont::courier(callback.pdf());
 
-            let content = Text::basic(LOREM_IPSUM, &font, 32.);
+            let content = Text::new(LOREM_IPSUM, &font, 32.);
             let content = content.debug(1);
 
-            let bottom = Text::basic("bottom", &font, 12.);
+            let bottom = Text::new("bottom", &font, 12.);
             let bottom = bottom.debug(2);
 
             callback.call(
@@ -335,7 +335,7 @@ mod tests {
             let content = NoneElement;
             let content = content.debug(1);
 
-            let bottom = Text::basic("bottom", &font, 12.);
+            let bottom = Text::new("bottom", &font, 12.);
             let bottom = bottom.debug(2);
 
             callback.call(
@@ -359,7 +359,7 @@ mod tests {
             let content = NoneElement;
             let content = content.debug(1);
 
-            let bottom = Text::basic("bottom", &font, 12.);
+            let bottom = Text::new("bottom", &font, 12.);
             let bottom = bottom.debug(2);
 
             callback.call(
@@ -388,7 +388,7 @@ mod tests {
                 let content = NoneElement;
                 let content = content.debug(1);
 
-                let bottom = Text::basic("bottom", &font, 12.);
+                let bottom = Text::new("bottom", &font, 12.);
                 let bottom = bottom.debug(2);
 
                 callback.call(
@@ -419,7 +419,7 @@ mod tests {
             };
             let content = content.debug(1);
 
-            let bottom = Text::basic("bottom", &font, 12.);
+            let bottom = Text::new("bottom", &font, 12.);
             let bottom = bottom.debug(2);
 
             callback.call(
@@ -449,7 +449,7 @@ mod tests {
             };
             let content = content.debug(1);
 
-            let bottom = Text::basic("bottom", &font, 12.);
+            let bottom = Text::new("bottom", &font, 12.);
             let bottom = bottom.debug(2);
 
             callback.call(
@@ -474,13 +474,13 @@ mod tests {
             },
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
-                let title = Text::basic("title", &font, 12.);
+                let title = Text::new("title", &font, 12.);
                 let title = title.debug(1);
 
-                let content = Text::basic("content", &font, 32.);
+                let content = Text::new("content", &font, 32.);
                 let content = content.debug(3);
 
-                let bottom = Text::basic("bottom", &font, 12.);
+                let bottom = Text::new("bottom", &font, 12.);
                 let bottom = bottom.debug(4);
 
                 let repeat_bottom = RepeatBottom {
