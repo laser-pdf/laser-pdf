@@ -21,8 +21,8 @@ fn main() -> std::io::Result<()> {
     let font = BuiltinFont::helvetica(&mut pdf);
 
     // Build elements
-    let title = Text::basic("Document Title", &font, 16.0);
-    let body = Text::basic("This is the document body content.", &font, 12.0);
+    let title = Text::new("Document Title", &font, 16.0);
+    let body = Text::new("This is the document body content.", &font, 12.0);
 
     // Compose layout
     let content = Column {

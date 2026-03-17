@@ -524,9 +524,6 @@ mod tests {
         use insta::*;
 
         let bytes = test_element_bytes(TestElementParams::breakable(), |callback| {
-            // let font = BuiltinFont::courier(callback.document());
-
-            // // let first = Text::basic("test", &font, 12.);
             let first = Rectangle {
                 size: (12., 12.),
                 fill: Some(0x00_00_77_FF),
