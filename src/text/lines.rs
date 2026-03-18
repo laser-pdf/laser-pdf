@@ -333,7 +333,7 @@ mod tests {
         assert_eq!(
             lines,
             [
-                ("\n".into(), 0.),
+                ("".into(), 0.),
                 ("the ".into(), 3.),
                 ("the ".into(), 3.),
                 ("the".into(), 3.),
@@ -364,9 +364,9 @@ mod tests {
         assert_eq!(
             lines,
             [
-                ("Id impedit quo \n".into(), 14.),
+                ("Id impedit quo ".into(), 14.),
                 // It seems unclear what the intent would be in such a case.
-                ("quaerat enimmmmm    \n".into(), 16.),
+                ("quaerat enimmmmm    ".into(), 16.),
                 ("amet.".into(), 5.),
             ]
         )
@@ -377,7 +377,7 @@ mod tests {
         let text = "\n";
         let lines = lines(text, 16.);
 
-        assert_eq!(lines, [("\n".into(), 0.), ("".into(), 0.)]);
+        assert_eq!(lines, [("".into(), 0.), ("".into(), 0.)]);
     }
 
     #[test]

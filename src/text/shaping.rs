@@ -2,6 +2,11 @@ use itertools::Itertools;
 
 use crate::fonts::{Font, ShapedGlyph};
 
+/// The text passed into that method should not contain a newline character.
+/// When fonts are being used which don't contain the newline character (Calibri as it seems does not),
+/// the newline character is being subset by the next font where it can get another size.
+/// This results in lines with just one visible font, but differing line heights
+/// depending if a newline character is present in a line.
 pub fn shape<'a, F: Font>(
     font: &'a F,
     fallback_fonts: &'a [F],

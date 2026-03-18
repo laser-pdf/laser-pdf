@@ -299,29 +299,18 @@ impl<'a, F: Font + 'a, S: Iterator<Item = Span<'a, F>> + Clone> RichText<S> {
     where
         'a: 'b,
     {
-        let pieces = self.spans.clone().flat_map(move |span| {
-            span.text
-                .split("\n")
-                .enumerate()
-                .flat_map(move |(i, line)| {
-                    let break_piece = if i > 0 {
-                        Some((span.font, &text_pieces_cache.break_piece))
-                    } else {
-                        None
-                    };
-                    let pieces = text_pieces_cache.pieces(
-                        line,
-                        span.font,
-                        span.size,
-                        span.color,
-                        span.extra_character_spacing,
-                        span.extra_word_spacing,
-                        mm_to_pt(span.extra_line_height),
-                    );
-                    break_piece
-                        .into_iter()
-                        .chain(pieces.into_iter().map(move |p| (span.font, p)))
-                })
+        let pieces = self.spans.clone().flat_map(|span| {
+            let pieces = text_pieces_cache.pieces(
+                span.text,
+                span.font,
+                span.size,
+                span.color,
+                span.extra_character_spacing,
+                span.extra_word_spacing,
+                mm_to_pt(span.extra_line_height),
+            );
+
+            pieces.into_iter().map(move |p| (span.font, p))
         });
 
         // The `next_up` mitigates a problem when we get passed the width we returned from
