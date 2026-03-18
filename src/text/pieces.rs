@@ -92,32 +92,6 @@ impl TextPiecesCache {
         assert!(extra_word_spacing.is_finite());
         assert!(extra_line_height.is_finite());
 
-        /*
-        * let pieces = self.spans.clone().flat_map(move |span| {
-            span.text
-                .split("\n")
-                .enumerate()
-                .flat_map(move |(i, line)| {
-                    let break_piece = if i > 0 {
-                        Some((span.font, &text_pieces_cache.break_piece))
-                    } else {
-                        None
-                    };
-                    let pieces = text_pieces_cache.pieces(
-                        line,
-                        span.font,
-                        span.size,
-                        span.color,
-                        span.extra_character_spacing,
-                        span.extra_word_spacing,
-                        mm_to_pt(span.extra_line_height),
-                    );
-                    break_piece
-                        .into_iter()
-                        .chain(pieces.into_iter().map(move |p| (span.font, p)))
-                })
-        */
-
         let key = TextPiecesCacheKey {
             text: Cow::Borrowed(text),
             font_index: font.index(),
