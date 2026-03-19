@@ -181,7 +181,7 @@ mod tests {
             },
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
-                let text = Text::basic("TEST", &font, 100.);
+                let text = Text::new("TEST", &font, 100.);
                 let text = text
                     .debug(1)
                     .show_max_width()
@@ -211,7 +211,7 @@ mod tests {
             },
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
-                let text = Text::basic("TEST", &font, 100.);
+                let text = Text::new("TEST", &font, 100.);
                 let text = text
                     .debug(1)
                     .show_max_width()
@@ -241,7 +241,7 @@ mod tests {
             },
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
-                let text = Text::basic("T E S T", &font, 1024.);
+                let text = Text::new("T E S T", &font, 1024.);
                 let text = text
                     .debug(1)
                     .show_max_width()
@@ -271,7 +271,7 @@ mod tests {
             },
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
-                let text = Text::basic("Test", &font, 20.);
+                let text = Text::new("Test", &font, 20.);
                 let text = text
                     .debug(1)
                     .show_max_width()
@@ -304,7 +304,7 @@ mod tests {
             },
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
-                let text = Text::basic("Test", &font, 100.);
+                let text = Text::new("Test", &font, 100.);
                 let text = text
                     .debug(1)
                     .show_max_width()
@@ -345,7 +345,7 @@ mod tests {
             },
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
-                let text = Text::basic("Test", &font, 100.);
+                let text = Text::new("Test", &font, 100.);
                 let text = text
                     .debug(1)
                     .show_max_width()

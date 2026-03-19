@@ -73,12 +73,19 @@ pub struct LineStyle {
     pub cap_style: LineCapStyle,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum LinkTarget<'a> {
+    Uri(&'a str),
+}
+
 pub struct Layer {
     pub content: Content,
     pub graphics_state_restore_required: bool,
 }
 
 pub struct Page {
+    pub annotations: Vec<Ref>,
     pub ext_g_states: Vec<Ref>, // all objects must be indirect for now
     pub x_objects: Vec<Ref>,
     pub layers: Vec<Layer>,
@@ -101,7 +108,7 @@ impl Page {
 #[derive(Clone)]
 pub struct Metadata {
     pub title: String,
-    /// RFC 3306 compliant language identifier
+    /// RFC 3066 compliant language identifier
     pub language: String,
     pub keywords: Option<String>,
     pub producer: Option<String>,
@@ -165,6 +172,7 @@ impl Pdf {
         self.pages.push(Page {
             ext_g_states: Vec::new(),
             x_objects: Vec::new(),
+            annotations: Vec::new(),
             layers: vec![Layer {
                 content: Content::new(),
                 graphics_state_restore_required: false,
@@ -274,13 +282,7 @@ impl Pdf {
                         .second(self.metadata.creation_date.second() as u8),
                 );
             }
-            writer.title([
-                (
-                    Some(LangId(&self.metadata.language.as_str())),
-                    self.metadata.title.as_str(),
-                ),
-                (None, self.metadata.title.as_str()),
-            ]);
+            writer.title([(None, self.metadata.title.as_str())]);
 
             writer.language([LangId(&self.metadata.language.as_str())]);
 
@@ -369,6 +371,10 @@ impl Pdf {
                         .iter()
                         .scan(self.alloc, |state, _| Some(state.bump())),
                 );
+
+            if !page.annotations.is_empty() {
+                page_writer.annotations(page.annotations);
+            }
 
             let mut resources = page_writer.resources();
 

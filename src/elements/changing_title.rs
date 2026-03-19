@@ -388,13 +388,13 @@ mod tests {
         let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
             let font = BuiltinFont::courier(callback.pdf());
 
-            let first = Text::basic("first", &font, 12.);
+            let first = Text::new("first", &font, 12.);
             let first = first.debug(1);
 
-            let remaining = Text::basic("remaining\nremaining", &font, 12.);
+            let remaining = Text::new("remaining\nremaining", &font, 12.);
             let remaining = remaining.debug(2);
 
-            let content = Text::basic(LOREM_IPSUM, &font, 32.);
+            let content = Text::new(LOREM_IPSUM, &font, 32.);
             let content = content.debug(3);
 
             callback.call(
@@ -421,13 +421,13 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
 
-                let first = Text::basic("first", &font, 12.);
+                let first = Text::new("first", &font, 12.);
                 let first = first.debug(1);
 
-                let remaining = Text::basic("remaining\nremaining", &font, 12.);
+                let remaining = Text::new("remaining\nremaining", &font, 12.);
                 let remaining = remaining.debug(2);
 
-                let content = Text::basic(LOREM_IPSUM, &font, 48.);
+                let content = Text::new(LOREM_IPSUM, &font, 48.);
                 let content = content.debug(3);
 
                 callback.call(
@@ -450,10 +450,10 @@ mod tests {
         let bytes = test_element_bytes(TestElementParams::unbreakable(), |mut callback| {
             let font = BuiltinFont::courier(callback.pdf());
 
-            let first = Text::basic("first", &font, 12.);
+            let first = Text::new("first", &font, 12.);
             let first = first.debug(1);
 
-            let remaining = Text::basic("remaining\nremaining", &font, 12.);
+            let remaining = Text::new("remaining\nremaining", &font, 12.);
             let remaining = remaining.debug(2);
 
             let content = NoneElement;
@@ -478,10 +478,10 @@ mod tests {
         let bytes = test_element_bytes(TestElementParams::unbreakable(), |mut callback| {
             let font = BuiltinFont::courier(callback.pdf());
 
-            let first = Text::basic("first", &font, 12.);
+            let first = Text::new("first", &font, 12.);
             let first = first.debug(1);
 
-            let remaining = Text::basic("remaining\nremaining", &font, 12.);
+            let remaining = Text::new("remaining\nremaining", &font, 12.);
             let remaining = remaining.debug(2);
 
             let content = NoneElement;
@@ -506,10 +506,10 @@ mod tests {
         let bytes = test_element_bytes(TestElementParams::breakable(), |mut callback| {
             let font = BuiltinFont::courier(callback.pdf());
 
-            let first = Text::basic("first", &font, 12.);
+            let first = Text::new("first", &font, 12.);
             let first = first.debug(1);
 
-            let remaining = Text::basic("remaining\nremaining", &font, 12.);
+            let remaining = Text::new("remaining\nremaining", &font, 12.);
             let remaining = remaining.debug(2);
 
             let content = FranticJumper {
@@ -549,16 +549,16 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
 
-                let title = Text::basic("title", &font, 12.);
+                let title = Text::new("title", &font, 12.);
                 let title = title.debug(1);
 
-                let first = Text::basic("first", &font, 12.);
+                let first = Text::new("first", &font, 12.);
                 let first = first.debug(3);
 
-                let remaining = Text::basic("remaining\nremaining", &font, 12.);
+                let remaining = Text::new("remaining\nremaining", &font, 12.);
                 let remaining = remaining.debug(4);
 
-                let content = Text::basic(LOREM_IPSUM, &font, 32.);
+                let content = Text::new(LOREM_IPSUM, &font, 32.);
                 let content = content.debug(5);
 
                 let changing_title = ChangingTitle {

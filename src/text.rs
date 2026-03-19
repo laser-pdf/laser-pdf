@@ -6,9 +6,9 @@ use itertools::Itertools;
 use pdf_writer::{Str, writers::PositionedItems};
 
 use crate::{
-    Location, Pdf,
+    LinkTarget, Location, Pdf,
     fonts::{EncodedGlyph, Font},
-    utils::set_fill_color,
+    utils::{add_link_annotation, set_fill_color},
 };
 
 pub use lines::*;
@@ -23,6 +23,8 @@ const HYPHEN: &str = "-";
 pub fn draw_line<'a, F: Font>(
     pdf: &mut Pdf,
     location: &Location,
+    start_pos_pt: (f32, f32),
+    line_height_pt: f32,
     line: Line<'a, F, impl Iterator<Item = (&'a F, &'a Piece)>>,
 ) {
     fn draw_run(items: &mut PositionedItems, run: &mut Vec<u8>) {
@@ -44,6 +46,9 @@ pub fn draw_line<'a, F: Font>(
     let mut current_size = None;
     let mut current_color = None;
 
+    let mut x = start_pos_pt.0;
+    let mut current_link: Option<(f32, LinkTarget)> = None;
+
     while let Some(next) = line.peek() {
         let font = next.font;
         let size = next.size;
@@ -61,6 +66,22 @@ pub fn draw_line<'a, F: Font>(
                 // we don't want to filter out all unknown glyphs
                 .filter(|glyph| !["\n", "\r", "\r\n"].contains(&glyph.text))
                 .map(|glyph| {
+                    if glyph.link != current_link.map(|(_, l)| l) {
+                        if let Some((start, link)) = current_link {
+                            add_link_annotation(
+                                pdf,
+                                location.page_idx,
+                                (start, start_pos_pt.1),
+                                (x - start, line_height_pt),
+                                link,
+                            );
+                        }
+
+                        current_link = glyph.link.map(|l| (x, l));
+                    }
+
+                    x += glyph.shaped_glyph.x_advance * size;
+
                     let encoded = font.encode(pdf, glyph.shaped_glyph.glyph_id, glyph.text);
 
                     (
@@ -120,5 +141,15 @@ pub fn draw_line<'a, F: Font>(
         if !run.is_empty() {
             draw_run(&mut items, &mut run);
         }
+    }
+
+    if let Some((start, link)) = current_link {
+        add_link_annotation(
+            pdf,
+            location.page_idx,
+            (start, start_pos_pt.1),
+            (x - start, line_height_pt),
+            link,
+        );
     }
 }

@@ -1,20 +1,11 @@
-use pdf_writer::Content;
-// use printpdf::*;
+use pdf_writer::{
+    Content, Rect, Str,
+    types::{ActionType, AnnotationFlags, AnnotationType},
+};
 
-// pub fn circle(layer: &PdfLayerReference, pos: [f32; 2], radius: f32) {
-//     let circle = printpdf::utils::calculate_points_for_circle(Pt(radius), Pt(pos[0]), Pt(pos[1]));
-
-//     layer.add_shape(Line {
-//         points: circle,
-//         is_closed: true,
-//         has_fill: true,
-//         has_stroke: false,
-//         is_clipping_path: false,
-//     });
-// }
+use crate::{LinkTarget, Pdf};
 
 pub fn line(layer: &mut Content, pos: (f32, f32), width: f32, thickness: f32) {
-    // TODO: mm_to_pt
     layer
         .set_line_width(thickness)
         .move_to(mm_to_pt(pos.0), mm_to_pt(pos.1))
@@ -92,4 +83,36 @@ pub fn set_stroke_color(layer: &mut Content, color: u32) {
 
 pub fn scale(scale: f32) -> [f32; 6] {
     [scale, 0., 0., scale, 0., 0.]
+}
+
+pub fn add_link_annotation(
+    pdf: &mut Pdf,
+    page_idx: usize,
+    pos_pt: (f32, f32),
+    size_pt: (f32, f32),
+    target: LinkTarget,
+) {
+    let id = pdf.alloc();
+    let mut annotation = pdf.pdf.annotation(id);
+    annotation
+        .subtype(AnnotationType::Link)
+        .border(0., 0., 0., None)
+        .rect(Rect {
+            x1: pos_pt.0,
+            y1: pos_pt.1 - size_pt.1,
+            x2: pos_pt.0 + size_pt.0,
+            y2: pos_pt.1,
+        })
+        .flags(AnnotationFlags::empty());
+
+    let mut action = annotation.action();
+    action.action_type(ActionType::Uri);
+
+    match target {
+        LinkTarget::Uri(uri) => {
+            action.uri(Str(uri.as_bytes()));
+        }
+    }
+
+    pdf.pages[page_idx].annotations.push(id);
 }

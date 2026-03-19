@@ -86,4 +86,5 @@ define_serde_element_value!(ElementValue {
     Rotate<ElementValue>,
     MaxWidth<ElementValue>,
     Page<ElementValue>,
+    Link<ElementValue>,
 });

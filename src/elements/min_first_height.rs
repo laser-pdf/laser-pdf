@@ -296,7 +296,7 @@ mod tests {
             |mut callback| {
                 let font = BuiltinFont::courier(callback.pdf());
 
-                let content = Text::basic(LOREM_IPSUM, &font, 12.);
+                let content = Text::new(LOREM_IPSUM, &font, 12.);
                 let content = content.debug(1).show_max_width();
 
                 callback.call(

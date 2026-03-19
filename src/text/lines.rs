@@ -1,8 +1,9 @@
 use std::iter::Peekable;
 
 use crate::{
+    LinkTarget,
     fonts::{Font, ShapedGlyph},
-    text::pieces::Piece,
+    text::{CacheLinkTarget, pieces::Piece},
 };
 
 pub fn lines_from_pieces<'a, F: Font, I: Iterator<Item = (&'a F, &'a Piece)>>(
@@ -25,6 +26,7 @@ pub struct LineGlyph<'a, F> {
     pub shaped_glyph: ShapedGlyph,
     pub size: f32,
     pub color: u32,
+    pub link: Option<LinkTarget<'a>>,
 }
 
 pub struct Line<'a, F, P: Iterator<Item = (&'a F, &'a Piece)>> {
@@ -46,6 +48,7 @@ impl<'a, F: Font, P: Iterator<Item = (&'a F, &'a Piece)>> Line<'a, F, P> {
                     shaped_glyph: glyph.clone(),
                     size: piece.size,
                     color: piece.color,
+                    link: piece.link.as_ref().map(CacheLinkTarget::as_link_target),
                 })
             })
             .chain(self.trailing_hyphen.into_iter())
@@ -164,6 +167,7 @@ impl<'a, F: Font + 'a, P: Iterator<Item = (&'a F, &'a Piece)> + Clone> Iterator
                         shaped_glyph: x.1.clone(),
                         size: piece.size,
                         color: piece.color,
+                        link: piece.link.as_ref().map(CacheLinkTarget::as_link_target),
                     }
                 });
             } else {
@@ -273,7 +277,7 @@ mod tests {
     fn lines(text: &str, max_width: f32) -> Vec<(String, f32)> {
         let cache = TextPiecesCache::new();
 
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
 
         let lines = lines_from_pieces(pieces.iter().map(|p| (&FakeFont, p)), max_width);
 

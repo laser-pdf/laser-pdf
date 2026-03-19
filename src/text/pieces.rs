@@ -2,13 +2,17 @@ use std::{
     borrow::{Borrow, Cow},
     cell::Cell,
     iter::Peekable,
+    rc::Rc,
 };
 
 use elsa::FrozenMap;
 use icu_properties::LineBreak;
 use icu_segmenter::LineBreakIteratorUtf8;
 
-use crate::fonts::{Font, GeneralMetrics, ShapedGlyph};
+use crate::{
+    LinkTarget,
+    fonts::{Font, GeneralMetrics, ShapedGlyph},
+};
 
 struct TextPiecesCacheKey<'a> {
     text: Cow<'a, str>,
@@ -86,6 +90,7 @@ impl TextPiecesCache {
         extra_character_spacing: f32,
         extra_word_spacing: f32,
         extra_line_height: f32,
+        link: Option<LinkTarget<'a>>,
     ) -> &'a [Piece] {
         assert!(size.is_finite());
         assert!(extra_character_spacing.is_finite());
@@ -158,6 +163,7 @@ impl TextPiecesCache {
                         main_font_metrics: font.general_metrics(),
                         fallback_fonts: font.fallback_fonts(),
                         line_break_map: &self.line_break_map,
+                        link,
                     }
                     .collect();
 
@@ -179,7 +185,6 @@ impl TextPiecesCache {
     }
 }
 
-#[derive(Debug)]
 pub struct Piece {
     pub text: String,
     pub shaped: Vec<(Option<usize>, ShapedGlyph)>,
@@ -205,6 +210,28 @@ pub struct Piece {
     pub empty: bool,
     pub size: f32,
     pub color: u32,
+
+    pub link: Option<CacheLinkTarget>,
+}
+
+pub enum CacheLinkTarget {
+    Uri(Rc<str>),
+}
+
+impl CacheLinkTarget {
+    pub fn as_link_target(&self) -> LinkTarget<'_> {
+        match self {
+            CacheLinkTarget::Uri(uri) => LinkTarget::Uri(uri),
+        }
+    }
+}
+
+impl<'a> From<LinkTarget<'a>> for CacheLinkTarget {
+    fn from(value: LinkTarget<'a>) -> Self {
+        match value {
+            LinkTarget::Uri(uri) => CacheLinkTarget::Uri(uri.into()),
+        }
+    }
 }
 
 pub struct Pieces<'a, 'b, 'c, F> {
@@ -220,6 +247,7 @@ pub struct Pieces<'a, 'b, 'c, F> {
     color: u32,
     extra_line_height: f32,
     line_break_map: &'a icu_properties::maps::CodePointMapDataBorrowed<'static, LineBreak>,
+    link: Option<LinkTarget<'a>>,
 }
 
 impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
@@ -351,6 +379,7 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
 
             size: self.size,
             color: self.color,
+            link: self.link.map(Into::into),
         };
 
         self.current = self.current.and(Some(segment));
@@ -467,7 +496,7 @@ mod tests {
         let text = "";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(&pieces, &[("", None, 0., false)]);
@@ -478,7 +507,7 @@ mod tests {
         let text = "abcde";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(&pieces, &[("abcde", Some(5.), 0., false)]);
@@ -489,7 +518,7 @@ mod tests {
         let text = "deadbeef defaced";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(
@@ -506,7 +535,7 @@ mod tests {
         let text = "deadbeef defaced fart";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(
@@ -524,7 +553,7 @@ mod tests {
         let text = "\n";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(
@@ -542,7 +571,7 @@ mod tests {
         let text = "abc\ndef";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(
@@ -560,7 +589,7 @@ mod tests {
         let text = "\nabc def";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(
@@ -579,7 +608,7 @@ mod tests {
         let text = "abc def\n";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(
@@ -598,7 +627,7 @@ mod tests {
         let text = "abc \ndef";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(
@@ -616,7 +645,7 @@ mod tests {
         let text = "abc\u{ad}";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(&pieces, &[("abc\u{ad}", Some(3.), 0., false)]);
@@ -627,7 +656,7 @@ mod tests {
         let text = "abc\u{ad} ";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
 
         let pieces: Vec<_> = pieces
             .iter()
@@ -652,7 +681,7 @@ mod tests {
         let text = " \u{ad}abc";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(
@@ -670,7 +699,7 @@ mod tests {
         let text = " \u{ad} ";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(
@@ -684,7 +713,7 @@ mod tests {
         let text = "        ";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(&pieces, &[("        ", None, 8., false)]);
@@ -695,7 +724,7 @@ mod tests {
         let text = "    abc    \ndef  the\tjflkdsa";
 
         let cache = TextPiecesCache::new();
-        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0.);
+        let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
         assert_eq!(
