@@ -18,6 +18,19 @@ const fn default_0u8() -> u8 {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub enum SerdeLinkTarget {
+    Uri(String),
+}
+
+impl SerdeLinkTarget {
+    pub fn as_link_target(&self) -> LinkTarget<'_> {
+        match self {
+            SerdeLinkTarget::Uri(uri) => LinkTarget::Uri(uri),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct None;
 
 impl SerdeElement for None {
@@ -85,6 +98,9 @@ pub struct Text {
     pub extra_word_spacing: f32,
     pub extra_line_height: f32,
     pub align: TextAlign,
+    /// Link to be added as a link annotation
+    #[serde(default)]
+    pub link: Option<SerdeLinkTarget>,
 }
 
 impl SerdeElement for Text {
@@ -103,6 +119,7 @@ impl SerdeElement for Text {
             extra_word_spacing: self.extra_word_spacing,
             extra_line_height: self.extra_line_height,
             align: self.align,
+            link: self.link.as_ref().map(SerdeLinkTarget::as_link_target),
         });
     }
 }
@@ -125,6 +142,9 @@ pub struct RichTextSpan {
     pub extra_word_spacing: f32,
     /// Additional line height
     pub extra_line_height: f32,
+    /// Link to be added as a link annotation
+    #[serde(default)]
+    pub link: Option<SerdeLinkTarget>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -149,6 +169,7 @@ impl SerdeElement for RichText {
                 extra_character_spacing: s.extra_character_spacing,
                 extra_word_spacing: s.extra_word_spacing,
                 extra_line_height: s.extra_line_height,
+                link: s.link.as_ref().map(SerdeLinkTarget::as_link_target),
             }),
             align: self.align,
         });
@@ -986,6 +1007,28 @@ impl<E: SerdeElement> SerdeElement for Page<E> {
                     }
                 }
             },
+        });
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Link<E> {
+    pub element: Box<E>,
+    pub target: SerdeLinkTarget,
+}
+
+impl<E: SerdeElement> SerdeElement for Link<E> {
+    fn element(
+        &self,
+        fonts: &impl for<'a> Index<&'a str, Output = Font>,
+        callback: impl CompositeElementCallback,
+    ) {
+        callback.call(&elements::link::Link {
+            element: SerdeElementElement {
+                element: &*self.element,
+                fonts,
+            },
+            target: self.target.as_link_target(),
         });
     }
 }
