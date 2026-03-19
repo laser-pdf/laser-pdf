@@ -112,41 +112,68 @@ impl TextPiecesCache {
         } else {
             let shaped_hyphen = font.shape(super::HYPHEN, 0., 0.).next().unwrap();
 
-            let mut shaped = self.shape_buffer.take();
-            assert!(shaped.is_empty());
+            let pieces: Vec<Piece> = text
+                .split("\n")
+                .enumerate()
+                .flat_map(|(i, text_line)| {
+                    let break_piece = if i > 0 {
+                        Some(Piece {
+                            text: String::new(),
+                            color: 0x00_00_00_FF,
+                            empty: true,
+                            glyph_count: 0,
+                            mandatory_break_after: true,
+                            height_above_baseline: 0.,
+                            height_below_baseline: 0.,
+                            shaped: Vec::new(),
+                            size: 0.,
+                            trailing_hyphen: None,
+                            trailing_whitespace_width: 0.,
+                            width: None,
+                            link: None,
+                        })
+                    } else {
+                        None
+                    };
+                    let mut shaped = self.shape_buffer.take();
+                    assert!(shaped.is_empty());
 
-            super::shaping::shape(
-                font,
-                font.fallback_fonts(),
-                None,
-                text,
-                extra_character_spacing / size,
-                extra_word_spacing / size,
-                &mut shaped,
-                0,
-            );
+                    super::shaping::shape(
+                        font,
+                        font.fallback_fonts(),
+                        None,
+                        text_line,
+                        extra_character_spacing / size,
+                        extra_word_spacing / size,
+                        &mut shaped,
+                        0,
+                    );
 
-            let segments = self.line_segmenter.segment_str(text).peekable();
+                    let segments = self.line_segmenter.segment_str(text_line).peekable();
 
-            let pieces = Pieces {
-                current: Some(0),
-                text,
-                shaped: shaped.iter(),
-                segments,
-                shaped_hyphen,
-                size,
-                color,
-                extra_line_height,
-                main_font: font,
-                main_font_metrics: font.general_metrics(),
-                fallback_fonts: font.fallback_fonts(),
-                line_break_map: &self.line_break_map,
-                link,
-            }
-            .collect();
+                    let line_pieces: Vec<Piece> = Pieces {
+                        current: Some(0),
+                        text: text_line,
+                        shaped: shaped.iter(),
+                        segments,
+                        shaped_hyphen: shaped_hyphen.clone(),
+                        size,
+                        color,
+                        extra_line_height,
+                        main_font: font,
+                        main_font_metrics: font.general_metrics(),
+                        fallback_fonts: font.fallback_fonts(),
+                        line_break_map: &self.line_break_map,
+                        link,
+                    }
+                    .collect();
 
-            shaped.clear();
-            self.shape_buffer.set(shaped);
+                    shaped.clear();
+                    self.shape_buffer.set(shaped);
+
+                    break_piece.into_iter().chain(line_pieces)
+                })
+                .collect();
 
             self.cache.insert(
                 OwnedKey(TextPiecesCacheKey {
@@ -530,7 +557,14 @@ mod tests {
         let pieces = cache.pieces(text, &FakeFont, 1., 0, 0., 0., 0., None);
         let pieces: Vec<_> = pieces.iter().map(collect_piece).collect();
 
-        assert_eq!(&pieces, &[("\n", None, 0., true), ("", None, 0., false)]);
+        assert_eq!(
+            &pieces,
+            &[
+                ("", None, 0., false),
+                ("", None, 0., true),
+                ("", None, 0., false)
+            ]
+        );
     }
 
     #[test]
@@ -543,7 +577,11 @@ mod tests {
 
         assert_eq!(
             &pieces,
-            &[("abc\n", Some(3.), 0., true), ("def", Some(3.), 0., false)]
+            &[
+                ("abc", Some(3.), 0., false),
+                ("", None, 0., true),
+                ("def", Some(3.), 0., false)
+            ]
         );
     }
 
@@ -558,7 +596,8 @@ mod tests {
         assert_eq!(
             &pieces,
             &[
-                ("\n", None, 0., true),
+                ("", None, 0.0, false),
+                ("", None, 0., true),
                 ("abc ", Some(3.), 1., false),
                 ("def", Some(3.), 0., false),
             ]
@@ -577,7 +616,8 @@ mod tests {
             &pieces,
             &[
                 ("abc ", Some(3.), 1., false),
-                ("def\n", Some(3.), 0., true),
+                ("def", Some(3.), 0., false),
+                ("", None, 0., true),
                 ("", None, 0., false),
             ]
         );
@@ -593,7 +633,11 @@ mod tests {
 
         assert_eq!(
             &pieces,
-            &[("abc \n", Some(3.), 1., true), ("def", Some(3.), 0., false)],
+            &[
+                ("abc ", Some(3.), 1., false),
+                ("", None, 0., true),
+                ("def", Some(3.), 0., false)
+            ],
         );
     }
 
@@ -690,7 +734,8 @@ mod tests {
                 ("    ", None, 4., false),
                 // It's somewhat unclear whether the trailing spaces should count toward the
                 // width here.
-                ("abc    \n", Some(3.), 4., true),
+                ("abc    ", Some(3.), 4., false),
+                ("", None, 0., true),
                 ("def  ", Some(3.), 2., false),
                 ("the\t", Some(4.), 0., false),
                 ("jflkdsa", Some(7.), 0., false),
