@@ -130,6 +130,7 @@ impl TextPiecesCache {
                             trailing_hyphen: None,
                             trailing_whitespace_width: 0.,
                             width: None,
+                            link: None,
                         })
                     } else {
                         None
