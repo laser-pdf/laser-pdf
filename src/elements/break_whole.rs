@@ -1,8 +1,8 @@
 use crate::*;
 
-pub struct BreakWhole<'a, E: Element>(pub &'a E);
+pub struct BreakWhole<E: Element>(pub E);
 
-impl<'a, E: Element> Element for BreakWhole<'a, E> {
+impl<E: Element> Element for BreakWhole<E> {
     fn first_location_usage(&self, ctx: FirstLocationUsageCtx) -> FirstLocationUsage {
         let layout = self.layout(
             ctx.text_pieces_cache,
@@ -122,7 +122,7 @@ enum Layout {
     },
 }
 
-impl<'a, E: Element> BreakWhole<'a, E> {
+impl<E: Element> BreakWhole<E> {
     fn layout(
         &self,
         text_pieces_cache: &TextPiecesCache,
@@ -159,9 +159,12 @@ impl<'a, E: Element> BreakWhole<'a, E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::{
-        record_passes::{Break, BreakableDraw, DrawPass, RecordPasses},
-        *,
+    use crate::{
+        elements::ref_element::RefElement,
+        test_utils::{
+            record_passes::{Break, BreakableDraw, DrawPass, RecordPasses},
+            *,
+        },
     };
 
     #[test]
@@ -180,7 +183,7 @@ mod tests {
                 width: 3.,
             });
 
-            let element = BreakWhole(&content);
+            let element = BreakWhole(RefElement(&content));
 
             let ret = callback.call(element);
 
@@ -234,7 +237,7 @@ mod tests {
                 width: 3.,
             });
 
-            let element = BreakWhole(&content);
+            let element = BreakWhole(RefElement(&content));
 
             let ret = callback.call(element);
 
@@ -297,7 +300,7 @@ mod tests {
                 width: 3.,
             });
 
-            let element = BreakWhole(&content);
+            let element = BreakWhole(RefElement(&content));
 
             let ret = callback.call(element);
 
@@ -360,7 +363,7 @@ mod tests {
                 width: 3.,
             });
 
-            let element = BreakWhole(&content);
+            let element = BreakWhole(RefElement(&content));
 
             let ret = callback.call(element);
 

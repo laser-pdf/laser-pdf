@@ -709,7 +709,7 @@ impl<E: SerdeElement> SerdeElement for BreakWhole<E> {
         fonts: &impl for<'a> Index<&'a str, Output = Font>,
         callback: impl CompositeElementCallback,
     ) {
-        callback.call(&elements::break_whole::BreakWhole(&SerdeElementElement {
+        callback.call(&elements::break_whole::BreakWhole(SerdeElementElement {
             element: &*self.element,
             fonts,
         }));
