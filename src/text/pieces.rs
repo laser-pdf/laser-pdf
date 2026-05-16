@@ -8,6 +8,7 @@ use std::{
 use elsa::FrozenMap;
 use icu_properties::LineBreak;
 use icu_segmenter::LineBreakIteratorUtf8;
+use itertools::Itertools;
 
 use crate::{
     LinkTarget,
@@ -150,7 +151,6 @@ impl TextPiecesCache {
                     );
 
                     let segments = self.line_segmenter.segment_str(text_line).peekable();
-
                     let line_pieces: Vec<Piece> = Pieces {
                         current: Some(0),
                         text: text_line,
@@ -265,27 +265,28 @@ impl<'a, 'b, 'c, F: Font> Iterator for Pieces<'a, 'b, 'c, F> {
         // otherwise split pieces we should probably fuse them into one piece because that seems
         // like the only reasonable thing to do.
 
-        let segment = self.segments.find(|&s| s != 0).unwrap_or_else(|| {
+        let mut segment = self.segments.find(|&s| s != 0).unwrap_or_else(|| {
             self.current = None;
             self.text.len()
         });
 
-        let mut iter = std::iter::from_fn({
-            let mut done = false;
-            let shaped = &mut shaped;
-            move || {
-                if done {
-                    return None;
-                }
-
-                let next = shaped.next()?;
-
-                if next.1.text_range.end >= segment {
-                    done = true;
-                }
-
-                Some(next)
+        let mut iter_done = false;
+        let mut iter = std::iter::from_fn(|| {
+            if iter_done {
+                return None;
             }
+
+            let next = shaped.next()?;
+
+            while next.1.text_range.end > segment {
+                // should always be present in that context
+                segment = self.segments.next().unwrap()
+            }
+            if next.1.text_range.end == segment {
+                iter_done = true;
+            }
+
+            Some(next)
         })
         .peekable();
 
